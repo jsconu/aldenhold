@@ -1,0 +1,137 @@
+:root {
+  --bg: #1b1a17;
+  --panel: #26241f;
+  --panel-2: #302d27;
+  --ink: #ece4d4;
+  --muted: #a69c88;
+  --line: #4a4438;
+  --gold: #e0b85a;
+  --player: #4f8fd6;
+  --orcs: #c4533f;
+  --neutral: #b9a274;
+  --land: #3a4a32;
+  --land-2: #33412c;
+  --good: #7fbf6a;
+  --bad: #e07a63;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 15px/1.45 Georgia, 'Iowan Old Style', 'Palatino Linotype', serif;
+}
+button {
+  font: inherit;
+  color: var(--ink);
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+button:hover:not(:disabled) { border-color: var(--gold); }
+button:disabled { opacity: 0.45; cursor: default; }
+button.primary { background: #6b4f1d; border-color: var(--gold); }
+button.ghost { background: transparent; }
+select { font: inherit; background: var(--panel-2); color: var(--ink); border: 1px solid var(--line); border-radius: 4px; padding: 2px 4px; }
+
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 16px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+  flex-wrap: wrap;
+}
+.bar h1 { font-size: 20px; margin: 0; letter-spacing: 0.04em; }
+.bar h1 small { font-size: 12px; color: var(--muted); font-weight: normal; letter-spacing: 0; }
+.bar .spacer { flex: 1; }
+.bar .gold b { color: var(--gold); }
+.bar em { font-style: normal; font-size: 13px; margin-left: 4px; }
+.pos { color: var(--good); }
+.neg { color: var(--bad); }
+.turn.mine { color: var(--gold); }
+
+.banner { padding: 10px 16px; text-align: center; font-size: 17px; }
+.banner.won { background: #2d4a26; }
+.banner.lost { background: #5a2620; }
+
+main { display: grid; grid-template-columns: minmax(0, 1fr) 340px; min-height: calc(100vh - 56px); }
+@media (max-width: 860px) { main { grid-template-columns: 1fr; } }
+.side { background: var(--panel); border-left: 1px solid var(--line); padding: 14px 16px; overflow: auto; }
+.side h2 { margin: 0 0 2px; font-size: 20px; }
+.side h3 { margin: 14px 0 6px; font-size: 15px; color: var(--gold); }
+.sub, .hint { color: var(--muted); font-size: 13px; margin: 4px 0 8px; }
+.msg { background: #5a2620; padding: 6px 10px; border-radius: 6px; }
+
+/* Province map */
+.map-wrap, .field-wrap { padding: 12px; display: flex; align-items: flex-start; justify-content: center; }
+.map, .field { width: 100%; max-width: 980px; height: auto; }
+.land { fill: var(--land); rx: 14; }
+.road { stroke: #8b7a55; stroke-width: 4; stroke-dasharray: 2 7; stroke-linecap: round; }
+.road.hot { stroke: var(--gold); stroke-dasharray: none; stroke-width: 3; }
+.node { cursor: pointer; }
+.node .hit { fill: transparent; }
+.node .dot { stroke: #1b1a17; stroke-width: 3; }
+.node.waypoint .dot { fill: #8b7a55; }
+.node.own-player .dot { fill: var(--player); }
+.node.own-orcs .dot { fill: var(--orcs); }
+.node.own-neutral .dot { fill: var(--neutral); }
+.node.selected .dot { stroke: var(--gold); stroke-width: 4; }
+.node .ring { fill: none; stroke: var(--gold); stroke-width: 2; stroke-dasharray: 4 3; }
+.node .label { fill: var(--ink); font-size: 14px; text-anchor: middle; paint-order: stroke; stroke: #1b1a17; stroke-width: 4px; }
+.node .glyph { fill: #1b1a17; font-size: 18px; text-anchor: middle; pointer-events: none; }
+.army .shield { stroke: #1b1a17; stroke-width: 2; }
+.army.own-player .shield { fill: var(--player); }
+.army.own-orcs .shield { fill: var(--orcs); }
+.army.own-neutral .shield { fill: var(--neutral); }
+.army .count { fill: #fff; font-size: 12px; font-weight: bold; text-anchor: middle; pointer-events: none; }
+
+.tax { display: flex; gap: 8px; align-items: center; margin: 8px 0 0; }
+.recruit { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.recruit button { display: flex; justify-content: space-between; font-size: 14px; }
+.recruit button span { color: var(--gold); }
+
+.army-card { border: 1px solid var(--line); border-left: 4px solid var(--neutral); border-radius: 6px; padding: 4px 10px 6px; margin-top: 12px; }
+.army-card.own-player { border-left-color: var(--player); }
+.army-card.own-orcs { border-left-color: var(--orcs); }
+.army-card h3 { margin-top: 6px; }
+.troops { list-style: none; margin: 0; padding: 0; }
+.troops li label { display: flex; gap: 8px; align-items: center; padding: 3px 0; }
+.troops li.done { color: var(--muted); }
+.troops .tname { flex: 1; }
+.troops .men { font-size: 13px; color: var(--muted); }
+.troops .lv, .troops .tag { font-size: 11px; padding: 1px 5px; border-radius: 4px; background: var(--panel-2); }
+.troops .lv { color: var(--gold); }
+
+.log { margin-top: 16px; }
+.log summary { cursor: pointer; color: var(--muted); font-size: 13px; }
+.log ul { list-style: none; padding: 0; margin: 6px 0 0; font-size: 13px; }
+.log li { padding: 3px 0; border-bottom: 1px solid #332f28; }
+
+/* Battle */
+.hex { stroke: #1f2a1a; stroke-width: 1.5; cursor: pointer; }
+.hex.plain { fill: var(--land); }
+.hex.forest { fill: #2a3b24; }
+.hex.hill { fill: #4f5236; }
+.hex.reach { fill: #3d5f7d; }
+.hex.reach:hover { fill: #4f7aa0; }
+.terrain-glyph { fill: rgba(255, 255, 255, 0.25); font-size: 12px; text-anchor: middle; pointer-events: none; }
+.unit { cursor: pointer; }
+.unit .body { stroke: #1b1a17; stroke-width: 2; }
+.unit.mine .body { fill: var(--player); }
+.unit.foe .body { fill: var(--orcs); }
+.unit.sel .body { stroke: var(--gold); stroke-width: 4; }
+.unit.target .body { stroke: #ff5a3c; stroke-width: 4; stroke-dasharray: 5 3; }
+.unit.spent { opacity: 0.6; }
+.unit .code { fill: #fff; font-size: 11px; font-weight: bold; text-anchor: middle; font-family: system-ui, sans-serif; pointer-events: none; }
+.unit .men { fill: #fff; font-size: 11px; text-anchor: middle; font-family: system-ui, sans-serif; pointer-events: none; }
+.unit .hp-bg { fill: rgba(0, 0, 0, 0.5); }
+.unit .hp { fill: var(--good); }
+.stats { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; margin: 10px 0; }
+.stats dt { color: var(--muted); }
+.stats dd { margin: 0; }
