@@ -97,6 +97,9 @@ function onAction(action: string, data: DOMStringMap) {
       if (ui.selected) selectNode(ui.selected);
       break;
     }
+    case 'treasury':
+      ui.view = ui.view === 'treasury' ? 'map' : 'treasury';
+      break;
     case 'journal':
       ui.view = ui.view === 'journal' ? 'map' : 'journal';
       break;
