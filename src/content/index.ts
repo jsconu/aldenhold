@@ -9,6 +9,8 @@ export const CATALOG = {
   units: UNIT_TYPES,
   spells: SPELLS,
   terrain: TERRAIN,
+  items: ITEMS,
+  quests: QUESTS,
   hireableHeroes: HIREABLE_HEROES,
   heroNames: HERO_NAMES,
   campaigns: { 'valley-quickplay': VALLEY_QUICKPLAY } as Record<CampaignId, CampaignDefinition>,
