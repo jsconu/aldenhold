@@ -77,6 +77,10 @@ function onAction(action: string, data: DOMStringMap) {
         selectNode('aldenhold');
       }
       break;
+    case 'view-fenwick':
+      ui.view = 'map';
+      selectNode('fenwick');
+      break;
     case 'fenwick-sign':
       ui.message = decideFenwickCharter(state, 'sign') ?? '';
       break;
