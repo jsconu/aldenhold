@@ -23,6 +23,18 @@ The reserve policy is deliberately explicit for this first slice: there are no m
 - Real-browser visual/download verification remains outstanding: the Chromium download failed in this environment. The DOM smoke check is not a substitute for that browser check.
 - Tests cover 27/28/60 formations per side, reserve combat exclusion and retreat, simultaneous final conquest and ruler death, legacy save reconstruction, deterministic battle resume, malformed imports, storage failure, and five seeded campaigns over up to 36 months.
 
+## Art direction increment: pixel unit sprites
+
+| Requirement | This increment | Remaining work |
+| --- | --- | --- |
+| ART-01 | Direction revised to pixel art at the owner's request. All 13 current unit types have original 16×16 pixel sprites (`src/ui/pixelSprites.ts`) in an EGA-inspired palette, with team-coloured pixels and bases. Defenders are mirrored. | Pixel terrain tiles, city art and portraits; sprites for the 30 release archetypes. |
+| ART-08 (partial) | Unit sample shown in the actual battle UI: infantry (militia, spearmen, archers), cavalry (knights), monster (troll), heroes and orcs. **Awaiting owner approval.** | Forest tile, river junction and city panorama samples. |
+| ART-03 (partial) | Selected, attack-target and spell-target outlines, hero rim and star, routing (faded figure, "RUN"), HP and morale bars kept outside the art. | Hovered, exhausted, wounded, debuffed, reserve and quest-target overlays. |
+
+Sprite grids are validated by tests: 16×16, known palette characters only, team colour present, and one sprite for every unit type.
+
+The hex overland map started earlier is parked on the local branch `overland-map-wip`, to be reused for the milestone-B western map slice. It replaces the nine-node graph, so it must land as a separate campaign that leaves quick-play saves valid (SAVE-01, BASE-03).
+
 ## Next increments
 
 1. Extract the quick-play world into a content catalog; add content reference validation and a permanent campaign journal (BASE-03 / BASE-04).
