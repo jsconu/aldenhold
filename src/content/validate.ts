@@ -16,8 +16,17 @@ export function validateContent(catalog: Catalog): string[] {
   for (const [key, unit] of Object.entries(catalog.units)) {
     if (unit.id !== key) err(`unit ${key}: id is "${unit.id}"`);
     for (const spell of unit.hero?.spells ?? []) if (!catalog.spells[spell]) err(`unit ${key}: unknown spell "${spell}"`);
+    for (const [kind, percent] of Object.entries(unit.resistances ?? {})) {
+      if (!['fire', 'cold', 'lightning', 'earth', 'arcane'].includes(kind) || !Number.isFinite(percent) || percent < 0 || percent > 100) err(`unit ${key}: invalid ${kind} resistance`);
+    }
   }
-  for (const [key, spell] of Object.entries(catalog.spells)) if (spell.id !== key) err(`spell ${key}: id is "${spell.id}"`);
+  for (const [key, spell] of Object.entries(catalog.spells)) {
+    if (spell.id !== key) err(`spell ${key}: id is "${spell.id}"`);
+    if (!Number.isInteger(spell.level) || spell.level < 1 || spell.level > 9) err(`spell ${key}: invalid unlock level`);
+    if (!Number.isInteger(spell.cost) || spell.cost < 2 || spell.cost > 12) err(`spell ${key}: invalid mana cost`);
+    if (!Number.isInteger(spell.range) || spell.range < 0 || !Number.isInteger(spell.radius) || spell.radius < 0) err(`spell ${key}: invalid range or radius`);
+    if (!['friend', 'enemy', 'either'].includes(spell.target) || typeof spell.lineOfSight !== 'boolean') err(`spell ${key}: invalid targeting rules`);
+  }
   for (const [key, terrain] of Object.entries(catalog.terrain)) if (terrain.id !== key) err(`terrain ${key}: id is "${terrain.id}"`);
   for (const [id, item] of Object.entries(catalog.items)) {
     if (item.id !== id) err(`item ${id}: mismatched id "${item.id}"`);

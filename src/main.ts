@@ -1,6 +1,6 @@
 import './style.css';
 import {
-  attack, attackTargets, autoResolve, castSpell, moveUnit, playerEndTurn, playerSide, reachable, retreat, spellTargets, unitAt,
+  attack, attackTargets, autoResolve, castSpell, moveUnit, playerEndTurn, playerSide, reachable, retreat, spellTargets, teleportDestinations, unitAt,
 } from './game/battle';
 import { applyBattle, armyAt, endTurn, hireHero, moveTroops, newGame, recruit, setTax } from './game/campaign';
 import { hexKey } from './game/hex';
@@ -163,7 +163,19 @@ function onAction(action: string, data: DOMStringMap) {
       break;
     case 'spell':
       ui.battleSpell = ui.battleSpell === data.spell ? null : (data.spell as SpellId);
+      ui.battleTarget = null;
+      ui.battleDestination = null;
       break;
+    case 'spell-confirm': {
+      const b = state.battle;
+      const selected = b ? selectedUnit(b, ui) : undefined;
+      if (b && selected && ui.battleSpell && ui.battleTarget != null) {
+        if (castSpell(b, selected.id, ui.battleSpell, ui.battleTarget, ui.battleDestination ?? undefined)) {
+          ui.battleSpell = null; ui.battleTarget = null; ui.battleDestination = null;
+        }
+      }
+      break;
+    }
     case 'recruit':
       ui.message = recruit(state, data.node!, data.type!) ?? '';
       break;
@@ -210,9 +222,13 @@ function onHex(col: number, row: number) {
   if (b.outcome || b.active !== playerSide(b)) return;
   const clicked = unitAt(b, { col, row });
   const sel = selectedUnit(b, ui);
-  if (sel && ui.battleSpell && clicked && spellTargets(b, sel, ui.battleSpell).includes(clicked)) {
-    castSpell(b, sel.id, ui.battleSpell, clicked.id);
-    ui.battleSpell = null;
+  if (sel && ui.battleSpell) {
+    if (clicked && spellTargets(b, sel, ui.battleSpell).includes(clicked)) {
+      ui.battleTarget = clicked.id; ui.battleDestination = null;
+    } else if (ui.battleSpell === 'teleport' && ui.battleTarget != null) {
+      const target = b.units.find((u) => u.id === ui.battleTarget);
+      if (target && teleportDestinations(b, sel, target).some((h) => h.col === col && h.row === row)) ui.battleDestination = { col, row };
+    }
     return;
   }
   if (clicked && clicked.side === b.active) {

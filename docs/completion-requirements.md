@@ -2,13 +2,15 @@
 
 Implementation and art production specification
 
-Prepared for Justin Scoville • October 20 2026 • Version 1
+Prepared for Justin Scoville • October 20 2026 • Version 2 — expanded authored campaign
+
+> **Scope revision:** [Expanded campaign specification](expanded-campaign.md) supersedes earlier content counts, pacing, map size and campaign-to-frontier sequencing below. Existing C01–C20, Q01–Q18 and M01–M12 remain source material; completing them alone no longer completes the full campaign. The Word file is the archived version 1 snapshot.
 
 ## 1 Completion goal and scope
 
 Finish Aragon as a single-player browser strategy RPG with a complete authored campaign: govern a starting realm, explore an overland map, negotiate with neighboring powers, develop an army, resolve local stories, recover three royal relics, and defeat the imperial capital. Preserve the current fast tactical loop while making the world worth exploring.
 
-The recommended release contains 20 named settlements or strongholds, 12 main campaign objectives, 18 side quests, 30 unit archetypes, 19 unique spells including 14 for mage-type units, 24 inventory objects, 18 building families, ten economic goods, and 12 reusable battlefield templates. These are proposed production targets, not counts from the original game. Every required location and quest below must have a playable outcome; a map marker or text description alone is not completion.
+The revised release target contains 48 named settlements or strongholds, 24 main campaign objectives across six acts, 72 authored side quests, 30 unit archetypes, 19 unique spells including 14 for mage-type units, 24 inventory objects, 18 building families, ten economic goods, and 32 reusable battlefield layouts/objective families. These are proposed production targets, not counts from the original game. Every required location and quest below must have a playable outcome; a map marker or text description alone is not completion.
 
 The original Sword of Aragon provides a reference for the scale and relationships of the campaign. The repository's existing design policy is to ship original names, writing, and artwork. The city crosswalk therefore retains original names for comparison while specifying proposed names for implementation. Proposed effects, rewards, deadlines, geography, and balancing values are new design decisions unless expressly identified as original-game reference facts.
 
@@ -20,13 +22,13 @@ The original Sword of Aragon provides a reference for the scale and relationship
 | P1 | Complete first release | Required for the finished game described here |
 | P2 | Later phase | Planned or optional work outside the first release |
 
-P0 includes campaign state, quest and item handling, factions, stable saves, battle capacity, economic ledgers and goods conservation. P1 includes all 20 settlements, 12 main objectives, 18 side quests, the expanded economy, final artwork, audio essentials, and release checks. The agreed P2 direction is an expandable procedural frontier. Other optional P2 features include multiplayer, succession, naval combat, full city interiors, voice acting, a public map editor and extensive unit animation.
+P0 includes campaign state, quest and item handling, factions, stable saves, battle capacity, economic ledgers and goods conservation. P1 includes all 48 settlements, 24 main objectives, 72 authored side quests, the expanded economy, final artwork, audio essentials, and release checks. The agreed P2 direction is an expandable procedural frontier. Other optional P2 features include multiplayer, succession, naval combat, full city interiors, voice acting, a public map editor and extensive unit animation.
 
 ### What finished means
 
 A new player can learn the game, complete a campaign through either alliance-heavy or conquest-heavy play, see consequences from side quests, save and resume during any phase, and reach an ending that reflects their decisions. Optional quests can fail without making the main campaign unwinnable. Every visible gameplay object has a clear interaction or is visibly decorative.
 
-Target a first campaign of roughly 6–10 hours on normal difficulty, to be confirmed through playtesting. This is a tuning goal, not a historical claim or a development estimate.
+Target a first campaign of roughly 40–60 hours on normal difficulty, to be confirmed through playtesting. This is a tuning goal, not a historical claim or a development estimate.
 
 ## 2 Repository baseline and immediate gaps
 
@@ -122,7 +124,7 @@ These are proposed gameplay roles and new-name mappings. The original names are 
 
 ### Regional layout
 
-**MAP-01 P1.** Build one authored overland hex map, initially targeting 64 by 40 cells. Treat dimensions as a content budget, not a reconstruction of the original. Use a western river boundary, fertile starting valley, southern wetlands, a central mountain spine, and an eastern imperial basin. Grey Pass is the primary connection through the mountains; an optional difficult trail offers strategic flexibility without bypassing relic requirements.
+**MAP-01 P1.** Build one authored overland hex map, initially targeting 128 by 80 cells across eight authored regions. Treat dimensions as a content budget, not a reconstruction of the original. Use a western river boundary, fertile starting valley, southern wetlands, a central mountain spine, and an eastern imperial basin. Grey Pass is the primary connection through the mountains; an optional difficult trail offers strategic flexibility without bypassing relic requirements.
 
 **MAP-02 P1.** Retain Stone Bridge, Grey Pass and Old Watchtower as named sites. Add a monastery, royal barrow, dragon approach, goblin camp, quarry, abandoned mine, shrine, caravan camp, bandit camp and eastern ford. Site classes may repeat; these 13 named sites do not count toward the 20 settlements.
 
@@ -462,11 +464,11 @@ These counts are production minima, not a count of standalone files. Add the equ
 | --- | --- | --- |
 | Terrain base families | 12 families with 3 variants each | Plain, forest, hill, stream, marsh, thorns, ruins, rocks, spring, mountain, deep water and snow; 256 pixel transparent tile masters |
 | Connection overlays | Generated from connectivity masks | Roads, rivers, banks, bridges and walls; six-direction joins must connect without seams; exhaustive masks may use procedural SVG |
-| Overland map | One authored world in 5 regional chunks | Logical grid data is authoritative; painted terrain follows it; separate roads, settlements, labels, fog and markers |
-| Regional reference paintings | 5 | 2048 by 2048 editable masters; western valley, southern wetlands, central range, woodland frontier and imperial basin |
-| Settlement markers | 20 distinct landmark silhouettes | 256 pixel transparent masters; 64–96 pixel display; common state overlays for damaged, besieged and occupied |
-| City panoramas | 20 | 1920 by 1080 masters; 960 by 540 runtime WebP; composition supports a cropped city panel |
-| Battlefield layouts | 12 | Authored data layouts from BAT-02, using shared terrain art; no mandatory full painting per battlefield |
+| Overland map | One authored world in 8 regions | Logical grid data is authoritative; painted terrain follows it; separate roads, settlements, labels, fog and markers |
+| Regional reference art | 8 | One visual identity per region in the expanded campaign specification; retain the approved pixel-art direction |
+| Settlement markers | 48 distinct landmark silhouettes | 256 pixel transparent masters; 64–96 pixel display; common state overlays for damaged, besieged and occupied |
+| City panoramas | 48 | 1920 by 1080 masters; 960 by 540 runtime WebP; composition supports a cropped city panel |
+| Battlefield layouts | 32 | Authored data layouts from BAT-02, using shared terrain art; no mandatory full painting per battlefield |
 | Interactive site markers | 12 families | 256 pixel masters; visited, active and resolved changes via overlay or variant |
 | Environmental props | 20 | 256–512 pixel transparent masters; trees, rocks, walls, gates, tents, wagons, fences, ruins, docks and farm details |
 
@@ -520,7 +522,7 @@ These counts are production minima, not a count of standalone files. Add the equ
 | --- | --- |
 | Five ruler classes | Each completes opening, relic acquisition and final victory on Normal through at least one tested route |
 | Two political routes | Alliance-heavy and conquest-heavy runs both reach coronation without debug commands |
-| Quest matrix | All 18 quests pass their applicable success, refusal, failure, revisit and reload cases |
+| Quest matrix | All 72 authored side quests pass their applicable success, refusal, failure, revisit and reload cases |
 | Large battle | Overflow formations, reserves, reinforcements and retreats preserve troop identities and totals |
 | Save continuity | Resume during dialogue, queued battles, deployment, routing and reward resolution without duplication |
 | Ending consistency | Ruler death, capital loss, last-battle victory and relic checks produce one correct terminal state |
@@ -557,7 +559,7 @@ Recommended defaults are the new-name city crosswalk, an authored hex overland m
 
 The agreed direction is a handcrafted starting kingdom connected to a procedural frontier. The first release delivers the authored campaign; the expandable frontier follows as a planned second phase. Region identity and persistence foundations belong in the initial architecture so expansion does not require replacing the world model. Content variety and empire management are larger challenges than terrain generation.
 
-**WORLD-01 P2 Region model.** Give every region a stable ID, coordinate, seed and generator version. Keep the starting 20 settlements and authored stories intact. Generate frontier regions on approach from deterministic rules for terrain, resources, routes, settlements and faction presence. Regeneration from the same seed and version must reproduce untouched terrain.
+**WORLD-01 P2 Region model.** Give every region a stable ID, coordinate, seed and generator version. Keep all 48 authored settlements and their completed or active stories intact. Generate frontier regions on approach from deterministic rules for terrain, resources, routes, settlements and faction presence. Regeneration from the same seed and version must reproduce untouched terrain.
 
 **WORLD-02 P2 Persistence.** Store changes to generated regions, discovered information and active commitments. Bound generation and cache size; evict unmodified terrain from memory while retaining player changes. An expandable world is practically limited by storage and performance, not literally infinite. Estimate save size and export capacity before enabling unlimited exploration.
 
@@ -567,7 +569,7 @@ The agreed direction is a handcrafted starting kingdom connected to a procedural
 
 **WORLD-05 P2 Delegated government.** Group settlements into provinces with governors, budgets, supply policies and exception alerts. Require successful management of 50 cities through the province view before calling the mode viable. Do not force the player to visit each city every month.
 
-**WORLD-06 P2 Sustainable progression.** Retain bounded unit levels and equipment tiers. Late challenges come from distances, coalitions, multiple fronts and constrained supplies. Preserve the campaign's coronation ending, then offer frontier continuation or a separate sandbox mode. Players can stop with a completed story.
+**WORLD-06 P2 Sustainable progression.** Retain bounded unit levels and equipment tiers. Late challenges come from distances, coalitions, multiple fronts and constrained supplies. Preserve the campaign's coronation ending, then offer continuation into the procedural frontier in the same saved world. A separate sandbox is optional and does not replace that continuation. Players can stop with a completed story.
 
 **Feasibility gate.** First prove one generated region adjoining the authored map, a trade route across the boundary, a persistent regional quest and a save/reload round trip. Then test 100 discovered regions with at most nine running in detailed mode. Proceed only if generation, remote simulation and saving meet explicit measured budgets and the new regions offer distinct decisions.
 

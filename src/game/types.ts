@@ -18,14 +18,21 @@ export interface TerrainType {
   moraleDrain: number;
   text: string;
 }
-export type SpellId = 'fireball' | 'terror' | 'heal' | 'rally';
+export type SpellId = 'fireball' | 'ward' | 'terror' | 'frost' | 'haste' | 'slow' | 'lightning' | 'dispel' | 'entangle' | 'teleport' | 'quake' | 'chain-lightning' | 'firestorm' | 'disintegrate' | 'heal' | 'rally';
+export type EffectId = 'ward' | 'frost' | 'haste' | 'slow' | 'entangle';
+export type DamageKind = 'fire' | 'cold' | 'lightning' | 'earth' | 'arcane';
+export interface SpellEffect { id: EffectId; turns: number; }
 
 export interface Spell {
   id: SpellId;
   name: string;
   cost: number;
   range: number;
-  target: 'enemy' | 'friend';
+  target: 'enemy' | 'friend' | 'either';
+  level: number;
+  radius: number;
+  lineOfSight: boolean;
+  damageKind?: DamageKind;
   text: string;
 }
 
@@ -52,6 +59,7 @@ export interface UnitType {
   upkeep: number;
   /** Where the player can raise it: any owned town, the capital only, or never. */
   recruit: 'any' | 'capital' | null;
+  resistances?: Partial<Record<DamageKind, number>>;
   /** Present for heroes. For heroes, `men` is base hit points and `cost` the hiring fee. */
   hero?: HeroTraits;
 }
@@ -111,6 +119,8 @@ export interface Town {
 }
 
 export interface BattleUnit {
+  /** Turns remaining expire at the end of this formation's side turn. */
+  effects: SpellEffect[];
   /** Overflow formations remain off-field for this battle; no combat or XP. */
   reserve: boolean;
   id: number;
@@ -282,7 +292,7 @@ export interface CityEconomy {
 }
 
 export interface GameState {
-  version: 8;
+  version: 9;
   campaignId: CampaignId;
   campaignRevision: number;
   endingReason: EndingReason | null;

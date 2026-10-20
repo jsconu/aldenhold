@@ -1,3 +1,4 @@
+import { EFFECTS } from '../content/spells';
 import { BATTLE_H, BATTLE_W, createBattle, FIELD_LIMIT } from './battle';
 import { CATALOG, getCampaign } from '../content';
 import { ITEMS } from '../content/items';
@@ -46,7 +47,7 @@ const ledgerCategories: LedgerCategory[] = ['tax', 'wages', 'recruitment', 'hero
 /** Validate both shape and references before exposing a save to rules or rendering. */
 function validate(value: unknown, allowMissingBattleTroops = false): asserts value is GameState {
   const s = object(value);
-  requireValue(s.version === 8, 'unsupported schema version');
+  requireValue(s.version === 9, 'unsupported schema version');
   requireValue(text(s.campaignId) && Object.hasOwn(CATALOG.campaigns, s.campaignId), 'unknown campaign');
   const def = getCampaign(s.campaignId as CampaignId);
   requireValue(s.campaignRevision === def.revision, 'unsupported campaign revision');
@@ -261,6 +262,16 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
       requireValue(integer(u.maxMen, 1) && u.maxMen === (isHero(troop.type) ? heroMaxHp(troop.type, troop.xp) : troop.men) && integer(u.men, 0, u.maxMen), 'battle strength');
       requireValue(integer(u.mana, 0, heroMaxMana(troop.type, troop.xp)) && integer(u.morale, 0, 100) && integer(u.deeds), 'battle resources');
       requireValue([u.reserve, u.routing, u.fled, u.moved, u.acted].every(bool) && (u.name === undefined || text(u.name)), 'battle flags');
+      const effects = array(u.effects);
+      const seenEffects = new Set<string>();
+      for (const rawEffect of effects) {
+        const effect = object(rawEffect);
+        requireValue(text(effect.id) && Object.hasOwn(EFFECTS, effect.id) && !seenEffects.has(effect.id), 'spell effect');
+        requireValue(integer(effect.turns, 1, EFFECTS[effect.id as keyof typeof EFFECTS].turns), 'spell duration');
+        seenEffects.add(effect.id);
+      }
+      requireValue(!(seenEffects.has('haste') && seenEffects.has('slow')), 'conflicting spell effects');
+      requireValue(!u.reserve || effects.length === 0, 'reserve spell effects');
       if (u.reserve) {
         requireValue(u.col === -1 && u.row === -1 && u.men === u.startMen && u.deeds === 0 && !u.fled && !u.routing, 'reserve state');
       } else {
@@ -358,6 +369,14 @@ function upgradeToV8(value: Record<string, unknown>) {
   value.version = 8;
 }
 
+/** Old battles receive no retroactive magic effects or mana changes. */
+function upgradeToV9(value: Record<string, unknown>) {
+  if (value.battle !== null) {
+    for (const raw of array(object(value.battle).units)) object(raw).effects = [];
+  }
+  value.version = 9;
+}
+
 /** Migration runs on parsed JSON only; it never edits the legacy storage entry. */
 export function parseSave(raw: string): GameState {
   requireValue(new TextEncoder().encode(raw).length <= MAX_SAVE_BYTES, 'file exceeds 5 MB');
@@ -383,6 +402,7 @@ export function parseSave(raw: string): GameState {
     upgradeToV6(value);
     upgradeToV7(value);
     upgradeToV8(value);
+    upgradeToV9(value);
     validate(value, true);
     if (value.battle) {
       const b = value.battle;
@@ -400,6 +420,7 @@ export function parseSave(raw: string): GameState {
   if (value.version === 5) upgradeToV6(value);
   if (value.version === 6) upgradeToV7(value);
   if (value.version === 7) upgradeToV8(value);
+  if (value.version === 8) upgradeToV9(value);
   validate(value);
   return value;
 }

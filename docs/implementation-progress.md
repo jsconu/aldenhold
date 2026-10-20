@@ -60,7 +60,7 @@ The reserve policy is deliberately explicit for this first slice: there are no m
 ## Foundation increment 3: diplomatic quest and saved campaign items (branch work/fenwick-charter-v1)
 
 - New v5 schema stores quest resolution state, unique campaign inventory objects and location-scoped treaties; v2, v3 and v4 saves migrate safely to v5. Save storage keys are unchanged.
-- Q00 **The Fenwick Charter** is a separate **foundation fixture**, not one of the planned eighteen side quests. A council decision can sign a peaceful-passage treaty and award a sealed charter, or reject the accord. Neither choice can be repeated.
+- Q00 **The Fenwick Charter** is a separate **foundation fixture**, not one of the planned 72 side quests. A council decision can sign a peaceful-passage treaty and award a sealed charter, or reject the accord. Neither choice can be repeated.
 - Signing allows player armies to coexist with the neutral garrison in Fenwick without a battle or annexation. Other neutral settlements remain unaffected. The treaty ends if the settlement changes hands.
 - The journal displays quest outcome and campaign-held inventory. Rewards are state-based and are not created again on reload.
 - Q04 **The Woodland Accord** remains unfinished: it requires Greenveil, city logging actions and enforced logging caps in the western campaign. Do not represent Q00 as completion of Q04.
@@ -106,4 +106,21 @@ The reserve policy is deliberately explicit for this first slice: there are no m
 - Players can switch between Terrain and Realm Borders (political influence) views, zoom 100–200% centered on the currently selected named location and interact with SVG markers by mouse or keyboard. Sidebar road destinations expose adjacent town ownership, known garrisons and whether an immediate march is available.
 - Optional journey planner computes the shortest graph itinerary or a danger-averse alternative, marks numbered stops on the atlas, estimates minimum travel months and warns of known garrisons. It does **not** auto-execute later legs or alter actual move rules; first-leg movement uses the existing movement validator.
 - This increment deliberately keeps the original nine-node quick-play map, towns, edges, combat and schema v8 untouched. The hex tiles underneath are **visual geography only**, not selectable movement cells.
-- Remaining for MAP-01–05: a separate authored ~64×40-cell campaign, real terrain-cost pathfinding and river/bridge constraints, persistent fog of war and exploration, scouting, hazards/visibility, a larger atlas with twenty cities and objective sites, visual browser approval, and responsive pan/touch exploration.
+- Remaining for MAP-01–05: a separate authored ~128×80-cell campaign across eight regions, real terrain-cost pathfinding and river/bridge constraints, persistent fog of war and exploration, scouting, hazards/visibility, a larger atlas with 48 cities and at least 60 non-city sites, visual browser approval, and responsive pan/touch exploration.
+
+
+## Magic increment: fourteen-spell mage progression
+
+- Mage and shaman spellbooks now unlock exactly 14 spells through levels 1–9; level 10 reduces costs by one (minimum two). Priests retain Heal/Rally; their expanded list and ranger spells remain in issue #16.
+- Ward, Frost, Haste, Slow and Entangle have bounded target-side turn durations, visible status descriptions, refresh without stacking, and Dispel/counter-spell rules. Effects change actual movement, defense and damage.
+- Lightning/Chain Lightning trace line of sight through hexes; rocks block them. Spell damage uses explicit armor/resistance rules; Disintegrate is capped against heroes. Chain Lightning cannot hit one formation twice.
+- Player targeting previews damage, affected formations, friendly fire, status changes and wall destruction before confirmation. Teleport requires selecting a friendly formation and a legal destination; it spends movement without restoring an attack.
+- Tactical AI and auto-resolve score the same legal previews, penalize friendly fire and use support/cleanse spells as well as damage spells.
+- Schema v9 stores in-battle effects. v2–v8 imports migrate without retroactive effects, mana, equipment or economic changes. Storage keys remain stable.
+- Validation: 185 rules/regression tests and the production build pass. Compiled-app DOM checks cover spell selection, preview/confirmation, two-stage Teleport and active-effect reload. Visual browser verification and campaign-scale balance playtests remain outstanding.
+
+## Expanded campaign scope revision
+
+The owner requested a substantially longer authored story before infinite continuation. [Expanded campaign specification](expanded-campaign.md) now governs scope: 48 fixed cities, 72 side quests, 24 main objectives in six acts, 60 non-city sites, 30 authored surprise battles, eight regions and an initial 128×80 real-hex design canvas. Story completion must preserve the same empire/save when opening the procedural frontier. The proposed 40–60-hour main story and 70–100-hour broad exploration ranges require playtesting.
+
+These are requirements and backlog entries, not implemented campaign content. The nine-node quick-play world and its ending are unchanged. [Backlog](backlog.md) links the staged quest framework, true hex movement, first western chapter and later frontier work. Earlier milestone tables and completed-increment counts above are historical records; the revised specification supersedes their campaign totals.

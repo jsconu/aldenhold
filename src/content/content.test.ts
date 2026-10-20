@@ -29,6 +29,19 @@ describe('content catalog', () => {
 describe('content validator', () => {
   const problems = (edit: Parameters<typeof withQuickplay>[0]) => validateContent(withQuickplay(edit)).join('\n');
 
+  it('rejects spell progression and resistance values that break combat calculations', () => {
+    const copy = structuredClone(CATALOG);
+    copy.spells.fireball.level = 11;
+    copy.spells.ward.cost = -1;
+    copy.spells.lightning.range = Infinity;
+    copy.units.shaman.resistances = { fire: 125 };
+    const out = validateContent(copy).join('\n');
+    expect(out).toMatch(/fireball: invalid unlock level/);
+    expect(out).toMatch(/ward: invalid mana cost/);
+    expect(out).toMatch(/lightning: invalid range/);
+    expect(out).toMatch(/shaman: invalid fire resistance/);
+  });
+
   it('catches duplicate locations and roads to nowhere', () => {
     expect(problems((c) => c.nodes.push({ ...c.nodes[0] }))).toMatch(/duplicate location "aldenhold"/);
     expect(problems((c) => c.edges.push(['aldenhold', 'atlantis']))).toMatch(/unknown location "atlantis"/);

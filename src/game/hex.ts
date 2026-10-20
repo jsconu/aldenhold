@@ -32,3 +32,18 @@ export function hexNeighbors(h: Hex): Hex[] {
 export function hexKey(h: Hex): string {
   return `${h.col},${h.row}`;
 }
+
+/** Deterministic straight hex line. A tiny nudge resolves exact edge ties consistently. */
+export function hexLine(a: Hex, b: Hex): Hex[] {
+  const start = toCube(a), end = toCube(b), distance = hexDistance(a, b);
+  if (!distance) return [{ ...a }];
+  return Array.from({ length: distance + 1 }, (_, i) => {
+    const t = i / distance;
+    const cube = start.map((n, j) => n + (end[j] - n) * t + (j === 2 ? -2e-6 : 1e-6));
+    const rounded = cube.map(Math.round);
+    const delta = cube.map((n, j) => Math.abs(rounded[j] - n));
+    const j = delta.indexOf(Math.max(...delta));
+    rounded[j] = -rounded[(j + 1) % 3] - rounded[(j + 2) % 3];
+    return fromCube(rounded[0], rounded[2]);
+  });
+}

@@ -1,7 +1,8 @@
+import { EFFECTS } from '../content/spells';
 import { SPELLS, TERRAIN, UNIT_TYPES } from './data';
-import { hexDistance, hexKey, hexNeighbors, type Hex } from './hex';
+import { hexDistance, hexKey, hexNeighbors, hexLine, type Hex } from './hex';
 import { random } from './rng';
-import type { Army, Battle, BattleUnit, FactionId, Side, SpellId, Terrain } from './types';
+import type { Army, Battle, BattleUnit, FactionId, Side, SpellId, Terrain, EffectId } from './types';
 import { attackFor, heroLevel, heroMaxHp, isHero, level } from './units';
 import { EQUIPMENT } from './equipment';
 
@@ -111,6 +112,7 @@ function deploy(b: Battle, army: Army, side: Side, cols: number[]) {
     if (slot) taken.add(hexKey(slot));
     b.units.push({
       id: b.units.length + 1,
+      effects: [],
       reserve: !slot,
       side,
       armyId: army.id,
@@ -171,7 +173,7 @@ export function attackOf(u: BattleUnit): number {
 
 export function defenseOf(b: Battle, u: BattleUnit): number {
   const wall = b.walls && u.side === 'defender' ? 1 : 0;
-  return Math.max(1, UNIT_TYPES[u.type].defense + EQUIPMENT[u.gear.armor].defenseBonus + terrainAt(b, u).defense + wall);
+  return Math.max(1, UNIT_TYPES[u.type].defense + EQUIPMENT[u.gear.armor].defenseBonus + terrainAt(b, u).defense + wall + (hasEffect(u, 'ward') ? 2 : 0));
 }
 
 /** Fighting weight: men for a troop, a fixed value for a hero (wounds don't weaken their blows). */
@@ -192,7 +194,7 @@ function nextToEnemy(b: Battle, h: Hex, side: Side): boolean {
 
 function reachFrom(b: Battle, u: BattleUnit): Map<string, number> {
   const result = new Map<string, number>();
-  const budget = UNIT_TYPES[u.type].move;
+  const budget = movementOf(u);
   const best = new Map<string, number>([[hexKey(u), 0]]);
   const frontier: (Hex & { cost: number })[] = [{ col: u.col, row: u.row, cost: 0 }];
   while (frontier.length) {
@@ -299,7 +301,7 @@ export function attack(b: Battle, unitId: number, targetId: number): boolean {
   if (!u || !t || b.outcome || u.side !== b.active) return false;
   if (!attackTargets(b, u).includes(t)) return false;
   const melee = hexDistance(u, t) === 1;
-  const killed = rollDamage(b, u, t, 1);
+  const killed = rollDamage(b, u, t, melee && hasEffect(u, 'slow') ? 0.75 : 1);
   let line = `${unitLabel(b, u)} ${melee ? 'charge' : 'shoot at'} ${unitLabel(b, t)}: ${killed} ${isHero(t.type) ? 'wounds' : 'fall'}.`;
   line += takeLosses(b, t, killed);
   if (t.men > 0 && melee && !t.routing) {
@@ -315,61 +317,137 @@ export function attack(b: Battle, unitId: number, targetId: number): boolean {
   return true;
 }
 
-export function knownSpells(u: BattleUnit): SpellId[] {
-  return UNIT_TYPES[u.type].hero?.spells ?? [];
+export function knownSpells(u: Pick<BattleUnit, 'type' | 'xp'>): SpellId[] {
+  return (UNIT_TYPES[u.type].hero?.spells ?? []).filter((id) => heroLevel(u.xp) >= SPELLS[id].level);
 }
 
-/** Units the hero could cast this spell on right now. */
+/** Level ten masters save one mana per cast, with a minimum cost of two. */
+export function spellCost(u: Pick<BattleUnit, 'xp'>, id: SpellId): number {
+  return Math.max(2, SPELLS[id].cost - (heroLevel(u.xp) === 10 ? 1 : 0));
+}
+
+export function hasEffect(u: BattleUnit, id: EffectId): boolean {
+  return u.effects.some((e) => e.id === id);
+}
+
+export function movementOf(u: BattleUnit): number {
+  const base = UNIT_TYPES[u.type].move + (hasEffect(u, 'haste') ? 2 : 0) - (hasEffect(u, 'slow') ? 2 : 0) - (hasEffect(u, 'frost') ? 1 : 0);
+  return hasEffect(u, 'entangle') ? 1 : Math.max(1, base);
+}
+
+export function spellLineOfSight(b: Battle, from: Hex, to: Hex): boolean {
+  return hexLine(from, to).slice(1, -1).every((h) => inBounds(b, h) && b.terrain[h.col][h.row] !== 'rocks');
+}
+
+export function dispellable(caster: BattleUnit, target: BattleUnit): EffectId[] {
+  return target.effects.filter((e) => EFFECTS[e.id].beneficial === (caster.side !== target.side)).map((e) => e.id);
+}
+
+/** Legal empty destinations. Every hex is visible in the current tactical scenario. */
+export function teleportDestinations(b: Battle, caster: BattleUnit, target: BattleUnit): Hex[] {
+  if (caster.side !== target.side || !alive(b).includes(target) || target.routing) return [];
+  const result: Hex[] = [];
+  for (let col = 0; col < b.width; col++) for (let row = 0; row < b.height; row++) {
+    const h = { col, row };
+    if (!unitAt(b, h) && Number.isFinite(terrainAt(b, h).move) && hexDistance(caster, h) <= SPELLS.teleport.range && hexDistance(target, h) <= SPELLS.teleport.range) result.push(h);
+  }
+  return result;
+}
+
+/** Units the hero could cast this spell on right now. Used by player input and AI. */
 export function spellTargets(b: Battle, u: BattleUnit, spellId: SpellId): BattleUnit[] {
   const spell = SPELLS[spellId];
-  if (u.reserve || u.fled || u.routing || u.acted || u.men <= 0 || !knownSpells(u).includes(spellId) || u.mana < spell.cost) return [];
-  const pool = spell.target === 'enemy' ? alive(b, other(u.side)) : alive(b, u.side);
+  if (!spell || b.outcome || u.side !== b.active || u.reserve || u.fled || u.routing || u.acted || u.men <= 0 || !knownSpells(u).includes(spellId) || u.mana < spellCost(u, spellId)) return [];
+  const pool = spell.target === 'either' ? alive(b) : alive(b, spell.target === 'enemy' ? other(u.side) : u.side);
   return pool.filter((t) => {
-    if (hexDistance(u, t) > spell.range) return false;
+    if (hexDistance(u, t) > spell.range || (spell.lineOfSight && !spellLineOfSight(b, u, t))) return false;
     if (spellId === 'heal') return t.men < t.maxMen;
     if (spellId === 'rally' || spellId === 'terror') return !isHero(t.type) && (spellId === 'terror' || t.morale < 100);
+    if (spellId === 'dispel') return dispellable(u, t).length > 0;
+    if (spellId === 'teleport') return !t.routing && teleportDestinations(b, u, t).length > 0;
+    if (spellId === 'ward' || spellId === 'haste' || spellId === 'slow') return !t.effects.some((e) => e.id === spellId && e.turns === EFFECTS[spellId].turns);
     return true;
   });
 }
 
-export function castSpell(b: Battle, unitId: number, spellId: SpellId, targetId: number): boolean {
-  const u = b.units.find((x) => x.id === unitId);
-  const t = b.units.find((x) => x.id === targetId);
-  if (!u || !t || b.outcome || u.side !== b.active) return false;
-  if (!spellTargets(b, u, spellId).includes(t)) return false;
-  const lvl = heroLevel(u.xp);
-  u.mana -= SPELLS[spellId].cost;
-  u.moved = true;
-  u.acted = true;
-  u.deeds++;
-  const who = unitLabel(b, u);
-  const whom = unitLabel(b, t);
-  switch (spellId) {
-    case 'fireball': {
-      const dmg = Math.min(t.men, 4 + 2 * lvl);
-      b.log.push(`${who} hurls fire at ${whom}: ${dmg} ${isHero(t.type) ? 'wounds' : 'fall'}.${takeLosses(b, t, dmg)}`);
-      shake(b, t, 10);
-      break;
+export function spellAffected(b: Battle, caster: BattleUnit, id: SpellId, target: BattleUnit): BattleUnit[] {
+  if (id === 'chain-lightning') {
+    const chain = [target];
+    while (chain.length < 3) {
+      const previous = chain.at(-1)!;
+      const next = alive(b, other(caster.side)).filter((u) => !chain.includes(u) && hexDistance(previous, u) <= 2 && spellLineOfSight(b, previous, u))
+        .sort((a, c) => hexDistance(previous, a) - hexDistance(previous, c) || a.id - c.id)[0];
+      if (!next) break;
+      chain.push(next);
     }
-    case 'terror':
-      b.log.push(`${who} fills ${whom} with dread.`);
-      shake(b, t, 30 + 5 * lvl);
-      break;
-    case 'heal': {
-      const amount = Math.min(t.maxMen - t.men, 4 + 2 * lvl);
-      t.men += amount;
-      b.log.push(`${who} heals ${whom}: ${amount} ${isHero(t.type) ? 'wounds mended' : 'men back in the line'}.`);
-      break;
+    return chain;
+  }
+  if (SPELLS[id].radius) return alive(b).filter((u) => hexDistance(target, u) <= SPELLS[id].radius && (id !== 'entangle' || u.side !== caster.side));
+  return [target];
+}
+
+export interface SpellImpact { unit: BattleUnit; damage: number; healing: number; add: EffectId | null; remove: EffectId[]; }
+export interface SpellPreview { impacts: SpellImpact[]; breaksWalls: boolean; destination: Hex | null; }
+
+/** Damage is deterministic so the confirmation preview and resolution agree exactly. */
+function spellDamage(caster: BattleUnit, target: BattleUnit, id: SpellId, jump: number): number {
+  const kind = SPELLS[id].damageKind;
+  if (!kind) return 0;
+  const level = heroLevel(caster.xp);
+  let raw = id === 'fireball' ? 4 + 2 * level : id === 'frost' ? 3 + level : id === 'lightning' ? 6 + 2 * level : id === 'disintegrate' ? 12 + 2 * level : id === 'quake' ? 3 + level : 5 + level;
+  if (kind === 'fire') raw = Math.max(1, raw - Math.floor((UNIT_TYPES[target.type].defense + EQUIPMENT[target.gear.armor].defenseBonus) / 4));
+  if (id === 'chain-lightning') raw *= 1 - 0.25 * jump;
+  raw *= 1 - (UNIT_TYPES[target.type].resistances?.[kind] ?? 0) / 100;
+  if (hasEffect(target, 'ward')) raw *= 0.5;
+  if (id === 'disintegrate' && isHero(target.type)) raw = Math.min(raw, Math.max(1, Math.floor(target.maxMen * 0.4)));
+  return Math.min(target.men, Math.max(0, Math.floor(raw)));
+}
+
+export function previewSpell(b: Battle, caster: BattleUnit, id: SpellId, target: BattleUnit, destination?: Hex): SpellPreview | null {
+  if (!spellTargets(b, caster, id).includes(target)) return null;
+  if (id === 'teleport' && (!destination || !teleportDestinations(b, caster, target).some((h) => h.col === destination.col && h.row === destination.row))) return null;
+  const units = spellAffected(b, caster, id, target);
+  return {
+    impacts: units.map((unit, i) => ({ unit, damage: spellDamage(caster, unit, id, i), healing: id === 'heal' ? Math.min(unit.maxMen - unit.men, 4 + 2 * heroLevel(caster.xp)) : 0,
+      add: (['ward', 'frost', 'haste', 'slow', 'entangle'] as string[]).includes(id) ? id as EffectId : null,
+      remove: id === 'dispel' ? dispellable(caster, unit) : id === 'haste' && hasEffect(unit, 'slow') ? ['slow'] : id === 'slow' && hasEffect(unit, 'haste') ? ['haste'] : [],
+    })),
+    breaksWalls: id === 'quake' && b.walls && units.some((u) => u.side === 'defender'),
+    destination: id === 'teleport' ? destination! : null,
+  };
+}
+
+export function castSpell(b: Battle, unitId: number, spellId: SpellId, targetId: number, destination?: Hex): boolean {
+  const u = b.units.find((x) => x.id === unitId), t = b.units.find((x) => x.id === targetId);
+  if (!u || !t) return false;
+  const preview = previewSpell(b, u, spellId, t, destination);
+  if (!preview) return false;
+  u.mana -= spellCost(u, spellId);
+  u.moved = true; u.acted = true; u.deeds++;
+  b.log.push(`${unitLabel(b, u)} ${spellId === 'fireball' ? 'hurls fire' : `casts ${SPELLS[spellId].name}`} at ${unitLabel(b, t)}.`);
+  for (const hit of preview.impacts) {
+    const target = hit.unit;
+    if (hit.damage) b.log.push(`${unitLabel(b, target)}: ${hit.damage} ${isHero(target.type) ? 'wounds' : 'fall'}.${takeLosses(b, target, hit.damage)}`);
+    if (target.men <= 0) continue;
+    if (hit.healing) { target.men += hit.healing; b.log.push(`${unitLabel(b, target)} recovers ${hit.healing}.`); }
+    target.effects = target.effects.filter((e) => !hit.remove.includes(e.id));
+    if (hit.remove.length) b.log.push(`${unitLabel(b, target)}: ${hit.remove.map((id) => EFFECTS[id].name).join(', ')} removed.`);
+    if (hit.add) {
+      target.effects = target.effects.filter((e) => e.id !== hit.add);
+      target.effects.push({ id: hit.add, turns: EFFECTS[hit.add].turns });
+      b.log.push(`${unitLabel(b, target)} gains ${EFFECTS[hit.add].name} for ${EFFECTS[hit.add].turns} of its side's turns.`);
     }
-    case 'rally':
-      t.morale = Math.min(100, t.morale + 40);
-      if (t.routing && t.morale >= RALLY_AT) {
-        t.routing = false;
-        b.log.push(`${who} rallies ${whom}. They turn and fight.`);
-      } else {
-        b.log.push(`${who} steadies ${whom}.`);
-      }
-      break;
+    if (spellId === 'fireball') shake(b, target, 10);
+    if (spellId === 'terror') shake(b, target, 30 + 5 * heroLevel(u.xp));
+    if (spellId === 'rally') {
+      target.morale = Math.min(100, target.morale + 40);
+      if (target.morale >= RALLY_AT) target.routing = false;
+    }
+  }
+  if (preview.breaksWalls) { b.walls = false; b.log.push('The quake breaks the battlefield walls: defenders lose their wall bonus.'); }
+  if (preview.destination) {
+    t.col = preview.destination.col; t.row = preview.destination.row; t.moved = true;
+    b.log.push(`${unitLabel(b, t)} teleports to ${t.col + 1}, ${t.row + 1}; its move is spent.`);
   }
   checkOutcome(b);
   return true;
@@ -444,6 +522,12 @@ function startSideTurn(b: Battle) {
 
 export function endSideTurn(b: Battle) {
   if (b.outcome) return;
+  for (const u of b.units.filter((u) => u.side === b.active)) {
+    for (const effect of u.effects) effect.turns--;
+    const expired = u.effects.filter((e) => e.turns <= 0);
+    u.effects = u.effects.filter((e) => e.turns > 0);
+    if (expired.length) b.log.push(`${unitLabel(b, u)}: ${expired.map((e) => EFFECTS[e.id].name).join(', ')} expires.`);
+  }
   b.active = other(b.active);
   for (const u of b.units) {
     if (u.side === b.active) {
@@ -497,22 +581,37 @@ function nearestEnemyDistance(b: Battle, h: Hex, side: Side): number {
   return Math.min(...alive(b, other(side)).map((e) => hexDistance(h, e)));
 }
 
-/** Pick the best spell to cast now, if any. */
+/** Score the same legal previews used by the player, including friendly-fire costs. */
 function aiSpell(b: Battle, u: BattleUnit): boolean {
-  const pick = (spellId: SpellId, choose: (ts: BattleUnit[]) => BattleUnit | undefined) => {
-    const t = choose(spellTargets(b, u, spellId));
-    return !!t && castSpell(b, u.id, spellId, t.id);
-  };
-  const most = (score: (t: BattleUnit) => number, min: number) => (ts: BattleUnit[]) => {
-    const best = ts.reduce<BattleUnit | undefined>((a, c) => (!a || score(c) > score(a) ? c : a), undefined);
-    return best && score(best) >= min ? best : undefined;
-  };
-  return (
-    pick('rally', most((t) => (t.routing ? 100 : 40 - t.morale), 1)) ||
-    pick('heal', most((t) => t.maxMen - t.men, 5)) ||
-    pick('fireball', most((t) => t.men, 1)) ||
-    pick('terror', most((t) => 100 - t.morale, 30))
-  );
+  let best: { id: SpellId; target: BattleUnit; destination?: Hex; score: number } | null = null;
+  for (const id of knownSpells(u)) for (const target of spellTargets(b, u, id)) {
+    const destinations = id === 'teleport' ? teleportDestinations(b, u, target) : [undefined];
+    for (const destination of destinations) {
+      const preview = previewSpell(b, u, id, target, destination);
+      if (!preview) continue;
+      let score = 0;
+      for (const hit of preview.impacts) {
+        const friendly = hit.unit.side === u.side;
+        score += hit.damage * (friendly ? -2 : 1) + hit.healing;
+        const near = nearestEnemyDistance(b, hit.unit, hit.unit.side);
+        if (hit.add === 'ward' && near <= 5) score += friendly ? 4 : -4;
+        if (hit.add === 'haste' && near > 1 && near <= 8 && !hit.unit.moved) score += 4;
+        if ((hit.add === 'slow' || hit.add === 'entangle' || hit.add === 'frost') && near > 1 && near <= 6 && !hasEffect(hit.unit, hit.add)) score += 3;
+        score += hit.remove.length * 3;
+      }
+      if (id === 'terror') score += target.morale < 65 ? 7 : 3;
+      if (id === 'rally') score += target.routing ? 20 : Math.max(0, (65 - target.morale) / 4);
+      if (preview.breaksWalls) score += u.side === 'attacker' ? 4 : -4;
+      if (destination) {
+        const before = nearestEnemyDistance(b, target, u.side), after = nearestEnemyDistance(b, destination, u.side);
+        if (isHero(target.type) && target.men < target.maxMen / 2 && before <= 2 && after >= 4) score += 10;
+        else if (!target.moved && !target.acted && !knownSpells(target).length && rangeOf(b, target) === 1 && before - after >= 2 && after <= 2) score += 4;
+      }
+      score -= spellCost(u, id) * 0.3;
+      if (score > 0 && (!best || score > best.score)) best = { id, target, destination, score };
+    }
+  }
+  return !!best && castSpell(b, u.id, best.id, best.target.id, best.destination);
 }
 
 function aiUnit(b: Battle, u: BattleUnit) {

@@ -9,6 +9,8 @@ export interface UIState {
   battleUnit: number | null;
   /** Spell the selected hero is about to cast. */
   battleSpell: SpellId | null;
+  battleTarget?: number | null;
+  battleDestination?: { col: number; row: number } | null;
   message: string;
   /** Campaign screen: the province map or the full journal. */
   view: 'map' | 'journal' | 'treasury';
