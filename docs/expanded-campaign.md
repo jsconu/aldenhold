@@ -4,6 +4,8 @@ Owner direction, October 20, 2026: make the fixed storyline and map much larger,
 
 This revision supersedes the original 20-settlement / 18-side-quest / 6–10-hour targets. It is an implementation specification, not a claim that this content is built. Preserve the latest approved pixel art and the existing quick-play campaign.
 
+> **Delivery path (owner decision, October 20, 2026):** these are the long-term targets. The first release is the Western chapter (Act I, R01–R02) on the walkable hex map, with fog, the deep economy and extra ruler classes deferred until after it. See [backlog.md](backlog.md) for the decisions and the work queue.
+
 ## Scope and pacing targets
 
 | Deliverable | Revised target |
