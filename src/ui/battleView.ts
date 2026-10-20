@@ -1,11 +1,13 @@
 import {
-  attackOf, attackTargets, alive, defenseOf, isAI, knownSpells, playerSide, RALLY_AT, reachable, ROUT_AT, spellTargets, unitLabel,
+  attackOf, attackTargets, alive, defenseOf, isAI, knownSpells, playerSide, RALLY_AT, rangeOf, reachable, ROUT_AT, spellTargets,
+  terrainAt, unitLabel,
 } from '../game/battle';
 import { nodeName } from '../game/campaign';
-import { SPELLS, UNIT_TYPES } from '../game/data';
+import { SPELLS, TERRAIN, UNIT_TYPES } from '../game/data';
 import { heroLevel, level } from '../game/units';
 import { hexKey } from '../game/hex';
-import type { Battle, BattleUnit, GameState } from '../game/types';
+import type { Battle, BattleUnit, GameState, Terrain } from '../game/types';
+import { spriteDefs, terrainArt, unitIcon } from './sprites';
 import { esc, type UIState } from './shared';
 
 const S = 30;
@@ -37,16 +39,18 @@ export function renderBattle(state: GameState, ui: UIState): string {
   const targets = new Set((casting ?? (sel ? attackTargets(b, sel) : [])).map((u) => u.id));
   const friendlySpell = !!ui.battleSpell && SPELLS[ui.battleSpell].target === 'friend';
 
-  let hexes = '';
+  let ground = '';
+  let overlay = '';
   for (let col = 0; col < b.width; col++) {
     for (let row = 0; row < b.height; row++) {
       const [cx, cy] = center(col, row);
-      const k = hexKey({ col, row });
-      const cls = ['hex', b.terrain[col][row], reach.has(k) && !casting ? 'reach' : ''].filter(Boolean).join(' ');
-      hexes += `<polygon points="${hexPoints(cx, cy)}" class="${cls}" data-action="hex" data-col="${col}" data-row="${row}"/>`;
-      if (b.terrain[col][row] !== 'plain') {
-        hexes += `<text x="${cx}" y="${cy + 18}" class="terrain-glyph">${b.terrain[col][row] === 'forest' ? '♣' : '▲'}</text>`;
-      }
+      const kind = b.terrain[col][row];
+      const t = TERRAIN[kind];
+      ground += `<polygon points="${hexPoints(cx, cy)}" class="hex ${kind}"/>${terrainArt(kind, cx, cy, col * 31 + row * 7)}`;
+      // A transparent hit area on top of the art carries the click, the tooltip and the move highlight.
+      const reachable = reach.has(hexKey({ col, row })) && !casting;
+      overlay += `<polygon points="${hexPoints(cx, cy)}" class="hit${reachable ? ' reach' : ''}" data-action="hex" data-col="${col}" data-row="${row}">
+        <title>${t.name}: ${t.text}</title></polygon>`;
     }
   }
   const units = alive(b)
@@ -65,8 +69,9 @@ export function renderBattle(state: GameState, ui: UIState): string {
       return `<g class="${cls}" data-action="hex" data-col="${u.col}" data-row="${u.row}">
         <title>${esc(unitLabel(b, u))}: ${u.men} ${hero ? 'HP' : `men, morale ${u.morale}${u.routing ? ', running' : ''}`}</title>
         <circle cx="${cx}" cy="${cy}" r="${S * 0.72}" class="body"/>
-        <text x="${cx}" y="${cy - 2}" class="code">${hero ? '★' : ''}${t.short}</text>
-        <text x="${cx}" y="${cy + 11}" class="men">${u.routing ? 'RUN' : u.men}</text>
+        ${unitIcon(u.type, cx - 11, cy - 19, 22)}
+        ${hero ? `<path d="m${cx + 13} ${cy - 21} 1.5 3 3.3.5-2.4 2.3.6 3.3-3-1.6-3 1.6.6-3.3-2.4-2.3 3.3-.5z" class="star"/>` : ''}
+        <text x="${cx}" y="${cy + 12}" class="men">${u.routing ? 'RUN' : u.men}</text>
         <rect x="${cx - 14}" y="${cy + 15}" width="28" height="3" class="hp-bg"/>
         <rect x="${cx - 14}" y="${cy + 15}" width="${(28 * frac).toFixed(1)}" height="3" class="hp"/>
         ${hero ? '' : `<rect x="${cx - 14}" y="${cy + 19}" width="28" height="2" class="hp-bg"/>
@@ -94,14 +99,25 @@ export function renderBattle(state: GameState, ui: UIState): string {
          <button data-action="battle-end" class="primary">End turn</button>`}
   </header>
   <main class="battle">
-    <section class="field-wrap"><svg viewBox="0 0 ${w.toFixed(0)} ${h.toFixed(0)}" class="field">${hexes}${units}</svg></section>
+    <section class="field-wrap"><svg viewBox="0 0 ${w.toFixed(0)} ${h.toFixed(0)}" class="field">${spriteDefs()}${ground}${overlay}${units}</svg></section>
     <aside class="side">
       ${b.outcome ? renderOutcome(b) : sel ? renderUnit(b, sel, ui) : '<p class="hint">Click one of your units (blue), then a highlighted hex to move or a red-ringed enemy to attack. Each unit may move, then attack, once a turn. Heroes (★) can cast spells instead of attacking.</p>'}
       <p class="sub">The thin bar under each troop is its morale. Below ${ROUT_AT} it breaks and runs for its own edge of the field; at ${RALLY_AT} it may rally.</p>
-      <p class="sub">${me === 'defender' && b.walls ? 'You fight behind town walls: +1 defense. ' : me === 'attacker' && b.walls ? 'The enemy is behind walls: +1 defense. ' : ''}Forest ♣ and hills ▲ cost 2 to enter and give +1 defense.</p>
+      ${b.walls ? `<p class="sub">${me === 'defender' ? 'You fight behind town walls: +1 defense.' : 'The enemy is behind walls: +1 defense.'}</p>` : ''}
+      ${renderLegend(b)}
       <details class="log" open><summary>Battle report</summary><ul>${b.log.slice(-14).reverse().map((l) => `<li>${esc(l)}</li>`).join('')}</ul></details>
     </aside>
   </main>`;
+}
+
+function renderLegend(b: Battle): string {
+  const present = new Set(b.terrain.flat());
+  const kinds = (Object.keys(TERRAIN) as Terrain[]).filter((k) => k !== 'plain' && present.has(k));
+  if (!kinds.length) return '';
+  return `<details class="legend" open><summary>Ground on this field</summary><ul>${kinds
+    .map((k) => `<li><svg viewBox="-31 -27 62 54" class="swatch"><polygon points="${hexPoints(0, 0)}" class="hex ${k}"/>${terrainArt(k, 0, 0, 3)}</svg>
+      <span><b>${TERRAIN[k].name}.</b> ${TERRAIN[k].text}</span></li>`)
+    .join('')}</ul></details>`;
 }
 
 function renderUnit(b: Battle, u: BattleUnit, ui: UIState): string {
@@ -123,7 +139,8 @@ function renderUnit(b: Battle, u: BattleUnit, ui: UIState): string {
       <dt>Attack</dt><dd>${attackOf(u).toFixed(1)}</dd>
       <dt>Defense</dt><dd>${defenseOf(b, u)}</dd>
       <dt>Move</dt><dd>${u.moved ? 'done' : t.move}</dd>
-      ${t.range > 1 ? `<dt>Range</dt><dd>${t.range} (not when an enemy is next to it)</dd>` : ''}
+      ${t.range > 1 ? `<dt>Range</dt><dd>${rangeOf(b, u)} (not when an enemy is next to it)</dd>` : ''}
+      <dt>Ground</dt><dd>${terrainAt(b, u).name}</dd>
       ${spells.length ? `<dt>Mana</dt><dd>${u.mana}</dd>` : ''}
     </dl>
     ${spells.length ? `<div class="spells">${spellButtons}</div>

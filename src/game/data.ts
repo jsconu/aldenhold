@@ -1,4 +1,4 @@
-import type { FactionId, MapNode, Spell, SpellId, Town, UnitType } from './types';
+import type { FactionId, MapNode, Spell, SpellId, Terrain, TerrainType, Town, UnitType } from './types';
 
 export const UNIT_TYPES: Record<string, UnitType> = {
   militia: { id: 'militia', name: 'Militia', short: 'MIL', attack: 2, defense: 2, move: 3, range: 1, men: 20, cost: 60, upkeep: 4, recruit: 'any' },
@@ -22,6 +22,22 @@ export const UNIT_TYPES: Record<string, UnitType> = {
     hero: { leadership: 10, power: 12, mana: 0, spells: [] } },
   shaman: { id: 'shaman', name: 'Orc Shaman', short: 'SHA', attack: 1, defense: 2, move: 3, range: 1, men: 14, cost: 0, upkeep: 0, recruit: null,
     hero: { leadership: 0, power: 6, mana: 12, spells: ['fireball'] } },
+};
+
+const T = (t: Partial<TerrainType> & Pick<TerrainType, 'id' | 'name' | 'move' | 'text'>): TerrainType =>
+  ({ defense: 0, rangeBonus: 0, heal: 0, moveLoss: 0, moraleDrain: 0, ...t });
+
+/** Battlefield terrain. Tune effects here; the battle rules and the field legend both read from this table. */
+export const TERRAIN: Record<Terrain, TerrainType> = {
+  plain: T({ id: 'plain', name: 'Open ground', move: 1, text: 'No effect.' }),
+  forest: T({ id: 'forest', name: 'Forest', move: 2, defense: 1, text: 'Costs 2 to enter. +1 defense.' }),
+  hill: T({ id: 'hill', name: 'Hill', move: 2, defense: 1, rangeBonus: 1, text: 'Costs 2 to enter. +1 defense. Missile troops here shoot 1 hex farther.' }),
+  stream: T({ id: 'stream', name: 'Stream', move: 2, defense: -1, text: 'Costs 2 to ford. Troops in the water fight at −1 defense.' }),
+  marsh: T({ id: 'marsh', name: 'Marsh', move: 3, defense: -1, moraleDrain: 5, text: 'Costs 3 to enter. −1 defense, and troops lose 5 morale each turn they start here.' }),
+  thorns: T({ id: 'thorns', name: 'Thorns', move: 2, defense: 1, moveLoss: 2, text: 'Costs 2 to enter. +1 defense, but pushing in costs 2 men (or 2 HP).' }),
+  ruins: T({ id: 'ruins', name: 'Ruins', move: 2, defense: 2, text: 'Costs 2 to enter. +2 defense behind old walls.' }),
+  rocks: T({ id: 'rocks', name: 'Rocks', move: Infinity, text: 'Impassable.' }),
+  spring: T({ id: 'spring', name: 'Holy spring', move: 1, heal: 3, text: 'A troop that starts its turn here gets back 3 men lost this battle (heroes 3 HP) and steadies.' }),
 };
 
 export const SPELLS: Record<SpellId, Spell> = {

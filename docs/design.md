@@ -41,6 +41,26 @@ Each part is basic, but they all connect: **recruit → march → fight → capt
 | Retreats | Losers fall back to friendly towns or open country, never into someone else's town. Attackers go back where they came from. | Pursuit |
 | Orcs | The Hold has a warchief (leadership +10) and a shaman (Fireball). Both stay home when war parties ride out. | Orc heroes leading raids |
 
+### v0.3: battlefield art and terrain
+
+Units are drawn as tokens with original SVG icons (`src/ui/sprites.ts`): pitchfork, spear and shield, bow, knight's helm, crown, sword, holy sun, wizard hat, orc axe, troll club, horned helm, skull. Blue is yours, red is theirs, and heroes get a gold rim and star. The terrain art is drawn in each hex. Hovering a hex shows what it does, and the side panel lists the ground on the current field.
+
+Terrain is a data table (`TERRAIN` in `data.ts`), so effects can be tuned in one place:
+
+| Ground | Move | Defense | Other |
+|---|---|---|---|
+| Open ground | 1 | | |
+| Forest | 2 | +1 | |
+| Hill | 2 | +1 | Missile troops shoot 1 hex farther |
+| Stream | 2 | −1 | Winds across the middle of half of all fields |
+| Marsh | 3 | −1 | −5 morale for each turn started there |
+| Thorns | 2 | +1 | Ending a move there costs 2 men or 2 HP (never the last man) |
+| Ruins | 2 | +2 | |
+| Rocks | impassable | | |
+| Holy spring | 1 | | Restores 3 men lost this battle (or 3 HP) and +5 morale at the start of each turn; on 40% of fields |
+
+The three columns at each edge stay open for deployment. The battle AI prefers good ground when two hexes are equally close to the enemy.
+
 ## Code layout
 
 - `src/game/`: pure rules with no DOM. Everything here is unit-tested.
@@ -50,7 +70,7 @@ Each part is basic, but they all connect: **recruit → march → fight → capt
   - `units.ts`: troop and hero levels, hit points, mana and attack.
   - `battle.ts`: the tactical layer (movement, combat, morale, spells), plus a battle AI that also powers auto-resolve and casts spells.
   - `hex.ts`, `rng.ts`: helpers. The RNG is seeded and stored in the save, so games can be replayed.
-- `src/ui/`: rendering into DOM/SVG. No game rules live here.
+- `src/ui/`: rendering into DOM/SVG. No game rules live here. `sprites.ts` holds the unit icons and terrain art.
 
 ## Battle math
 

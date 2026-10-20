@@ -114,13 +114,44 @@ main { display: grid; grid-template-columns: minmax(0, 1fr) 340px; min-height: c
 .log li { padding: 3px 0; border-bottom: 1px solid #332f28; }
 
 /* Battle */
-.hex { stroke: #1f2a1a; stroke-width: 1.5; cursor: pointer; }
-.hex.plain { fill: var(--land); }
-.hex.forest { fill: #2a3b24; }
-.hex.hill { fill: #4f5236; }
-.hex.reach { fill: #3d5f7d; }
-.hex.reach:hover { fill: #4f7aa0; }
-.terrain-glyph { fill: rgba(255, 255, 255, 0.25); font-size: 12px; text-anchor: middle; pointer-events: none; }
+.hex { stroke: #1f2a1a; stroke-width: 1.5; }
+.hex.plain { fill: #3d4d33; }
+.hex.forest { fill: #2c3d26; }
+.hex.hill { fill: #545637; }
+.hex.stream { fill: #2f5566; }
+.hex.marsh { fill: #3a4634; }
+.hex.thorns { fill: #4a4330; }
+.hex.ruins { fill: #4a4a40; }
+.hex.rocks { fill: #45443f; }
+.hex.spring { fill: #3d5236; }
+.hit { fill: transparent; stroke: none; cursor: pointer; }
+.hit:hover { fill: rgba(255, 255, 255, 0.06); }
+.hit.reach { fill: rgba(90, 150, 220, 0.38); stroke: #7fb3ea; stroke-width: 1; }
+.hit.reach:hover { fill: rgba(110, 170, 240, 0.55); }
+.t-art, .t-grass { pointer-events: none; }
+.t-tree { fill: #1f3a1d; stroke: #16291a; stroke-width: 0.8; }
+.t-trunk { stroke: #4a3520; stroke-width: 2; }
+.t-hill { fill: #66683f; stroke: #3f4128; stroke-width: 1.2; }
+.t-hill-line { stroke: #3f4128; stroke-width: 1; fill: none; }
+.t-wave { fill: none; stroke: #8cc4da; stroke-width: 1.6; stroke-linecap: round; opacity: 0.8; }
+.t-bog { fill: #2d3a35; stroke: #22302a; }
+.t-reed { stroke: #8c8a4c; stroke-width: 1.4; stroke-linecap: round; }
+.t-briar { fill: none; stroke: #6b4a2b; stroke-width: 2; stroke-linecap: round; }
+.t-spike { stroke: #a7764a; stroke-width: 1.2; stroke-linecap: round; }
+.t-stone { fill: #7b786a; stroke: #3d3b33; stroke-width: 1; }
+.t-mortar { stroke: #3d3b33; stroke-width: 0.8; }
+.t-rock { fill: #7a776f; stroke: #2e2d2a; stroke-width: 1.2; }
+.t-rock.dark { fill: #615f58; }
+.t-crack { stroke: #2e2d2a; stroke-width: 1; }
+.t-pool { fill: url(#pool); }
+.t-pool-rim { fill: none; stroke: #a3a08a; stroke-width: 2; }
+.t-sparkle { fill: #fff6c8; }
+.t-grass { fill: none; stroke: #55683f; stroke-width: 1.2; }
+.legend { margin-top: 12px; }
+.legend summary { cursor: pointer; color: var(--muted); font-size: 13px; }
+.legend ul { list-style: none; margin: 6px 0 0; padding: 0; }
+.legend li { display: flex; gap: 8px; align-items: center; font-size: 13px; padding: 3px 0; }
+.legend .swatch { width: 34px; height: 31px; flex: none; }
 .unit { cursor: pointer; }
 .unit .body { stroke: #1b1a17; stroke-width: 2; }
 .unit.mine .body { fill: var(--player); }
@@ -128,8 +159,9 @@ main { display: grid; grid-template-columns: minmax(0, 1fr) 340px; min-height: c
 .unit.sel .body { stroke: var(--gold); stroke-width: 4; }
 .unit.target .body { stroke: #ff5a3c; stroke-width: 4; stroke-dasharray: 5 3; }
 .unit.spent { opacity: 0.6; }
-.unit .code { fill: #fff; font-size: 11px; font-weight: bold; text-anchor: middle; font-family: system-ui, sans-serif; pointer-events: none; }
-.unit .men { fill: #fff; font-size: 11px; text-anchor: middle; font-family: system-ui, sans-serif; pointer-events: none; }
+.unit .icon { color: #fff; pointer-events: none; }
+.unit .star { fill: var(--gold); stroke: #1b1a17; stroke-width: 0.8; pointer-events: none; }
+.unit .men { fill: #fff; font-size: 10px; font-weight: bold; text-anchor: middle; font-family: system-ui, sans-serif; pointer-events: none; }
 .unit .hp-bg { fill: rgba(0, 0, 0, 0.5); }
 .unit .hp { fill: var(--good); }
 .stats { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; margin: 10px 0; }

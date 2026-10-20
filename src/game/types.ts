@@ -1,6 +1,23 @@
 export type FactionId = 'player' | 'orcs' | 'neutral';
 export type Side = 'attacker' | 'defender';
-export type Terrain = 'plain' | 'forest' | 'hill';
+export type Terrain = 'plain' | 'forest' | 'hill' | 'stream' | 'marsh' | 'thorns' | 'ruins' | 'rocks' | 'spring';
+
+export interface TerrainType {
+  id: Terrain;
+  name: string;
+  /** Movement points to enter; Infinity = impassable. */
+  move: number;
+  defense: number;
+  /** Extra range for missile troops standing here. */
+  rangeBonus: number;
+  /** Men (or hero HP) restored at the start of the unit's turn, up to its strength at the start of the battle. */
+  heal: number;
+  /** Men (or hero HP) lost when a unit ends a move here. Never kills the last man. */
+  moveLoss: number;
+  /** Morale lost at the start of each turn spent here. */
+  moraleDrain: number;
+  text: string;
+}
 export type SpellId = 'fireball' | 'terror' | 'heal' | 'rally';
 
 export interface Spell {

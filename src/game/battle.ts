@@ -1,4 +1,4 @@
-import { SPELLS, UNIT_TYPES } from './data';
+import { SPELLS, TERRAIN, UNIT_TYPES } from './data';
 import { hexDistance, hexKey, hexNeighbors, type Hex } from './hex';
 import { random } from './rng';
 import type { Army, Battle, BattleUnit, FactionId, Side, SpellId, Terrain } from './types';
@@ -12,8 +12,6 @@ export const ROUT_AT = 25;
 /** A running troop stops and turns to fight again once morale climbs back to this. */
 export const RALLY_AT = 45;
 
-const MOVE_COST: Record<Terrain, number> = { plain: 1, forest: 2, hill: 2 };
-const TERRAIN_DEF: Record<Terrain, number> = { plain: 0, forest: 1, hill: 1 };
 /** Fill rows from the middle outward so small armies stand in the centre. */
 const ROW_ORDER = [4, 3, 5, 2, 6, 1, 7, 0, 8];
 
@@ -39,15 +37,7 @@ export function createBattle(at: string, attacker: Army, defender: Army, walls: 
     retreated: null,
     seed,
   };
-  for (let col = 0; col < BATTLE_W; col++) {
-    const column: Terrain[] = [];
-    for (let row = 0; row < BATTLE_H; row++) {
-      const r = random(b);
-      const deployZone = col < 3 || col >= BATTLE_W - 3;
-      column.push(deployZone ? 'plain' : r < 0.12 ? 'forest' : r < 0.2 ? 'hill' : 'plain');
-    }
-    b.terrain.push(column);
-  }
+  b.terrain = generateTerrain(b);
   deploy(b, attacker, 'attacker', [2, 1, 0]);
   deploy(b, defender, 'defender', [BATTLE_W - 3, BATTLE_W - 2, BATTLE_W - 1]);
   return b;
@@ -55,6 +45,48 @@ export function createBattle(at: string, attacker: Army, defender: Army, walls: 
 
 export function leadershipOf(army: Army): number {
   return Math.max(0, ...army.troops.map((t) => (t.men > 0 ? UNIT_TYPES[t.type].hero?.leadership ?? 0 : 0)));
+}
+
+/** Weights for scattering single features over the middle of the field. */
+const SCATTER: [Terrain, number][] = [['forest', 0.1], ['hill', 0.06], ['marsh', 0.035], ['thorns', 0.03], ['ruins', 0.02], ['rocks', 0.03]];
+
+/** Middle of the field gets features; the three columns at each edge stay open for deployment. */
+function generateTerrain(rng: { seed: number }): Terrain[][] {
+  const t: Terrain[][] = Array.from({ length: BATTLE_W }, () => Array<Terrain>(BATTLE_H).fill('plain'));
+  const middle = (col: number) => col >= 3 && col < BATTLE_W - 3;
+  for (let col = 3; col < BATTLE_W - 3; col++) {
+    for (let row = 0; row < BATTLE_H; row++) {
+      let r = random(rng);
+      for (const [kind, weight] of SCATTER) {
+        if (r < weight) {
+          t[col][row] = kind;
+          break;
+        }
+        r -= weight;
+      }
+    }
+  }
+  // Half the fields have a stream winding from top to bottom.
+  if (random(rng) < 0.5) {
+    let col = 5 + Math.floor(random(rng) * 2);
+    for (let row = 0; row < BATTLE_H; row++) {
+      t[col][row] = 'stream';
+      const drift = random(rng);
+      const next = drift < 0.25 ? col - 1 : drift > 0.75 ? col + 1 : col;
+      if (middle(next) && next >= 4 && next <= BATTLE_W - 5) col = next;
+    }
+  }
+  // Some fields have a holy spring.
+  if (random(rng) < 0.4) {
+    const col = 4 + Math.floor(random(rng) * (BATTLE_W - 8));
+    const row = Math.floor(random(rng) * BATTLE_H);
+    t[col][row] = 'spring';
+  }
+  return t;
+}
+
+export function terrainAt(b: Battle, h: Hex) {
+  return TERRAIN[b.terrain[h.col][h.row]];
 }
 
 function startingMorale(b: Battle, side: Side, type: string, xp: number, leadership: number): number {
@@ -130,7 +162,7 @@ export function attackOf(u: BattleUnit): number {
 
 export function defenseOf(b: Battle, u: BattleUnit): number {
   const wall = b.walls && u.side === 'defender' ? 1 : 0;
-  return UNIT_TYPES[u.type].defense + TERRAIN_DEF[b.terrain[u.col][u.row]] + wall;
+  return Math.max(1, UNIT_TYPES[u.type].defense + terrainAt(b, u).defense + wall);
 }
 
 /** Fighting weight: men for a troop, a fixed value for a hero (wounds don't weaken their blows). */
@@ -161,7 +193,7 @@ function reachFrom(b: Battle, u: BattleUnit): Map<string, number> {
     if (!isStart && nextToEnemy(b, cur, u.side)) continue;
     for (const n of hexNeighbors(cur)) {
       if (!inBounds(b, n) || unitAt(b, n)) continue;
-      const cost = cur.cost + MOVE_COST[b.terrain[n.col][n.row]];
+      const cost = cur.cost + terrainAt(b, n).move;
       const k = hexKey(n);
       if (cost <= budget && cost < (best.get(k) ?? Infinity)) {
         best.set(k, cost);
@@ -182,12 +214,18 @@ export function reachable(b: Battle, u: BattleUnit): Map<string, number> {
 /** Enemies the unit can strike now: adjacent ones, or ones in missile range if it isn't engaged. */
 export function attackTargets(b: Battle, u: BattleUnit): BattleUnit[] {
   if (u.acted || u.men <= 0 || u.fled || u.routing) return [];
-  const range = UNIT_TYPES[u.type].range;
+  const range = rangeOf(b, u);
   const engaged = nextToEnemy(b, u, u.side);
   return alive(b, other(u.side)).filter((e) => {
     const d = hexDistance(u, e);
     return d === 1 || (range > 1 && !engaged && d <= range);
   });
+}
+
+/** Missile range, including the bonus for standing on high ground. Melee troops stay at 1. */
+export function rangeOf(b: Battle, u: BattleUnit): number {
+  const range = UNIT_TYPES[u.type].range;
+  return range > 1 ? range + terrainAt(b, u).rangeBonus : range;
 }
 
 export function moveUnit(b: Battle, unitId: number, to: Hex): boolean {
@@ -197,6 +235,9 @@ export function moveUnit(b: Battle, unitId: number, to: Hex): boolean {
   u.col = to.col;
   u.row = to.row;
   u.moved = true;
+  const ground = terrainAt(b, u);
+  const lost = Math.min(ground.moveLoss, u.men - 1);
+  if (lost > 0) b.log.push(`${unitLabel(b, u)} push into the ${ground.name.toLowerCase()}: ${lost} ${isHero(u.type) ? 'wounds' : 'men hurt'}.${takeLosses(b, u, lost)}`);
   return true;
 }
 
@@ -369,6 +410,14 @@ function flee(b: Battle, u: BattleUnit) {
 /** Morale recovers a little each turn; running troops either rally or keep running. */
 function startSideTurn(b: Battle) {
   for (const u of alive(b, b.active)) {
+    const ground = terrainAt(b, u);
+    if (ground.heal && u.men < u.maxMen) {
+      const amount = Math.min(ground.heal, u.maxMen - u.men);
+      u.men += amount;
+      if (!isHero(u.type)) u.morale = Math.min(100, u.morale + 5);
+      b.log.push(`The ${ground.name.toLowerCase()} restores ${unitLabel(b, u)}: ${amount} ${isHero(u.type) ? 'wounds mended' : 'men back'}.`);
+    }
+    if (ground.moraleDrain) shake(b, u, ground.moraleDrain);
     if (!u.routing) {
       u.morale = Math.min(100, u.morale + 3);
       continue;
@@ -464,8 +513,11 @@ function aiUnit(b: Battle, u: BattleUnit) {
   const range = caster ? 4 : UNIT_TYPES[u.type].range;
   const score = (h: Hex) => {
     const d = nearestEnemyDistance(b, h, u.side);
-    if (range === 1) return d;
-    return d < 2 ? 100 : Math.abs(d - range);
+    const g = terrainAt(b, h);
+    // Ground only breaks ties between hexes the same distance from the enemy.
+    const ground = -0.2 * g.defense + (g.moveLoss ? 0.3 : 0) + (g.moraleDrain ? 0.3 : 0) - (g.heal ? 0.3 : 0);
+    if (range === 1) return d + ground;
+    return (d < 2 ? 100 : Math.abs(d - range)) + ground;
   };
   let targets = attackTargets(b, u);
   if (targets.length === 0 || caster) {
