@@ -87,3 +87,13 @@ The reserve policy is deliberately explicit for this first slice: there are no m
 - Recurring city maintenance is a cash operating expense with a separate unpaid-maintenance line. Army desertion still triggers only on unpaid military wages; public resource production is **not** automatically treasury revenue.
 - Save v2–v6 migration retains the old cash ledger (with historical maintenance defaulted to zero) and seeds new stockpiles at the migration date without fabricating old city history.
 - Deferred: all 10 planned goods; specialized worker classes; 18 building families; sites unlocked to 6; construction queue/cancellation; durable degradation; commerce/trade; market prices; governors; private balances; external suppliers; fully distributed inputs and goods.
+
+
+## Veterans increment: real equipment refits
+
+- Schema v8 adds per-formation loadouts and in-progress, paid refit orders; earlier saves and battles migrate to default gear with no retroactive purchase or XP rewrite. Troop levels now display 1–10 using the existing XP progression (zero XP is level 1; XP 8 is level 5). Existing attack bonuses are conserved.
+- Arches: Short Bow (default), Long Bow (requires level 3), Compound Bow (requires level 5 and Tool Forge). Compound bow grants 50% missile attack multiplier and +2 range, at a substantial gold/material/maintenance cost.
+- Armor: Leather (default), Chain (level 2), Plate (level 3). Plate adds +3 defense and higher upkeep, cannot be equipped by archers, and requires a local Tool Forge, tools and ore.
+- Refits charge once for the formation's **surviving headcount**, consume real town materials, stop its movement this month, and only update equipment after the monthly phase. Defending battles while the order is pending use the old gear; save/reload neither repeats purchases nor accelerates refits.
+- UI shows level requirements, before/after equipment modifiers, material prices, and reasons unavailable options are disabled. Battlefield attack/range/defense and army payroll use actual equipped gear.
+- Remaining EQUIP scope: complete 22-piece equipment tree, icon overlays, city armories/stables, squad reinforcements, equipment salvage and condition, training, explicit refit queues, and independent battle effects for piercing damage. This is an incremental implementation, not the complete 1–10 equipment release.
