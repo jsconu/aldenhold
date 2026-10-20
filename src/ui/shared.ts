@@ -15,6 +15,10 @@ export interface UIState {
   /** Ephemeral map presentation; deliberately not part of the saved campaign. */
   mapLayer?: 'terrain' | 'political';
   mapZoom?: number;
+  /** Planning is a preview, not a saved army order. */
+  routeOrigin?: string | null;
+  routeDestination?: string | null;
+  routePreference?: 'shortest' | 'safer';
 }
 
 export function esc(s: string): string {
