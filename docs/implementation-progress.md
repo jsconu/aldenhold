@@ -46,3 +46,13 @@ The reserve policy is deliberately explicit for this first slice: there are no m
 4. Add level-based equipment/refits, then the 14-spell mage progression with tactical AI and save migrations.
 5. Build out the authored campaign and art pipeline; prototype the agreed procedural frontier after the campaign foundations are stable.
 6. Owner request (October 20 2026): bring back the parked hex overland map (`overland-map-wip`) as a second catalog campaign with more terrain variety and pixel-art tiles in the spirit of the original's overland view. Quick-play saves must stay valid.
+
+
+## Foundation increment 3: diplomatic quest and saved campaign items (branch work/fenwick-charter-v1)
+
+- New v5 schema stores quest resolution state, unique campaign inventory objects and location-scoped treaties; v2, v3 and v4 saves migrate safely to v5. Save storage keys are unchanged.
+- Q00 **The Fenwick Charter** is a separate **foundation fixture**, not one of the planned eighteen side quests. A council decision can sign a peaceful-passage treaty and award a sealed charter, or reject the accord. Neither choice can be repeated.
+- Signing allows player armies to coexist with the neutral garrison in Fenwick without a battle or annexation. Other neutral settlements remain unaffected. The treaty ends if the settlement changes hands.
+- The journal displays quest outcome and campaign-held inventory. Rewards are state-based and are not created again on reload.
+- Q04 **The Woodland Accord** remains unfinished: it requires Greenveil, city logging actions and enforced logging caps in the western campaign. Do not represent Q00 as completion of Q04.
+- Still remaining for full milestone A: general quest prereqs/deadlines/event scheduling, broader faction registry, item ownership/equipment/consumption, validated content cross-references, and real-browser verification.
