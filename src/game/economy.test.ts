@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { endTurn, hireHero, newGame, recruit, townIncome, monthlyUpkeep } from './campaign';
+import { endTurn, hireHero, newGame, recruit, monthlyUpkeep } from './campaign';
 import { currentMonthSpending } from './economy';
 import { parseSave, saveGame } from './saves';
 import type { GameState } from './types';
