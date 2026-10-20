@@ -12,6 +12,9 @@ export interface UIState {
   message: string;
   /** Campaign screen: the province map or the full journal. */
   view: 'map' | 'journal' | 'treasury';
+  /** Ephemeral map presentation; deliberately not part of the saved campaign. */
+  mapLayer?: 'terrain' | 'political';
+  mapZoom?: number;
 }
 
 export function esc(s: string): string {
