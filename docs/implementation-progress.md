@@ -65,3 +65,13 @@ The reserve policy is deliberately explicit for this first slice: there are no m
 - The journal displays quest outcome and campaign-held inventory. Rewards are state-based and are not created again on reload.
 - Q04 **The Woodland Accord** remains unfinished: it requires Greenveil, city logging actions and enforced logging caps in the western campaign. Do not represent Q00 as completion of Q04.
 - Still remaining for full milestone A: general quest prereqs/deadlines/event scheduling, broader faction registry, item ownership/equipment/consumption, validated content cross-references, and real-browser verification.
+
+
+## Economy increment 1: reconciled monthly treasury
+
+- Schema v6 adds a per-month cash ledger and preserves the original save storage key. Earlier save versions migrate with **no invented financial history**, starting the new ledger at the imported balance.
+- Town taxes, army payroll, troop recruitment and hero-hiring payments receive signed entries with originating action IDs, location and counterparty.
+- The monthly treasury view shows cash on hand, in-month purchases, cash receipts, cash payments, unpaid army payroll, and expandable history (12 most recent months shown).
+- When the realm cannot pay its troops, unpaid wages appear as a non-cash shortfall. Desertion and clamping the treasury to zero retain earlier gameplay behavior.
+- Each recorded month must satisfy opening cash + signed entries = closing cash. Save validation rejects inconsistent balances, invalid totals and duplicated transaction identifiers.
+- Future scope remains: city building costs, farm/mine upgrades, commodities, market prices, transfers, seasonal production, trade and governors. This increment is **not** the full ECO-01–ECO-18 economy.
