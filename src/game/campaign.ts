@@ -2,13 +2,13 @@ import { orcTurn } from './ai';
 import { autoResolve, createBattle, isAI, runAI } from './battle';
 import { getCampaign } from '../content';
 import { hasPassage } from './diplomacy';
-import { newTreasury, recordPurchase, settleTreasury } from './economy';
+import { newTreasury, recordPurchase, settleTreasury, type CashFlow } from './economy';
 import { newQuestState, onTownOwnershipChange } from './quests';
-import { advanceCities, cityMaintenance, startingCities } from './cities';
+import { advanceCities, cityMaintenance, startingCities, type CityPhaseResult } from './cities';
 import { basicLoadout, finishRefits, troopUpkeep } from './equipment';
 import { HERO_NAMES, HIREABLE_HEROES, UNIT_TYPES } from './data';
 import { random } from './rng';
-import type { Army, Battle, CampaignDefinition, CampaignId, DeedKind, FactionId, GameState, HeroOffer, Town, Troop } from './types';
+import type { Army, Battle, CampaignDefinition, CampaignId, DeedKind, FactionId, GameState, HeroOffer, MonthlyLedger, Town, Troop } from './types';
 import { heroLevel, heroMaxHp, heroMaxMana, isHero } from './units';
 import {
   landAt, locationName, marchOptions, marchRate, neighbors, pathTo, stepCost, townAt, townLocation, worldOf,
@@ -111,19 +111,20 @@ export function hireHero(state: GameState, offer: HeroOffer): string | null {
   return null;
 }
 
-function newOffers(state: GameState) {
+/** Expire old hero offers and maybe make a new one. Returns the news line for a new offer. */
+function newOffers(state: GameState): string | null {
   state.offers = state.offers.filter((o) => o.expires >= state.turn && state.towns[o.town]?.owner === 'player');
-  if (state.offers.length >= MAX_OFFERS || random(state) >= OFFER_CHANCE) return;
+  if (state.offers.length >= MAX_OFFERS || random(state) >= OFFER_CHANCE) return null;
   const towns = Object.values(state.towns).filter((t) => t.owner === 'player' && t.kind !== 'lair');
-  if (!towns.length) return;
+  if (!towns.length) return null;
   const town = towns[Math.floor(random(state) * towns.length)];
   const type = HIREABLE_HEROES[Math.floor(random(state) * HIREABLE_HEROES.length)];
   const taken = new Set([...state.armies.flatMap((a) => a.troops.map((t) => t.name)), ...state.offers.map((o) => o.name)]);
   const names = HERO_NAMES[type].filter((n) => !taken.has(n));
-  if (!names.length) return;
+  if (!names.length) return null;
   const name = names[Math.floor(random(state) * names.length)];
   state.offers.push({ town: town.id, type, name, expires: state.turn + OFFER_MONTHS });
-  log(state, `${name}, a ${UNIT_TYPES[type].name.toLowerCase()}, offers to serve you in ${nodeName(state, town.id)}.`);
+  return `${name}, a ${UNIT_TYPES[type].name.toLowerCase()}, offers to serve you in ${nodeName(state, town.id)}.`;
 }
 
 /** Rolling chronicle of recent news. Bounded; the journal keeps what matters for good. */
@@ -508,60 +509,166 @@ export function checkStatus(state: GameState) {
   }[reason], reason === 'lair-captured' ? townLocation(state, lair) : reason === 'capital-lost' ? townLocation(state, capital) : null);
 }
 
+/** The phases of a month, in the order they run. */
+export type MonthPhaseId =
+  | 'snapshot' | 'cities' | 'population' | 'heroes' | 'treasury' | 'construction' | 'refits' | 'shortages'
+  | 'desertion' | 'calendar' | 'offers' | 'ai' | 'ending';
+
+/** One line the month produced: news for the chronicle, or a deed that also goes in the journal. */
+export interface MonthNote {
+  text: string;
+  deed?: { kind: DeedKind; place: string | null };
+}
+
+/** What a month did, phase by phase. The chronicle and journal lines are written from it. */
+export interface MonthReport {
+  /** The month that was closed. */
+  month: number;
+  phases: { id: MonthPhaseId; notes: MonthNote[] }[];
+  /** Gold in and out, from the treasury phase. */
+  ledger: MonthlyLedger | null;
+  /** Battles waiting to be fought after the month closed (the AI phase is the only phase that starts them). */
+  battlePending: boolean;
+}
+
+/** Shared between phases of one month: things a later phase needs from an earlier one. */
+interface MonthContext {
+  maintenance: CashFlow[];
+  cities: CityPhaseResult | null;
+  ledger: MonthlyLedger | null;
+}
+
+interface MonthPhase {
+  id: MonthPhaseId;
+  run(state: GameState, ctx: MonthContext): MonthNote[];
+}
+
+const news = (text: string): MonthNote => ({ text });
+
+/**
+ * The month, in order (EVENT-01, ECO-23). Order matters: maintenance is charged on the sites operating before
+ * this month's construction finishes; the economy settles before the calendar turns; the orcs move last.
+ *
+ * Interruptions: only the `ai` phase can start a battle, and every economic phase has already run by then, so a
+ * month never has to resume halfway. Battles queued by the AI are fought after the month closes, and the ending
+ * check runs again after each battle (in `applyBattle`), never re-running the month.
+ */
+const MONTH_PHASES: MonthPhase[] = [
+  {
+    id: 'snapshot',
+    run(state, ctx) {
+      ctx.maintenance = Object.values(state.towns).filter((t) => t.owner === 'player')
+        .map((t) => ({ city: t.id, amount: cityMaintenance(state, t.id),
+          actionId: `maintenance:${state.turn}:${t.id}`, counterparty: 'City facilities' }));
+      return [];
+    },
+  },
+  { id: 'cities', run(state, ctx) { ctx.cities = advanceCities(state); return []; } },
+  {
+    id: 'population',
+    run(state, ctx) {
+      for (const t of Object.values(state.towns)) {
+        if (t.owner === 'player') t.pop = Math.max(0, t.pop + townGrowth(t) - (ctx.cities!.shortagePenalties[t.id] ?? 0));
+      }
+      return [];
+    },
+  },
+  {
+    id: 'heroes',
+    // Heroes mend a quarter of their wounds and recover all their mana each month.
+    run(state) {
+      for (const t of state.armies.flatMap((a) => a.troops)) {
+        if (!isHero(t.type)) continue;
+        const max = heroMaxHp(t.type, t.xp);
+        t.men = Math.min(max, t.men + Math.ceil(max / 4));
+        t.mana = heroMaxMana(t.type, t.xp);
+      }
+      return [];
+    },
+  },
+  {
+    id: 'treasury',
+    // Post real tax receipts by town, and wage payments by army location.
+    run(state, ctx) {
+      const taxes = Object.values(state.towns).filter((t) => t.owner === 'player')
+        .map((t) => ({ city: t.id, amount: townIncome(t), actionId: `tax:${state.turn}:${t.id}`, counterparty: nodeName(state, t.id) }));
+      const payroll = state.armies.filter((a) => a.owner === 'player')
+        .map((a) => ({ city: payrollCity(state, a.at), amount: a.troops.reduce((sum, t) => sum + troopUpkeep(t, UNIT_TYPES[t.type].upkeep), 0),
+          actionId: `wages:${state.turn}:${a.id}`, counterparty: 'Army payroll' }));
+      ctx.ledger = settleTreasury(state, taxes, payroll, ctx.maintenance);
+      return [];
+    },
+  },
+  { id: 'construction', run(_state, ctx) { return ctx.cities!.completed.map((c) => news(`Construction completed at ${c}.`)); } },
+  { id: 'refits', run(state) { return finishRefits(state).map((c) => news(`Refit finished: ${c}.`)); } },
+  {
+    id: 'shortages',
+    run(state, ctx) {
+      return ctx.cities!.shortages.filter((sh) => state.towns[sh.city].owner === 'player')
+        .map((sh) => news(`${nodeName(state, sh.city)} lacks ${sh.missing} food units this month.`));
+    },
+  },
+  {
+    id: 'desertion',
+    // Heroes stay loyal; hired soldiers walk.
+    run(state, ctx) {
+      if (!ctx.ledger || ctx.ledger.unpaidUpkeep <= 0) return [];
+      const soldiers = (a: Army) => a.troops.filter((t) => !isHero(t.type));
+      const biggest = state.armies.filter((a) => a.owner === 'player' && soldiers(a).length)
+        .sort((a, c) => soldiers(c).length - soldiers(a).length)[0];
+      if (!biggest) return [];
+      const gone = soldiers(biggest).at(-1)!;
+      biggest.troops = biggest.troops.filter((t) => t !== gone);
+      if (!biggest.troops.length) removeArmy(state, biggest);
+      return [{ text: `The treasury is empty. Unpaid ${UNIT_TYPES[gone.type].name} desert at ${nodeName(state, biggest.at)}.`,
+        deed: { kind: 'realm', place: biggest.at } }];
+    },
+  },
+  {
+    id: 'calendar',
+    run(state) {
+      state.turn++;
+      for (const a of state.armies) for (const t of a.troops) t.mp = marchRate(state, t);
+      return [];
+    },
+  },
+  { id: 'offers', run(state) { const line = newOffers(state); return line ? [news(line)] : []; } },
+  // The orcs' own battles, captures and raids are recorded by the rules they trigger.
+  { id: 'ai', run(state) { orcTurn(state); return []; } },
+  { id: 'ending', run(state) { checkStatus(state); return []; } },
+];
+
+/** The phase ids in run order, for documentation and tests. */
+export const MONTH_ORDER: readonly MonthPhaseId[] = MONTH_PHASES.map((p) => p.id);
+
 /** Wages are booked to the town an army stands in; on the valley every location is a named node. */
 function payrollCity(state: GameState, at: string): string | null {
   return worldOf(state).kind === 'graph' ? at : townAt(state, at)?.id ?? null;
 }
 
-function payMonth(state: GameState) {
-  // Recurring building charges are based on operating sites, not projects finishing this month.
-  const maintenance = Object.values(state.towns).filter((t) => t.owner === 'player')
-    .map((t) => ({ city: t.id, amount: cityMaintenance(state, t.id),
-      actionId: `maintenance:${state.turn}:${t.id}`, counterparty: 'City facilities' }));
-  const phase = advanceCities(state);
-  for (const t of Object.values(state.towns)) {
-    if (t.owner === 'player') t.pop = Math.max(0,
-      t.pop + townGrowth(t) - (phase.shortagePenalties[t.id] ?? 0));
-  }
-  // Heroes mend a quarter of their wounds and recover all their mana each month.
-  for (const t of state.armies.flatMap((a) => a.troops)) {
-    if (!isHero(t.type)) continue;
-    const max = heroMaxHp(t.type, t.xp);
-    t.men = Math.min(max, t.men + Math.ceil(max / 4));
-    t.mana = heroMaxMana(t.type, t.xp);
-  }
-  // Post real tax receipts by town, and wage payments by army location.
-  const taxes = Object.values(state.towns).filter((t) => t.owner === 'player')
-    .map((t) => ({ city: t.id, amount: townIncome(t), actionId: `tax:${state.turn}:${t.id}`, counterparty: nodeName(state, t.id) }));
-  const payroll = state.armies.filter((a) => a.owner === 'player')
-    .map((a) => ({ city: payrollCity(state, a.at), amount: a.troops.reduce((sum, t) => sum + troopUpkeep(t, UNIT_TYPES[t.type].upkeep), 0),
-      actionId: `wages:${state.turn}:${a.id}`, counterparty: 'Army payroll' }));
-  const ledger = settleTreasury(state, taxes, payroll, maintenance);
-  for (const completed of phase.completed) log(state, `Construction completed at ${completed}.`);
-  for (const completed of finishRefits(state)) log(state, `Refit finished: ${completed}.`);
-  for (const shortage of phase.shortages) {
-    if (state.towns[shortage.city].owner === 'player') log(state, `${nodeName(state, shortage.city)} lacks ${shortage.missing} food units this month.`);
-  }
-  if (ledger.unpaidUpkeep > 0) {
-    // Heroes stay loyal; hired soldiers walk.
-    const soldiers = (a: Army) => a.troops.filter((t) => !isHero(t.type));
-    const armies = state.armies.filter((a) => a.owner === 'player' && soldiers(a).length);
-    const biggest = armies.sort((a, c) => soldiers(c).length - soldiers(a).length)[0];
-    if (biggest) {
-      const gone = soldiers(biggest).at(-1)!;
-      biggest.troops = biggest.troops.filter((t) => t !== gone);
-      if (!biggest.troops.length) removeArmy(state, biggest);
-      deed(state, 'realm', `The treasury is empty. Unpaid ${UNIT_TYPES[gone.type].name} desert at ${nodeName(state, biggest.at)}.`, biggest.at);
+/**
+ * Close the month: run every phase in order and return what happened. Each phase's lines are written to the
+ * chronicle (and deeds to the journal) as soon as that phase finishes, so the chronicle stays in time order.
+ * Returns null, doing nothing, during a battle or after the campaign has ended.
+ */
+export function advanceMonth(state: GameState): MonthReport | null {
+  if (state.battle || state.status !== 'playing') return null;
+  const report: MonthReport = { month: state.turn, phases: [], ledger: null, battlePending: false };
+  const ctx: MonthContext = { maintenance: [], cities: null, ledger: null };
+  for (const phase of MONTH_PHASES) {
+    const notes = phase.run(state, ctx);
+    for (const note of notes) {
+      if (note.deed) deed(state, note.deed.kind, note.text, note.deed.place);
+      else log(state, note.text);
     }
+    report.phases.push({ id: phase.id, notes });
   }
+  report.ledger = ctx.ledger;
+  report.battlePending = state.battle !== null || state.pending.length > 0;
+  return report;
 }
 
-export function endTurn(state: GameState) {
-  if (state.battle || state.status !== 'playing') return;
-  payMonth(state);
-  state.turn++;
-  for (const a of state.armies) for (const t of a.troops) t.mp = marchRate(state, t);
-  newOffers(state);
-  orcTurn(state);
-  checkStatus(state);
+/** End the month (the player's button). */
+export function endTurn(state: GameState): MonthReport | null {
+  return advanceMonth(state);
 }
