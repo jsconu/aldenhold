@@ -60,3 +60,17 @@ describe('content validator', () => {
     expect(out).toMatch(/"militia" is not a hero unit/);
   });
 });
+
+
+describe('quest and item content references', () => {
+  it('resolves the charter quest and its unique evidence object', () => {
+    expect(validateContent(CATALOG)).toEqual([]);
+    expect(CATALOG.quests.Q00.rewardItem).toBe('fenwick-charter');
+    expect(CATALOG.items['fenwick-charter'].questIds).toContain('Q00');
+  });
+  it('rejects item references to missing quests', () => {
+    const broken = structuredClone(CATALOG);
+    broken.items['fenwick-charter'].questIds = ['Q99'];
+    expect(validateContent(broken).some((e) => e.includes('unknown quest'))).toBe(true);
+  });
+});
