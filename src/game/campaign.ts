@@ -1,6 +1,8 @@
 import { orcTurn } from './ai';
 import { autoResolve, createBattle, isAI, runAI } from './battle';
 import { getCampaign } from '../content';
+import { hasPassage } from './diplomacy';
+import { newQuestState, onTownOwnershipChange } from './quests';
 import { HERO_NAMES, HIREABLE_HEROES, UNIT_TYPES } from './data';
 import { random } from './rng';
 import type { Army, Battle, CampaignDefinition, CampaignId, DeedKind, FactionId, GameState, HeroOffer, Town, Troop } from './types';
@@ -16,7 +18,7 @@ const OFFER_MONTHS = 3;
 export function newGame(seed = Math.floor(Math.random() * 2 ** 31), campaignId: CampaignId = 'valley-quickplay'): GameState {
   const def = getCampaign(campaignId);
   const state: GameState = {
-    version: 4,
+    version: 5,
     campaignId: def.id,
     campaignRevision: def.revision,
     endingReason: null,
@@ -33,6 +35,9 @@ export function newGame(seed = Math.floor(Math.random() * 2 ** 31), campaignId: 
     offers: def.offers.map((o) => ({ ...o })),
     log: [],
     journal: [],
+    quests: newQuestState(),
+    items: [],
+    treaties: {},
     status: 'playing',
   };
   for (const t of def.towns) state.towns[t.id] = { ...t };
@@ -198,7 +203,7 @@ export function moveTroops(state: GameState, from: string, troopIds: number[], t
 export function enterNode(state: GameState, army: Army, to: string) {
   army.from = army.at;
   army.at = to;
-  const enemy = state.armies.find((a) => a !== army && a.at === to && a.owner !== army.owner);
+  const enemy = state.armies.find((a) => a !== army && a.at === to && a.owner !== army.owner && !(a.owner === 'neutral' && hasPassage(state, army.owner, to)));
   if (enemy) startBattle(state, army.id, enemy.id);
   else settle(state, army);
 }
@@ -212,13 +217,14 @@ function settle(state: GameState, army: Army) {
   }
   army.from = null;
   const town = state.towns[army.at];
-  if (town && town.owner !== army.owner) captureTown(state, town, army.owner);
+  if (town && town.owner !== army.owner && !hasPassage(state, army.owner, town.id)) captureTown(state, town, army.owner);
 }
 
 function captureTown(state: GameState, town: Town, owner: FactionId) {
   const name = nodeName(state, town.id);
   const was = town.owner;
   town.owner = owner;
+  onTownOwnershipChange(state, town.id, owner);
   town.pop = Math.floor(town.pop * 0.9);
   if (owner === 'player') {
     town.tax = 15;
