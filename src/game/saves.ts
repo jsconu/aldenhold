@@ -5,10 +5,11 @@ import { QUESTS } from '../content/quests';
 import { newQuestState } from './quests';
 import { newTreasury } from './economy';
 import { BUILDING_IDS, BUILDINGS, developmentSites, GOODS, MAX_BUILDING_LEVEL, MAX_DEVELOPMENT_SITES, startingCities } from './cities';
+import { basicLoadout, EQUIPMENT, equipmentQuoteGold } from './equipment';
 import { endingReason } from './campaign';
 import { TERRAIN, UNIT_TYPES } from './data';
 import { heroMaxHp, heroMaxMana, isHero } from './units';
-import type { CampaignId, DeedKind, GameState, JournalEntry, LedgerCategory, Town } from './types';
+import type { CampaignId, DeedKind, GameState, JournalEntry, LedgerCategory, Town, EquipmentId } from './types';
 
 /** Storage slot names are stable; the schema version lives inside the save itself. */
 export const SAVE_KEY = 'aragon-save-v3';
@@ -40,12 +41,12 @@ const factions = ['player', 'orcs', 'neutral'];
 const deedKinds: DeedKind[] = ['story', 'battle', 'capture', 'loss', 'hero', 'realm', 'ending', 'earlier'];
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const sides = ['attacker', 'defender'];
-const ledgerCategories: LedgerCategory[] = ['tax', 'wages', 'recruitment', 'hero-hire', 'construction', 'maintenance', 'balance-correction'];
+const ledgerCategories: LedgerCategory[] = ['tax', 'wages', 'recruitment', 'hero-hire', 'construction', 'maintenance', 'refit', 'balance-correction'];
 
 /** Validate both shape and references before exposing a save to rules or rendering. */
 function validate(value: unknown, allowMissingBattleTroops = false): asserts value is GameState {
   const s = object(value);
-  requireValue(s.version === 7, 'unsupported schema version');
+  requireValue(s.version === 8, 'unsupported schema version');
   requireValue(text(s.campaignId) && Object.hasOwn(CATALOG.campaigns, s.campaignId), 'unknown campaign');
   const def = getCampaign(s.campaignId as CampaignId);
   requireValue(s.campaignRevision === def.revision, 'unsupported campaign revision');
@@ -86,6 +87,26 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
       requireValue(t.name === undefined || text(t.name), 'troop name');
       requireValue(t.men <= (isHero(t.type) ? heroMaxHp(t.type, t.xp) : UNIT_TYPES[t.type].men), 'troop strength');
       requireValue(isHero(t.type) ? integer(t.mana, 0, heroMaxMana(t.type, t.xp)) : t.mana === undefined || t.mana === 0, 'troop mana');
+      const gear = object(t.gear);
+      requireValue(Object.keys(gear).length === 2 && oneOf(gear.armor, ['leather', 'chain', 'plate']) &&
+        oneOf(gear.bow, [null, 'short-bow', 'long-bow', 'compound-bow']), 'equipment loadout');
+      requireValue((t.type === 'archers' || t.type === 'orcArchers') ?
+        gear.armor !== 'plate' : gear.bow === null, 'equipment compatibility');
+      if (t.refit !== null) {
+        const refit = object(t.refit);
+        requireValue(text(refit.item) && Object.hasOwn(EQUIPMENT, refit.item), 'refit item');
+        const defn = EQUIPMENT[refit.item as EquipmentId];
+        requireValue(!isHero(t.type) && t.moved === true && refit.startedTurn === s.turn &&
+          integer(refit.orderedMen, Number(t.men), UNIT_TYPES[t.type].men) &&
+          refit.paidGold === equipmentQuoteGold(defn.id, refit.orderedMen as number) &&
+          (defn.slot === 'bow' ? t.type === 'archers' : !(t.type === 'archers' && defn.id === 'plate')),
+          'refit order');
+        const paid = object(refit.paidGoods);
+        const quote = defn.goodsPerFormation(refit.orderedMen as number);
+        requireValue(Object.keys(paid).length === Object.keys(quote).length &&
+          Object.entries(quote).every(([good, amount]) => paid[good] === amount), 'refit materials');
+      }
+
     }
   }
   for (const entry of array(s.pending)) {
@@ -130,7 +151,7 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
       'treasury does not reconcile');
     requireValue(transactions.filter((e) => e.category === 'tax').reduce((sum, e) => sum + Number(e.amount), 0) === month.income,
       'treasury income total');
-    requireValue(-transactions.filter((e) => ['wages', 'recruitment', 'hero-hire', 'construction', 'maintenance'].includes(String(e.category)))
+    requireValue(-transactions.filter((e) => ['wages', 'recruitment', 'hero-hire', 'construction', 'maintenance', 'refit'].includes(String(e.category)))
       .reduce((sum, e) => sum + Number(e.amount), 0) === month.expenses, 'treasury expense total');
   }
   const history = array(treasury.history);
@@ -236,6 +257,7 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
       const army = u.side === 'attacker' ? a : d;
       const troop = army.troops.find((t) => t.id === u.troopId);
       requireValue(troop && u.armyId === army.id && u.type === troop.type && u.xp === troop.xp && u.startMen === troop.men, 'battle troop references');
+      requireValue(JSON.stringify(u.gear) === JSON.stringify(troop.gear), 'battle equipment snapshot');
       requireValue(integer(u.maxMen, 1) && u.maxMen === (isHero(troop.type) ? heroMaxHp(troop.type, troop.xp) : troop.men) && integer(u.men, 0, u.maxMen), 'battle strength');
       requireValue(integer(u.mana, 0, heroMaxMana(troop.type, troop.xp)) && integer(u.morale, 0, 100) && integer(u.deeds), 'battle resources');
       requireValue([u.reserve, u.routing, u.fled, u.moved, u.acted].every(bool) && (u.name === undefined || text(u.name)), 'battle flags');
@@ -311,6 +333,31 @@ function upgradeToV7(value: Record<string, unknown>) {
   value.version = 7;
 }
 
+/** Add default real-world loadouts without awarding level-gated gear or charging historic gold. */
+function upgradeToV8(value: Record<string, unknown>) {
+  const armies = array(value.armies);
+  const troopTypes = new Map<number, string>();
+  for (const entry of armies) {
+    const army = object(entry);
+    for (const raw of array(army.troops)) {
+      const t = object(raw);
+      requireValue(text(t.type) && Object.hasOwn(UNIT_TYPES, t.type), 'legacy equipment troop');
+      t.gear = basicLoadout(t.type);
+      t.refit = null;
+      if (integer(t.id, 1)) troopTypes.set(t.id, t.type);
+    }
+  }
+  if (value.battle !== null) {
+    for (const raw of array(object(value.battle).units)) {
+      const u = object(raw);
+      const type = troopTypes.get(u.troopId as number);
+      requireValue(type !== undefined, 'legacy equipment battle');
+      u.gear = basicLoadout(type);
+    }
+  }
+  value.version = 8;
+}
+
 /** Migration runs on parsed JSON only; it never edits the legacy storage entry. */
 export function parseSave(raw: string): GameState {
   requireValue(new TextEncoder().encode(raw).length <= MAX_SAVE_BYTES, 'file exceeds 5 MB');
@@ -335,6 +382,7 @@ export function parseSave(raw: string): GameState {
     upgradeToV5(value);
     upgradeToV6(value);
     upgradeToV7(value);
+    upgradeToV8(value);
     validate(value, true);
     if (value.battle) {
       const b = value.battle;
@@ -351,6 +399,7 @@ export function parseSave(raw: string): GameState {
   if (value.version === 4) upgradeToV5(value);
   if (value.version === 5) upgradeToV6(value);
   if (value.version === 6) upgradeToV7(value);
+  if (value.version === 7) upgradeToV8(value);
   validate(value);
   return value;
 }
