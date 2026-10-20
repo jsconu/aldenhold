@@ -1,8 +1,8 @@
 import { UNIT_TYPES } from './data';
 
-/** Troop level from battles survived: 0–3, each adding 15% attack and some morale. */
+/** Troop level 1–10. Existing XP preserves the old damage curve: level 4 equals old tier 3. */
 export function level(xp: number): number {
-  return Math.min(3, Math.floor(xp / 2));
+  return 1 + Math.min(9, Math.floor(xp / 2));
 }
 
 export function isHero(type: string): boolean {
@@ -26,5 +26,5 @@ export function heroMaxMana(type: string, xp: number): number {
 /** Attack value after experience. */
 export function attackFor(type: string, xp: number): number {
   const t = UNIT_TYPES[type];
-  return t.hero ? t.attack * (1 + 0.1 * (heroLevel(xp) - 1)) : t.attack * (1 + 0.15 * level(xp));
+  return t.hero ? t.attack * (1 + 0.1 * (heroLevel(xp) - 1)) : t.attack * (1 + 0.15 * (level(xp) - 1));
 }
