@@ -165,3 +165,29 @@ Bugs removed by this:
 - The Fenwick envoy-range rule was written twice (quest and panel); it now lives only in `charterQuote`.
 
 Validation: 213 tests pass (7 new quote tests at the quote seam, including both bug cases); build passes; checked in the browser that disabled buttons show the quote's reason.
+
+## Architecture increment: month pipeline (#22)
+
+`advanceMonth(state)` runs the month as one ordered table of named phases (`MONTH_PHASES` in `campaign.ts`) and returns a `MonthReport`; `endTurn` is now a thin wrapper.
+
+| Order | Phase | What it does |
+| --- | --- | --- |
+| 1 | snapshot | Fix this month's city maintenance on the sites operating before construction finishes |
+| 2 | cities | Production, consumption and construction (`advanceCities`) |
+| 3 | population | Growth minus food-shortage penalties |
+| 4 | heroes | Heroes mend a quarter of their wounds and refill mana |
+| 5 | treasury | Taxes, wages and maintenance settle in the ledger |
+| 6 | construction | Report finished projects |
+| 7 | refits | Finish paid refits |
+| 8 | shortages | Report food shortages |
+| 9 | desertion | Unpaid soldiers leave (a journal deed) |
+| 10 | calendar | The month turns; movement points refill |
+| 11 | offers | Hero offers expire or appear |
+| 12 | ai | The orcs spawn, raid and march |
+| 13 | ending | Victory and defeat check |
+
+Each phase returns its notes (chronicle news, or deeds that also go to the journal); they are written as soon as that phase finishes, so the chronicle stays in time order. The orcs' own battles and captures are still recorded by the rules they trigger.
+
+**Interruption rule:** only the `ai` phase can start a battle, and every economic phase has already run by then, so a month never has to resume halfway and no save change is needed. Battles the AI queues are fought after the month closes; the ending check runs again after each battle, and the month is never re-run.
+
+Validation: 218 tests pass, including 5 new month tests (documented order, notes written in phase order, deeds in the journal, no work during a battle or after the ending, an orc attack fought after the month closes without re-running it, and deterministic reports for a seed). All earlier seeded campaign tests pass unchanged, so month results are identical. Checked in the browser: four month-ends on the Western Realm.

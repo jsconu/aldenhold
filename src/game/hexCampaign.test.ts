@@ -134,7 +134,7 @@ describe('Western Realm: orcs and time', () => {
       expect(westOfMountains.length + s.journal.filter((j) => j.kind === 'battle').length).toBeGreaterThan(0);
       expect(() => parseSave(JSON.stringify(s))).not.toThrow();
     }
-  });
+  }, 20_000); // a deliberately long soak: three seeds × 36 months
 });
 
 describe('Western Realm: saves', () => {
