@@ -6,6 +6,7 @@ import { attackFor, heroLevel, heroMaxHp, isHero, level } from './units';
 
 export const BATTLE_W = 12;
 export const BATTLE_H = 9;
+export const FIELD_LIMIT = 3 * BATTLE_H;
 export const MAX_ROUNDS = 20;
 /** A troop whose morale drops below this breaks and runs. */
 export const ROUT_AT = 25;
@@ -106,10 +107,10 @@ function deploy(b: Battle, army: Army, side: Side, cols: number[]) {
     const type = UNIT_TYPES[t.type];
     const behind = type.range > 1 || (type.hero?.spells.length ?? 0) > 0;
     const slot = place(behind ? rear : front);
-    if (!slot) return;
-    taken.add(hexKey(slot));
+    if (slot) taken.add(hexKey(slot));
     b.units.push({
       id: b.units.length + 1,
+      reserve: !slot,
       side,
       armyId: army.id,
       troopId: t.id,
@@ -124,8 +125,8 @@ function deploy(b: Battle, army: Army, side: Side, cols: number[]) {
       routing: false,
       fled: false,
       deeds: 0,
-      col: slot.col,
-      row: slot.row,
+      col: slot?.col ?? -1,
+      row: slot?.row ?? -1,
       moved: false,
       acted: false,
     });
@@ -142,9 +143,15 @@ export function playerSide(b: Battle): Side | null {
   return null;
 }
 
+/** Overflow remains with the army, but does not fight or earn XP in this battle.
+ * It shares the army's retreat and pursuit losses after resolution. */
+export function reserves(b: Battle, side?: Side): BattleUnit[] {
+  return b.units.filter((u) => u.reserve && u.men > 0 && (!side || u.side === side));
+}
+
 /** Units still on the field (including ones that are running). */
 export function alive(b: Battle, side?: Side): BattleUnit[] {
-  return b.units.filter((u) => u.men > 0 && !u.fled && (!side || u.side === side));
+  return b.units.filter((u) => u.men > 0 && !u.fled && !u.reserve && (!side || u.side === side));
 }
 
 /** Units on the field that are still fighting. */
@@ -153,7 +160,7 @@ export function fighting(b: Battle, side: Side): BattleUnit[] {
 }
 
 export function unitAt(b: Battle, h: Hex): BattleUnit | undefined {
-  return b.units.find((u) => u.men > 0 && !u.fled && u.col === h.col && u.row === h.row);
+  return b.units.find((u) => u.men > 0 && !u.fled && !u.reserve && u.col === h.col && u.row === h.row);
 }
 
 export function attackOf(u: BattleUnit): number {
@@ -207,13 +214,13 @@ function reachFrom(b: Battle, u: BattleUnit): Map<string, number> {
 
 /** Hexes the unit can move to this turn, with their movement cost. Enemies exert a zone of control. */
 export function reachable(b: Battle, u: BattleUnit): Map<string, number> {
-  if (u.moved || u.acted || u.men <= 0 || u.fled || u.routing) return new Map();
+  if (u.reserve || u.moved || u.acted || u.men <= 0 || u.fled || u.routing) return new Map();
   return reachFrom(b, u);
 }
 
 /** Enemies the unit can strike now: adjacent ones, or ones in missile range if it isn't engaged. */
 export function attackTargets(b: Battle, u: BattleUnit): BattleUnit[] {
-  if (u.acted || u.men <= 0 || u.fled || u.routing) return [];
+  if (u.reserve || u.acted || u.men <= 0 || u.fled || u.routing) return [];
   const range = rangeOf(b, u);
   const engaged = nextToEnemy(b, u, u.side);
   return alive(b, other(u.side)).filter((e) => {
@@ -313,7 +320,7 @@ export function knownSpells(u: BattleUnit): SpellId[] {
 /** Units the hero could cast this spell on right now. */
 export function spellTargets(b: Battle, u: BattleUnit, spellId: SpellId): BattleUnit[] {
   const spell = SPELLS[spellId];
-  if (u.acted || u.men <= 0 || !knownSpells(u).includes(spellId) || u.mana < spell.cost) return [];
+  if (u.reserve || u.fled || u.routing || u.acted || u.men <= 0 || !knownSpells(u).includes(spellId) || u.mana < spell.cost) return [];
   const pool = spell.target === 'enemy' ? alive(b, other(u.side)) : alive(b, u.side);
   return pool.filter((t) => {
     if (hexDistance(u, t) > spell.range) return false;

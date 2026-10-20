@@ -9,6 +9,8 @@ npm test        # rules tests
 npm run build   # type-check and build to dist/
 ```
 
-See [docs/design.md](docs/design.md) for what's in v0.1, what's next, and how the code is laid out.
+See [docs/design.md](docs/design.md) for the original prototype design and code layout. The approved expansion plan is in [completion requirements](docs/completion-requirements.md) ([Word version](docs/Aragon_Game_Completion_Requirements.docx)); track implementation in [foundation progress](docs/implementation-progress.md).
 
-The game autosaves to your browser after every action. Use **New game** to start over.
+The game autosaves to your browser after every action. Use **Export save** for a JSON backup, **Import save** to restore one, or **New game** to start over. Version 2 saves migrate to version 3 while their original stored copy is retained. Invalid saves pause autosaving until you import a valid save or choose New game; storage failures show a warning.
+
+Battles field the first 27 formations per army. Additional formations appear in the reserve list and remain off-field for that battle. They earn no combat XP or combat losses, but share their army's retreat, pursuit losses and dispersal if cut off. Deployment selection and reinforcement waves are planned for a later increment.

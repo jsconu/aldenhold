@@ -29,7 +29,7 @@ export function renderCampaign(state: GameState, ui: UIState): string {
     <button data-action="new-game" class="ghost">New game</button>
     <button data-action="end-turn" class="primary" ${state.status !== 'playing' ? 'disabled' : ''}>End month</button>
   </header>
-  ${state.status !== 'playing' ? `<div class="banner ${state.status}">${state.status === 'won' ? 'You have won. The valley is united.' : 'You have lost. Aldenhold has fallen.'} <button data-action="new-game">Play again</button></div>` : ''}
+  ${state.status !== 'playing' ? `<div class="banner ${state.status}">${state.status === 'won' ? 'You have won. The valley is united.' : state.endingReason === 'lord-dead' ? 'You have lost. Your lord is dead.' : 'You have lost. Aldenhold has fallen.'} <button data-action="new-game">Play again</button></div>` : ''}
   <main class="campaign">
     <section class="map-wrap">${renderMap(state, ui)}</section>
     <aside class="side">
