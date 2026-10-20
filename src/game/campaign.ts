@@ -1,10 +1,9 @@
 import { orcTurn } from './ai';
 import { autoResolve, createBattle, isAI, runAI } from './battle';
-import {
-  CAPITAL, HERO_NAMES, HIREABLE_HEROES, LAIR, MAP_EDGES, MAP_NODES, START_ARMIES, START_OFFER, START_TOWNS, STARTING_GOLD, UNIT_TYPES,
-} from './data';
+import { getCampaign } from '../content';
+import { HERO_NAMES, HIREABLE_HEROES, UNIT_TYPES } from './data';
 import { random } from './rng';
-import type { Army, Battle, FactionId, GameState, HeroOffer, Town, Troop } from './types';
+import type { Army, Battle, CampaignDefinition, CampaignId, DeedKind, FactionId, GameState, HeroOffer, Town, Troop } from './types';
 import { heroLevel, heroMaxHp, heroMaxMana, isHero } from './units';
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -14,32 +13,39 @@ const OFFER_CHANCE = 0.3;
 const MAX_OFFERS = 2;
 const OFFER_MONTHS = 3;
 
-export function newGame(seed = Math.floor(Math.random() * 2 ** 31)): GameState {
+export function newGame(seed = Math.floor(Math.random() * 2 ** 31), campaignId: CampaignId = 'valley-quickplay'): GameState {
+  const def = getCampaign(campaignId);
   const state: GameState = {
-    version: 3,
-    campaignId: 'valley-quickplay',
-    campaignRevision: 1,
+    version: 4,
+    campaignId: def.id,
+    campaignRevision: def.revision,
     endingReason: null,
     turn: 1,
-    gold: STARTING_GOLD,
+    gold: def.startingGold,
     nextId: 1,
     seed,
-    nodes: MAP_NODES.map((n) => ({ ...n })),
-    edges: MAP_EDGES.map(([a, b]) => [a, b] as [string, string]),
+    nodes: def.nodes.map((n) => ({ ...n })),
+    edges: def.edges.map(([a, b]) => [a, b] as [string, string]),
     towns: {},
     armies: [],
     battle: null,
     pending: [],
-    offers: [{ ...START_OFFER }],
+    offers: def.offers.map((o) => ({ ...o })),
     log: [],
+    journal: [],
     status: 'playing',
   };
-  for (const t of START_TOWNS) state.towns[t.id] = { ...t };
-  for (const a of START_ARMIES) {
+  for (const t of def.towns) state.towns[t.id] = { ...t };
+  for (const a of def.armies) {
     state.armies.push({ id: state.nextId++, owner: a.owner, at: a.at, from: null, troops: a.troops.map((t) => (typeof t === 'string' ? makeTroop(state, t) : makeTroop(state, t.type, t.name))) });
   }
-  log(state, 'Your father is dead and Aldenhold is yours. Orcs raid the valley from Gharzak Hold. Bring the free towns under your banner and break the Hold.');
+  deed(state, 'story', def.intro, def.capital);
   return state;
+}
+
+/** The static definition of the campaign this game is playing. */
+export function campaignOf(state: GameState): CampaignDefinition {
+  return getCampaign(state.campaignId);
 }
 
 export function makeTroop(state: GameState, type: string, name?: string): Troop {
@@ -70,7 +76,7 @@ export function hireHero(state: GameState, offer: HeroOffer): string | null {
   const army = armyAt(state, offer.town, 'player');
   if (army) army.troops.push(troop);
   else state.armies.push({ id: state.nextId++, owner: 'player', at: offer.town, from: null, troops: [troop] });
-  log(state, `${offer.name} the ${type.name.toLowerCase()} joins you in ${nodeName(state, offer.town)}.`);
+  deed(state, 'hero', `${offer.name} the ${type.name.toLowerCase()} joins you in ${nodeName(state, offer.town)}.`, offer.town);
   return null;
 }
 
@@ -89,9 +95,16 @@ function newOffers(state: GameState) {
   log(state, `${name}, a ${UNIT_TYPES[type].name.toLowerCase()}, offers to serve you in ${nodeName(state, town.id)}.`);
 }
 
+/** Rolling chronicle of recent news. Bounded; the journal keeps what matters for good. */
 export function log(state: GameState, line: string) {
   state.log.unshift(`${dateLabel(state.turn)}: ${line}`);
   state.log.length = Math.min(state.log.length, 60);
+}
+
+/** Record a deed in the permanent journal (BASE-04) and announce it in the chronicle. */
+export function deed(state: GameState, kind: DeedKind, text: string, place: string | null = null) {
+  state.journal.push({ id: state.journal.length + 1, turn: state.turn, kind, text, place });
+  log(state, text);
 }
 
 export function dateLabel(turn: number): string {
@@ -204,11 +217,14 @@ function settle(state: GameState, army: Army) {
 
 function captureTown(state: GameState, town: Town, owner: FactionId) {
   const name = nodeName(state, town.id);
+  const was = town.owner;
   town.owner = owner;
   town.pop = Math.floor(town.pop * 0.9);
   if (owner === 'player') {
     town.tax = 15;
-    log(state, town.kind === 'lair' ? `${name} has fallen to your army!` : `${name} now flies your banner.`);
+    deed(state, 'capture', town.kind === 'lair' ? `${name} has fallen to your army!` : `${name} now flies your banner.`, town.id);
+  } else if (was === 'player') {
+    deed(state, 'loss', `${owner === 'orcs' ? 'Orcs have' : 'The enemy has'} taken ${name} from you.`, town.id);
   } else if (owner === 'orcs') {
     log(state, `Orcs have taken ${name}.`);
   }
@@ -253,14 +269,14 @@ export function applyBattle(state: GameState, b: Battle) {
       if (!u || u.reserve) continue;
       t.men = u.men;
       if (t.men <= 0) {
-        if (t.name) log(state, `${t.name} died at ${nodeName(state, b.at)}.`);
+        if (t.name) deed(state, army.owner === 'player' ? 'loss' : 'battle', `${t.name} died at ${nodeName(state, b.at)}.`, b.at);
         continue;
       }
       if (isHero(t.type)) {
         const before = heroLevel(t.xp);
         t.mana = u.mana;
         t.xp += 1 + Math.floor(u.deeds / 2);
-        if (heroLevel(t.xp) > before && army.owner === 'player') log(state, `${t.name} reaches level ${heroLevel(t.xp)}.`);
+        if (heroLevel(t.xp) > before && army.owner === 'player') deed(state, 'hero', `${t.name} reaches level ${heroLevel(t.xp)}.`, b.at);
       } else {
         t.xp += 1;
       }
@@ -273,7 +289,7 @@ export function applyBattle(state: GameState, b: Battle) {
   const place = nodeName(state, b.at);
   const winner = b.owners[b.outcome ?? 'defender'];
   if (b.owners.attacker === 'player' || b.owners.defender === 'player') {
-    log(state, winner === 'player' ? `Victory at ${place}.` : `Defeat at ${place}.`);
+    deed(state, 'battle', winner === 'player' ? `Victory at ${place}.` : `Defeat at ${place}.`, b.at);
   }
 
   const survives = (a: Army | undefined): a is Army => !!a && !!findArmy(state, a.id);
@@ -303,12 +319,16 @@ function fallBack(state: GameState, army: Army) {
   }
   removeArmy(state, army);
   const lord = army.troops.find((t) => t.type === 'lord');
-  if (lord && state.towns[CAPITAL].owner === 'player' && safe(CAPITAL)) {
+  const capital = campaignOf(state).capital;
+  const where = army.at;
+  if (lord && state.towns[capital].owner === 'player' && safe(capital)) {
     lord.moved = true;
-    const escaped: Army = { id: state.nextId++, owner: 'player', at: CAPITAL, from: null, troops: [lord] };
+    const escaped: Army = { id: state.nextId++, owner: 'player', at: capital, from: null, troops: [lord] };
     state.armies.push(escaped);
     settle(state, escaped);
-    log(state, `Cut off, the army scatters. ${lord.name} escapes to ${nodeName(state, CAPITAL)}.`);
+    deed(state, 'loss', `Cut off at ${nodeName(state, where)}, the army scatters. ${lord.name} escapes to ${nodeName(state, capital)}.`, where);
+  } else if (army.owner === 'player') {
+    deed(state, 'loss', `Cut off at ${nodeName(state, where)}, the survivors scatter.`, where);
   } else {
     log(state, 'Cut off, the survivors scatter.');
   }
@@ -323,9 +343,10 @@ function startNextPending(state: GameState) {
 
 /** Defeat takes precedence when the final victory also costs the capital or ruler. */
 export function endingReason(state: GameState): GameState['endingReason'] {
-  if (state.towns[CAPITAL].owner !== 'player') return 'capital-lost';
+  const { capital, lair } = campaignOf(state);
+  if (state.towns[capital].owner !== 'player') return 'capital-lost';
   if (!lordOf(state)?.men) return 'lord-dead';
-  if (state.towns[LAIR].owner === 'player') return 'lair-captured';
+  if (state.towns[lair].owner === 'player') return 'lair-captured';
   return null;
 }
 
@@ -335,11 +356,12 @@ export function checkStatus(state: GameState) {
   if (!reason) return;
   state.endingReason = reason;
   state.status = reason === 'lair-captured' ? 'won' : 'lost';
-  log(state, {
-    'capital-lost': 'Aldenhold has fallen. Your house is ended.',
+  const { capital, lair } = campaignOf(state);
+  deed(state, 'ending', {
+    'capital-lost': `${nodeName(state, capital)} has fallen. Your house is ended.`,
     'lord-dead': 'Your lord is dead. With no heir, your house is ended.',
-    'lair-captured': 'Gharzak Hold is broken. The valley is yours.',
-  }[reason]);
+    'lair-captured': `${nodeName(state, lair)} is broken. The valley is yours.`,
+  }[reason], reason === 'lair-captured' ? lair : reason === 'capital-lost' ? capital : null);
 }
 
 function payMonth(state: GameState) {
@@ -366,7 +388,7 @@ function payMonth(state: GameState) {
       const gone = soldiers(biggest).at(-1)!;
       biggest.troops = biggest.troops.filter((t) => t !== gone);
       if (!biggest.troops.length) removeArmy(state, biggest);
-      log(state, `The treasury is empty. Unpaid ${UNIT_TYPES[gone.type].name} desert at ${nodeName(state, biggest.at)}.`);
+      deed(state, 'realm', `The treasury is empty. Unpaid ${UNIT_TYPES[gone.type].name} desert at ${nodeName(state, biggest.at)}.`, biggest.at);
     }
   }
 }

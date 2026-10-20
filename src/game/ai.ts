@@ -1,5 +1,4 @@
-import { armyAt, enterNode, log, makeTroop, neighborsOf, nodeName } from './campaign';
-import { LAIR } from './data';
+import { armyAt, campaignOf, enterNode, log, makeTroop, neighborsOf, nodeName } from './campaign';
 import type { GameState } from './types';
 import { isHero } from './units';
 
@@ -9,6 +8,7 @@ const RAID_MIN_GARRISON = 4;
 
 /** Orc strategy: the Hold grows its garrison and sends raiders at the nearest town not held by orcs. */
 export function orcTurn(state: GameState) {
+  const LAIR = campaignOf(state).lair;
   if (state.towns[LAIR].owner === 'orcs') {
     if (state.turn % SPAWN_EVERY === 0) {
       const type = state.turn % (SPAWN_EVERY * 2) === 0 ? 'troll' : 'warband';

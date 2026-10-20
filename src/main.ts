@@ -9,12 +9,20 @@ import { renderBattle, selectedUnit } from './ui/battleView';
 import { moveTargets, renderCampaign } from './ui/campaignView';
 import { esc, type UIState } from './ui/shared';
 import { loadGame, MAX_SAVE_BYTES, parseSave, saveGame } from './game/saves';
+import { CATALOG } from './content';
+import { validateContent } from './content/validate';
 
 // Access localStorage inside the adapter: even reading the browser property can throw.
 const storage = {
   getItem: (key: string) => window.localStorage.getItem(key),
   setItem: (key: string, value: string) => window.localStorage.setItem(key, value),
 };
+// Content mistakes should fail loudly while developing, not surface mid-campaign.
+if (import.meta.env.DEV) {
+  const problems = validateContent(CATALOG);
+  if (problems.length) console.error(`Content problems:\n${problems.join('\n')}`);
+}
+
 const loaded = loadGame(storage);
 let saveWarning = loaded.warning;
 let autosaveBlocked = loaded.blocked;
@@ -34,7 +42,7 @@ function exportSave() {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-const ui: UIState = { selected: 'aldenhold', checked: new Set(), battleUnit: null, battleSpell: null, message: '' };
+const ui: UIState = { selected: 'aldenhold', checked: new Set(), battleUnit: null, battleSpell: null, message: '', view: 'map' };
 selectNode(ui.selected!);
 
 const app = document.getElementById('app')!;
@@ -77,7 +85,11 @@ function onAction(action: string, data: DOMStringMap) {
       if (ui.selected) selectNode(ui.selected);
       break;
     }
+    case 'journal':
+      ui.view = ui.view === 'journal' ? 'map' : 'journal';
+      break;
     case 'goto':
+      ui.view = 'map';
       selectNode(data.node!);
       break;
     case 'spell':

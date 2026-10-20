@@ -188,3 +188,21 @@ button.link { background: none; border: none; padding: 0; color: var(--gold); te
 
 .save-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 16px; }
 .save-bar .msg { flex: 1 1 300px; margin: 0; }
+
+/* Journal */
+.journal { display: block; min-height: 0; padding: 16px 24px 40px; max-width: 860px; }
+.journal-head h1 { margin: 0 0 4px; font-size: 24px; }
+.tally { display: flex; gap: 12px; flex-wrap: wrap; margin: 12px 0 8px; }
+.tally div { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 6px 12px; min-width: 110px; }
+.tally dt { color: var(--muted); font-size: 12px; }
+.tally dd { margin: 0; font-size: 22px; color: var(--gold); }
+.journal .year h2 { font-size: 16px; color: var(--gold); border-bottom: 1px solid var(--line); padding-bottom: 4px; margin: 20px 0 6px; }
+.journal ol { list-style: none; margin: 0; padding: 0; }
+.deed { display: grid; grid-template-columns: 84px 72px 1fr; gap: 8px; padding: 5px 0; border-bottom: 1px solid #332f28; align-items: baseline; }
+.deed .when { color: var(--muted); font-size: 13px; }
+.deed .tag { font-size: 11px; text-align: center; border-radius: 4px; padding: 1px 4px; background: var(--panel-2); }
+.deed.kind-capture .tag, .deed.kind-ending .tag { color: var(--gold); }
+.deed.kind-loss .tag { color: var(--bad); }
+.deed.kind-battle .tag { color: #9fc3ff; }
+.deed.kind-earlier .what { color: var(--muted); }
+@media (max-width: 600px) { .deed { grid-template-columns: 1fr; gap: 2px; } }
