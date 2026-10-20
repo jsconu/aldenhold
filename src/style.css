@@ -153,11 +153,6 @@ main { display: grid; grid-template-columns: minmax(0, 1fr) 340px; min-height: c
 .legend li { display: flex; gap: 8px; align-items: center; font-size: 13px; padding: 3px 0; }
 .legend .swatch { width: 34px; height: 31px; flex: none; }
 .unit { cursor: pointer; }
-.unit .body { stroke: #1b1a17; stroke-width: 2; }
-.unit.mine .body { fill: var(--player); }
-.unit.foe .body { fill: var(--orcs); }
-.unit.sel .body { stroke: var(--gold); stroke-width: 4; }
-.unit.target .body { stroke: #ff5a3c; stroke-width: 4; stroke-dasharray: 5 3; }
 .unit.spent { opacity: 0.6; }
 .unit .icon { color: #fff; pointer-events: none; }
 .unit .star { fill: var(--gold); stroke: #1b1a17; stroke-width: 0.8; pointer-events: none; }
@@ -179,9 +174,6 @@ button.link { background: none; border: none; padding: 0; color: var(--gold); te
 .spells { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 .spells button { display: flex; justify-content: space-between; font-size: 14px; }
 .spells button span { color: #9fc3ff; font-size: 12px; }
-.unit.hero .body { stroke: var(--gold); stroke-width: 3; }
-.unit.boon .body { stroke: #6fe08a; stroke-width: 4; stroke-dasharray: 5 3; }
-.unit.routing .body { fill-opacity: 0.45; }
 .unit.routing .men { fill: #ffd27a; font-weight: bold; }
 .unit .morale { fill: #9fc3ff; }
 .unit .morale.low { fill: #ffb347; }
@@ -213,3 +205,16 @@ button.link { background: none; border: none; padding: 0; color: var(--gold); te
 .quest-card h3, .quest-ledger h2 { margin: 0 0 8px; }
 .quest-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
 .quest-ledger ul { padding-left: 22px; }
+
+/* Pixel-art unit tokens: figures on team-coloured bases, like painted miniatures. */
+.unit .px { pointer-events: none; image-rendering: pixelated; }
+.unit .base { stroke: #1b1a17; stroke-width: 1.5; }
+.unit.mine .base { fill: #2f3f9a; }
+.unit.foe .base { fill: #8a2a22; }
+.unit .mark { fill: none; stroke: none; pointer-events: none; }
+.unit.sel .mark { stroke: var(--gold); stroke-width: 3; }
+.unit.target .mark { stroke: #ff5a3c; stroke-width: 3; stroke-dasharray: 6 4; }
+.unit.boon .mark { stroke: #6fe08a; stroke-width: 3; stroke-dasharray: 6 4; }
+.unit.hero .base { stroke: var(--gold); stroke-width: 2; }
+.unit.routing .px { opacity: 0.55; }
+.unit .men { paint-order: stroke; stroke: #1b1a17; stroke-width: 3px; }

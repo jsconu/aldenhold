@@ -48,6 +48,15 @@ The reserve policy is deliberately explicit for this first slice: there are no m
 6. Owner request (October 20 2026): bring back the parked hex overland map (`overland-map-wip`) as a second catalog campaign with more terrain variety and pixel-art tiles in the spirit of the original's overland view. Quick-play saves must stay valid.
 
 
+## Art increment: original pixel unit sprites
+
+- ART-01 revised to EGA-inspired pixel art. All 13 prototype unit types now render with original 16×16 figures, team-coloured details and bases, mirrored defenders and a gold hero rim.
+- ART-03 (partial): retain hero marker, morale, HP, running status, selection, spell and attack outlines.
+- ART-08 (partial): infantry, knights, monsters, heroes and orcs share the same tactical rendering pipeline.
+- `src/ui/pixelSprites.test.ts` validates coverage, sprite dimensions, palette symbols and team differentiation.
+- Remaining: terrain tile atlas, overland hex art, city views, portraits, animations and new archetypes.
+- The hex overland map must remain a separate catalog campaign; do not change the existing quick-play topology or invalidate older saves.
+
 ## Foundation increment 3: diplomatic quest and saved campaign items (branch work/fenwick-charter-v1)
 
 - New v5 schema stores quest resolution state, unique campaign inventory objects and location-scoped treaties; v2, v3 and v4 saves migrate safely to v5. Save storage keys are unchanged.

@@ -43,7 +43,7 @@ Each part is basic, but they all connect: **recruit → march → fight → capt
 
 ### v0.3: battlefield art and terrain
 
-Units are drawn as tokens with original SVG icons (`src/ui/sprites.ts`): pitchfork, spear and shield, bow, knight's helm, crown, sword, holy sun, wizard hat, orc axe, troll club, horned helm, skull. Blue is yours, red is theirs, and heroes get a gold rim and star. The terrain art is drawn in each hex. Hovering a hex shows what it does, and the side panel lists the ground on the current field.
+Units are original 16×16 pixel-art figures (`src/ui/pixelSprites.ts`) standing on team-coloured bases. Blue is yours, red is theirs, defenders face left, and heroes get a gold rim and star. The earlier SVG icons (`src/ui/sprites.ts`) remain for small UI symbols. The terrain art is drawn in each hex. Hovering a hex shows what it does, and the side panel lists the ground on the current field.
 
 Terrain is a data table (`TERRAIN` in `data.ts`), so effects can be tuned in one place:
 
@@ -72,7 +72,7 @@ The three columns at each edge stay open for deployment. The battle AI prefers g
   - `units.ts`: troop and hero levels, hit points, mana and attack.
   - `battle.ts`: the tactical layer (movement, combat, morale, spells), plus a battle AI that also powers auto-resolve and casts spells.
   - `hex.ts`, `rng.ts`: helpers. The RNG is seeded and stored in the save, so games can be replayed.
-- `src/ui/`: rendering into DOM/SVG. No game rules live here. `sprites.ts` holds the unit icons and terrain art.
+- `src/ui/`: rendering into DOM/SVG. No game rules live here. `pixelSprites.ts` holds tactical unit art; `sprites.ts` keeps small interface icons and terrain art.
 
 ## Battle math
 
