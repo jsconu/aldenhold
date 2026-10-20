@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { attackOf, createBattle, defenseOf, rangeOf } from './battle';
-import { armyAt, endTurn, makeTroop, monthlyUpkeep, newGame } from './campaign';
+import { armyAt, endTurn, monthlyUpkeep, newGame } from './campaign';
 import { beginRefit, EQUIPMENT, equipmentQuoteGold, refitQuote } from './equipment';
 import { parseSave } from './saves';
 import { level } from './units';
