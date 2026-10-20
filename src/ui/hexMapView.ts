@@ -1,5 +1,6 @@
 import type { Army, FactionId, GameState, HexWorld } from '../game/types';
-import { hasRoad, hexLand, locationName, parseKey, townAt, type MarchStep } from '../game/world';
+import { arrivalOutcome } from '../game/campaign';
+import { hasRoad, hexLand, locationName, parseKey, type MarchStep } from '../game/world';
 import { pixelRects } from './pixelSprites';
 import { mapPixelSize, paintTerrain, tileCenter, tilePolygon } from './pixelTiles';
 import { esc, type UIState } from './shared';
@@ -133,7 +134,7 @@ export function renderHexMap(
   let reach = '';
   for (const [key] of targets) {
     const { col, row } = cell(key);
-    const ends = state.armies.some((a) => a.at === key && a.owner !== 'player') || (townAt(state, key)?.owner ?? 'player') !== 'player';
+    const ends = arrivalOutcome(state, key) !== null;
     reach += `<polygon points="${tilePolygon(col, row)}" class="reach${ends ? ' ends' : ''}"/>`;
   }
   const sel = ui.selected && /^\d+,\d+$/.test(ui.selected) ? cell(ui.selected) : null;

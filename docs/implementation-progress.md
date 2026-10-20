@@ -144,3 +144,24 @@ Second catalog campaign alongside the quick-play valley, which stays a regressio
 `game/world.ts` is the single place that knows how a campaign's world is laid out (graph or hex): which town stands at a location, where a town is, neighbours, step costs, roads and pathfinding (binary-heap Dijkstra). Rules call it rather than assuming a location id is a town id.
 
 Validation: all 206 tests pass after rebasing onto the mage-magic increment (including a 36-month Western Realm soak over three seeds, river and bridge constraints, arrival estimates and the v9 → v10 migration); production build passes. Played in the browser: chooser, a march to Fenwick, a battle on farmland, capture, journal, five month-ends with orc raids over the mountains, and the valley still working on the atlas.
+
+## Architecture increment: action quotes (#21)
+
+Every player command now has a quote that returns its cost and a refusal reason (`reason: null` means allowed), following the existing `constructionQuote` / `refitQuote` shape. The command calls its own quote first and refuses with exactly that reason; the UI renders buttons and tooltips from the same quote.
+
+| Command | Quote |
+| --- | --- |
+| Recruit | `recruitQuote(state, townId, typeId)` → gold, men, reason |
+| Hire a hero | `hireQuote(state, offer)` → gold, reason |
+| March | `marchQuote(state, from, troopIds, to)` → movement cost, path, marching troops, what the march ends in (battle, capture or nothing), reason |
+| Fenwick charter | `charterQuote(state)` → reason (shared by sign and decline) |
+| Construction, refits | unchanged (`constructionQuote`, `refitQuote`) |
+
+`arrivalOutcome(state, at)` is now the single rule for "what does a player army run into here"; the march quote and the hex map's red highlight both use it.
+
+Bugs removed by this:
+- The recruit button checked only gold, so it stayed enabled when the town had no men to spare and then failed on click.
+- The hex map's "march ends in a fight" highlight ignored the Fenwick passage treaty, marking an allied Fenwick red.
+- The Fenwick envoy-range rule was written twice (quest and panel); it now lives only in `charterQuote`.
+
+Validation: 213 tests pass (7 new quote tests at the quote seam, including both bug cases); build passes; checked in the browser that disabled buttons show the quote's reason.

@@ -87,13 +87,21 @@ export function lordOf(state: GameState): Troop | undefined {
   return state.armies.filter((a) => a.owner === 'player').flatMap((a) => a.troops).find((t) => t.type === 'lord');
 }
 
-/** Hire a hero who has offered their service. Returns an error message, or null. */
+/** What hiring this hero would cost, and why it can't happen now (`reason` null means it can). */
+export function hireQuote(state: GameState, offer: HeroOffer): { gold: number; reason: string | null } {
+  const gold = UNIT_TYPES[offer.type]?.cost ?? 0;
+  let reason: string | null = null;
+  if (state.battle || state.status !== 'playing') reason = 'Not now.';
+  else if (!state.offers.includes(offer) || state.towns[offer.town]?.owner !== 'player') reason = 'That offer is gone.';
+  else if (state.gold < gold) reason = `You need ${gold} gold.`;
+  return { gold, reason };
+}
+
+/** Hire a hero who has offered their service. Returns the refusal reason, or null. */
 export function hireHero(state: GameState, offer: HeroOffer): string | null {
-  const town = state.towns[offer.town];
+  const quote = hireQuote(state, offer);
+  if (quote.reason) return quote.reason;
   const type = UNIT_TYPES[offer.type];
-  if (state.battle || state.status !== 'playing') return 'Not now.';
-  if (!state.offers.includes(offer) || town?.owner !== 'player') return 'That offer is gone.';
-  if (state.gold < type.cost) return `You need ${type.cost} gold.`;
   state.gold -= type.cost;
   state.offers = state.offers.filter((o) => o !== offer);
   const troop = makeTroop(state, offer.type, offer.name);
@@ -186,14 +194,26 @@ export function canRecruitAt(town: Town, typeId: string): boolean {
   return town.owner === 'player' && (r === 'any' ? town.kind !== 'lair' : r === 'capital' && town.kind === 'capital');
 }
 
-/** Returns an error message, or null on success. */
-export function recruit(state: GameState, townId: string, typeId: string): string | null {
+/** What raising this troop would cost, and why it can't happen now (`reason` null means it can). */
+export function recruitQuote(state: GameState, townId: string, typeId: string): { gold: number; men: number; reason: string | null } {
   const town = state.towns[townId];
   const type = UNIT_TYPES[typeId];
-  if (state.battle || state.status !== 'playing') return 'Not now.';
-  if (!town || !type || !canRecruitAt(town, typeId)) return `You can't raise ${type?.name ?? 'that'} here.`;
-  if (state.gold < type.cost) return `You need ${type.cost} gold.`;
-  if (town.pop - type.men < MIN_POP_AFTER_RECRUIT) return `${nodeName(state, townId)} has no more men to spare.`;
+  const gold = type?.cost ?? 0;
+  const men = type?.men ?? 0;
+  let reason: string | null = null;
+  if (state.battle || state.status !== 'playing') reason = 'Not now.';
+  else if (!town || !type || !canRecruitAt(town, typeId)) reason = `You can't raise ${type?.name ?? 'that'} here.`;
+  else if (state.gold < gold) reason = `You need ${gold} gold.`;
+  else if (town.pop - men < MIN_POP_AFTER_RECRUIT) reason = `${nodeName(state, townId)} has no more men to spare.`;
+  return { gold, men, reason };
+}
+
+/** Raise a troop in a town. Returns the refusal reason, or null on success. */
+export function recruit(state: GameState, townId: string, typeId: string): string | null {
+  const quote = recruitQuote(state, townId, typeId);
+  if (quote.reason) return quote.reason;
+  const town = state.towns[townId];
+  const type = UNIT_TYPES[typeId];
   state.gold -= type.cost;
   town.pop -= type.men;
   const troop = makeTroop(state, typeId);
@@ -241,20 +261,54 @@ export function arrivalEstimates(state: GameState, from: string, troopIds: numbe
  * hex map it is as far as the slowest troop's movement allows. Returns an error message, or null.
  */
 export function moveTroops(state: GameState, from: string, troopIds: number[], to: string): string | null {
-  if (state.battle || state.status !== 'playing') return 'Not now.';
-  const src = armyAt(state, from, 'player');
-  if (!src) return 'You have no troops there.';
-  const moving = src.troops.filter((t) => troopIds.includes(t.id) && t.mp > 0 && !t.refit);
-  if (!moving.length) return 'None of the chosen troops can march this month.';
-  const options = marchOptions(state, from, 'player', sharedMp(moving));
-  const step = options.get(to);
-  if (!step) return worldOf(state).kind === 'graph' ? 'That place is not next to this one.' : 'Those troops can’t reach there this month.';
+  const quote = marchQuote(state, from, troopIds, to);
+  if (quote.reason) return quote.reason;
+  const src = armyAt(state, from, 'player')!;
+  const moving = src.troops.filter((t) => quote.troopIds.includes(t.id));
   src.troops = src.troops.filter((t) => !moving.includes(t));
   if (!src.troops.length) removeArmy(state, src);
-  for (const t of moving) t.mp -= step.cost;
+  for (const t of moving) t.mp -= quote.cost;
   const army: Army = { id: state.nextId++, owner: 'player', at: from, from: null, troops: moving };
   state.armies.push(army);
-  marchAlong(state, army, pathTo(options, to));
+  marchAlong(state, army, quote.path);
+  return null;
+}
+
+export interface MarchQuote {
+  /** Movement points the march spends. */
+  cost: number;
+  /** Locations stepped through, ending at the destination. */
+  path: string[];
+  /** The troops that would actually march: chosen, with movement left, and not refitting. */
+  troopIds: number[];
+  /** What happens on arrival, if anything. */
+  ends: 'battle' | 'capture' | null;
+  reason: string | null;
+}
+
+/** What marching these troops to `to` would cost and where it would end (`reason` null means it can go). */
+export function marchQuote(state: GameState, from: string, troopIds: number[], to: string): MarchQuote {
+  const refuse = (reason: string): MarchQuote => ({ cost: 0, path: [], troopIds: [], ends: null, reason });
+  if (state.battle || state.status !== 'playing') return refuse('Not now.');
+  const src = armyAt(state, from, 'player');
+  if (!src) return refuse('You have no troops there.');
+  const moving = src.troops.filter((t) => troopIds.includes(t.id) && t.mp > 0 && !t.refit);
+  if (!moving.length) return refuse('None of the chosen troops can march this month.');
+  const options = marchOptions(state, from, 'player', sharedMp(moving));
+  const step = options.get(to);
+  if (!step) return refuse(worldOf(state).kind === 'graph' ? 'That place is not next to this one.' : 'Those troops can’t reach there this month.');
+  return { cost: step.cost, path: pathTo(options, to), troopIds: moving.map((t) => t.id), ends: arrivalOutcome(state, to), reason: null };
+}
+
+/**
+ * What a player army arriving at `at` runs into: a battle with another faction's army, the capture of a town
+ * it doesn't own, or nothing. A neutral town with a passage treaty is neither.
+ */
+export function arrivalOutcome(state: GameState, at: string): 'battle' | 'capture' | null {
+  const town = townAt(state, at);
+  const passage = town !== undefined && hasPassage(state, 'player', town.id);
+  if (state.armies.some((a) => a.at === at && a.owner !== 'player' && !(a.owner === 'neutral' && passage))) return 'battle';
+  if (town && town.owner !== 'player' && !passage) return 'capture';
   return null;
 }
 
