@@ -11,6 +11,7 @@ import { BUILDING_IDS, BUILDINGS, cityMaintenance, constructionQuote, developmen
 import { FENWICK_CHARTER } from '../content/quests';
 import { questSummary } from '../game/quests';
 import { esc, type UIState } from './shared';
+import { renderOverland } from './overlandMap';
 
 const OWNER_LABEL: Record<FactionId, string> = { player: 'Yours', orcs: 'Orcs', neutral: 'Free town' };
 
@@ -41,54 +42,68 @@ export function renderCampaign(state: GameState, ui: UIState): string {
   </header>
   ${state.status !== 'playing' ? `<div class="banner ${state.status}">${state.status === 'won' ? 'You have won. The valley is united.' : state.endingReason === 'lord-dead' ? 'You have lost. Your lord is dead.' : 'You have lost. Aldenhold has fallen.'} <button data-action="new-game">Play again</button></div>` : ''}
   ${ui.view === 'treasury' ? renderTreasury(state) : ui.view === 'journal' ? renderJournal(state) : `<main class="campaign">
-    <section class="map-wrap">${renderMap(state, ui)}</section>
+    <section class="map-wrap">
+      ${renderMapToolbar(state, ui)}
+      ${renderOverland(state, ui, moveTargets(state, ui))}
+      <div class="atlas-legend" aria-label="Map legend">
+        <span><i class="swatch swatch-forest"></i> Forest</span>
+        <span><i class="swatch swatch-hills"></i> Hills</span>
+        <span><i class="swatch swatch-water"></i> River</span>
+        <span><i class="swatch swatch-marsh"></i> Wetland</span>
+        <span><i class="swatch swatch-road"></i> Travel road</span>
+      </div>
+      <p class="atlas-caption">The illustrated hex terrain shows the province. For now, armies march only between named places linked by a road. Hex-by-hex travel is planned for the larger campaign.</p>
+    </section>
     <aside class="side">
       ${ui.message ? `<p class="msg">${esc(ui.message)}</p>` : ''}
       ${renderOfferNotice(state, ui)}
+      ${ui.selected ? renderTravelGuide(state, ui) : ''}
       ${ui.selected ? renderNodePanel(state, ui, ui.selected) : '<p class="hint">Click a place on the map. Your troops show as blue shields.</p>'}
       <details class="log" open><summary>Chronicle</summary><ul>${state.log.slice(0, 14).map((l) => `<li>${esc(l)}</li>`).join('')}</ul></details>
     </aside>
   </main>`}`;
 }
 
-function renderMap(state: GameState, ui: UIState): string {
-  const targets = moveTargets(state, ui);
-  const pos = (id: string) => state.nodes.find((n) => n.id === id)!;
-  const edges = state.edges
-    .map(([a, b]) => {
-      const p = pos(a), q = pos(b);
-      const hot = (ui.selected === a && targets.includes(b)) || (ui.selected === b && targets.includes(a));
-      return `<line x1="${p.x}" y1="${p.y}" x2="${q.x}" y2="${q.y}" class="road${hot ? ' hot' : ''}"/>`;
-    })
-    .join('');
-  const nodes = state.nodes
-    .map((n) => {
-      const town = state.towns[n.id];
-      const r = town ? (town.kind === 'town' ? 18 : 24) : 9;
-      const cls = ['node', town ? `own-${town.owner}` : 'waypoint', town?.kind ?? '', ui.selected === n.id ? 'selected' : '', targets.includes(n.id) ? 'target' : '']
-        .filter(Boolean)
-        .join(' ');
-      const armies = state.armies.filter((a) => a.at === n.id);
-      return `<g class="${cls}" data-action="node" data-node="${n.id}">
-        <circle cx="${n.x}" cy="${n.y}" r="${r + 10}" class="hit"/>
-        ${targets.includes(n.id) ? `<circle cx="${n.x}" cy="${n.y}" r="${r + 7}" class="ring"/>` : ''}
-        <circle cx="${n.x}" cy="${n.y}" r="${r}" class="dot"/>
-        ${town?.kind === 'lair' ? `<text x="${n.x}" y="${n.y + 6}" class="glyph">☠</text>` : town?.kind === 'capital' ? `<text x="${n.x}" y="${n.y + 6}" class="glyph">♜</text>` : ''}
-        <text x="${n.x}" y="${n.y + r + 18}" class="label">${esc(n.name)}</text>
-        ${armies.map((a, i) => shield(a, n.x + r - 2 + i * 26, n.y - r - 14)).join('')}
-      </g>`;
-    })
-    .join('');
-  return `<svg viewBox="0 0 840 500" class="map" role="img" aria-label="Province map">
-    <rect x="0" y="0" width="840" height="500" class="land"/>
-    ${edges}${nodes}</svg>`;
+/** UI-only map controls never mutate the campaign or its saves. */
+function renderMapToolbar(state: GameState, ui: UIState): string {
+  const layer = ui.mapLayer === 'political' ? 'political' : 'terrain';
+  const zoom = Math.min(2, Math.max(1, ui.mapZoom ?? 1));
+  return `<div class="map-toolbar" role="toolbar" aria-label="Overland map display">
+    <div class="map-layer-group">
+      <button data-action="map-layer" data-layer="terrain" aria-pressed="${layer === 'terrain'}"
+        class="${layer === 'terrain' ? 'active' : ''}">Terrain</button>
+      <button data-action="map-layer" data-layer="political" aria-pressed="${layer === 'political'}"
+        class="${layer === 'political' ? 'active' : ''}">Realm borders</button>
+    </div>
+    <div class="map-zoom-group">
+      <button data-action="map-zoom" data-zoom="out" title="Zoom out" aria-label="Zoom out" ${zoom <= 1 ? 'disabled' : ''}>−</button>
+      <output aria-label="Map zoom">${Math.round(zoom * 100)}%</output>
+      <button data-action="map-zoom" data-zoom="in" title="Zoom in on selected place" aria-label="Zoom in" ${zoom >= 2 ? 'disabled' : ''}>+</button>
+    </div>
+    <span class="atlas-current">Viewing: ${esc(state.nodes.find((n) => n.id === ui.selected)?.name ?? 'The valley')}</span>
+  </div>`;
 }
 
-function shield(a: Army, x: number, y: number): string {
-  const men = a.troops.reduce((s, t) => s + t.men, 0);
-  return `<g class="army own-${a.owner}"><title>${a.troops.length} troops, ${men} men</title>
-    <path d="M${x - 11},${y - 10} h22 v10 q0,12 -11,16 q-11,-4 -11,-16 z" class="shield"/>
-    <text x="${x}" y="${y + 5}" class="count">${a.troops.length}</text></g>`;
+/** Road-only movement is explicit instead of looking like free hex navigation. */
+function renderTravelGuide(state: GameState, ui: UIState): string {
+  if (!ui.selected) return '';
+  const adjacent = neighborsOf(state, ui.selected);
+  if (!adjacent.length) return '';
+  const ready = moveTargets(state, ui);
+  const choices = adjacent.map((id) => {
+    const owner = state.towns[id]?.owner;
+    const garrison = state.armies.some((a) => a.at === id && a.owner !== 'player');
+    const buttonText = ready.includes(id) ? 'March' : 'Inspect';
+    return `<button data-action="node" data-node="${esc(id)}" class="travel-destination">
+      <span>${esc(nodeName(state, id))}</span>
+      <small>${owner ? OWNER_LABEL[owner] : 'Landmark'}${garrison ? ' · Garrison' : ''}</small>
+      <b>${buttonText} →</b></button>`;
+  }).join('');
+  return `<details class="travel-guide" open>
+    <summary>Roads from ${esc(nodeName(state, ui.selected))}</summary>
+    <p class="hint">${ready.length ? 'Checked troops will march when you select a connected destination.' :
+      'Check ready troops below to march, or inspect a neighboring place.'}</p>
+    <div class="travel-options">${choices}</div></details>`;
 }
 
 function renderNodePanel(state: GameState, ui: UIState, id: string): string {
