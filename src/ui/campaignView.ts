@@ -198,7 +198,7 @@ function renderArmy(state: GameState, ui: UIState, a: Army): string {
       return `<li class="${t.moved && mine ? 'done' : ''}"><label>${box}<span class="tname">${type.name}</span>
         <span class="men">${t.men} men</span><span class="lv">Lv ${lv}</span>
         <small class="gear-label">${t.gear.bow ? EQUIPMENT[t.gear.bow].name + ' · ' : ''}${EQUIPMENT[t.gear.armor].name}</small>
-        ${t.refit ? '<span class="tag">refitting</span>' : ''}${marched}</label></li>
+        ${t.refit ? '<span class="tag">refitting</span>' : ''}${marched}</label></li>`;
     })
     .join('');
   const ready = mine && a.troops.some((t) => !t.moved);
