@@ -1,6 +1,7 @@
 /** Small diplomatic side-story used to validate the quest framework in the original quick-play valley. */
 export const FENWICK_CHARTER = {
   id: 'Q00',
+  campaignId: 'valley-quickplay',
   name: 'The Fenwick Charter',
   giver: 'Fenwick Council',
   at: 'fenwick',
