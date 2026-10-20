@@ -65,6 +65,7 @@ export interface Loadout {
 export interface PendingRefit {
   item: EquipmentId;
   startedTurn: number;
+  orderedMen: number;
   paidGold: number;
   paidGoods: Partial<GoodsStock>;
 }
