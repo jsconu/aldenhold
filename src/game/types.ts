@@ -56,6 +56,20 @@ export interface UnitType {
   hero?: HeroTraits;
 }
 
+export type EquipmentId = 'short-bow' | 'long-bow' | 'compound-bow' | 'leather' | 'chain' | 'plate';
+export type EquipmentSlot = 'bow' | 'armor';
+export interface Loadout {
+  bow: 'short-bow' | 'long-bow' | 'compound-bow' | null;
+  armor: 'leather' | 'chain' | 'plate';
+}
+export interface PendingRefit {
+  item: EquipmentId;
+  startedTurn: number;
+  orderedMen: number;
+  paidGold: number;
+  paidGoods: Partial<GoodsStock>;
+}
+
 export interface Troop {
   id: number;
   type: string;
@@ -67,6 +81,8 @@ export interface Troop {
   xp: number;
   /** Already marched (or was raised) this month. */
   moved: boolean;
+  gear: Loadout;
+  refit: PendingRefit | null;
 }
 
 export interface Army {
@@ -109,6 +125,7 @@ export interface BattleUnit {
   maxMen: number;
   xp: number;
   mana: number;
+  gear: Loadout;
   morale: number;
   routing: boolean;
   fled: boolean;
@@ -205,7 +222,7 @@ export interface QuestProgress {
 }
 
 /** Signed cash movements: positive receipts, negative actual payments. */
-export type LedgerCategory = 'tax' | 'wages' | 'recruitment' | 'hero-hire' | 'construction' | 'maintenance' | 'balance-correction';
+export type LedgerCategory = 'tax' | 'wages' | 'recruitment' | 'hero-hire' | 'construction' | 'maintenance' | 'refit' | 'balance-correction';
 export interface LedgerEntry {
   turn: number;
   city: string | null;
@@ -265,7 +282,7 @@ export interface CityEconomy {
 }
 
 export interface GameState {
-  version: 7;
+  version: 8;
   campaignId: CampaignId;
   campaignRevision: number;
   endingReason: EndingReason | null;

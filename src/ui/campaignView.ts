@@ -3,6 +3,7 @@ import {
 } from '../game/campaign';
 import { SPELLS, UNIT_TYPES } from '../game/data';
 import { heroLevel, heroMaxHp, heroMaxMana, level } from '../game/units';
+import { EQUIPMENT, refitQuote, equipmentUpkeep } from '../game/equipment';
 import type { Army, FactionId, GameState } from '../game/types';
 import { renderJournal } from './journalView';
 import { renderTreasury } from './treasuryView';
@@ -118,7 +119,7 @@ function renderNodePanel(state: GameState, ui: UIState, id: string): string {
     html += `<p class="sub">Open country</p>`;
   }
   if (id === 'fenwick') html += renderFenwickQuest(state);
-  for (const a of armies) html += renderArmy(ui, a);
+  for (const a of armies) html += renderArmy(state, ui, a);
   if (!armies.length) html += `<p class="sub">No troops here.</p>`;
   return html;
 }
@@ -178,7 +179,7 @@ function renderFenwickQuest(state: GameState): string {
     </div></div>`;
 }
 
-function renderArmy(ui: UIState, a: Army): string {
+function renderArmy(state: GameState, ui: UIState, a: Army): string {
   const mine = a.owner === 'player';
   const rows = a.troops
     .map((t) => {
@@ -195,13 +196,41 @@ function renderArmy(ui: UIState, a: Army): string {
       }
       const lv = level(t.xp);
       return `<li class="${t.moved && mine ? 'done' : ''}"><label>${box}<span class="tname">${type.name}</span>
-        <span class="men">${t.men} men</span>${lv ? `<span class="lv">Lv ${lv}</span>` : ''}${marched}</label></li>`;
+        <span class="men">${t.men} men</span><span class="lv">Lv ${lv}</span>
+        <small class="gear-label">${t.gear.bow ? EQUIPMENT[t.gear.bow].name + ' · ' : ''}${EQUIPMENT[t.gear.armor].name}</small>
+        ${t.refit ? '<span class="tag">refitting</span>' : ''}${marched}</label></li>`;
     })
     .join('');
   const ready = mine && a.troops.some((t) => !t.moved);
   return `<div class="army-card own-${a.owner}"><h3>${mine ? 'Your troops' : a.owner === 'orcs' ? 'Orc host' : 'Town militia'}</h3>
     <ul class="troops">${rows}</ul>
+    ${mine && state.towns[a.at]?.owner === 'player' ? renderRefitChoices(state, a) : ''}
     ${ready ? `<p class="hint">Tick the troops to send, then click a glowing place on the map.</p>` : ''}</div>`;
+}
+
+function renderRefitChoices(state: GameState, army: Army): string {
+  const choices = army.troops.filter((t) => !UNIT_TYPES[t.type].hero && ['archers', 'militia', 'spearmen', 'knights'].includes(t.type));
+  if (!choices.length) return '';
+  return `<details class="refit-panel"><summary>Equip veteran formations</summary>
+    <p class="sub">Upgrades require experience, a friendly city, enough gold and local materials. Refitting takes the rest of this month; the previous equipment remains in use until completion.</p>
+    ${choices.map((troop) => {
+      const options = troop.type === 'archers' ? ['long-bow', 'compound-bow', 'chain'] as const : ['chain', 'plate'] as const;
+      return `<div class="refit-row"><b>${UNIT_TYPES[troop.type].name} #${troop.id}</b>
+        <small>Lv ${level(troop.xp)} · upkeep +${equipmentUpkeep(troop)}g/month for gear</small>
+        ${options.map((id) => {
+          const quote = refitQuote(state, army.at, troop.id, id);
+          const gear = EQUIPMENT[id];
+          const inputs = Object.entries(quote.materials).map(([g, qty]) => `${qty} ${g}`).join(' + ');
+          return `<div class="refit-option"><button data-action="refit" data-node="${army.at}"
+            data-troop="${troop.id}" data-item="${id}" ${quote.reason ? 'disabled' : ''}
+            title="${esc(quote.reason ?? 'Pay now; equipment arrives at month end')}">
+            ${gear.name} · ${quote.gold}g${inputs ? ' + ' + inputs : ''}</button>
+            <small>Lv ${gear.level}+ · ${gear.slot === 'bow' ? `Damage ×${gear.attackFactor}, range +${gear.rangeBonus}` :
+              `Defense +${gear.defenseBonus}`} · upkeep ${gear.upkeep}g/mo
+              ${quote.reason ? ' · ' + esc(quote.reason) : ''}</small></div>`;
+        }).join('')}</div>`;
+    }).join('')}
+  </details>`;
 }
 
 function heroSummary(typeId: string): string {

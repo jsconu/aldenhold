@@ -7,7 +7,7 @@ import { parseSave } from './saves';
 describe('Fenwick Charter quest foundation', () => {
   it('starts as one undecided quest and no free item or treaty', () => {
     const s = newGame(1);
-    expect(s.version).toBe(7);
+    expect(s.version).toBe(8);
     expect(s.quests.Q00).toEqual({ status: 'available', stage: 'decision', choice: null, resolvedTurn: null });
     expect(s.items).toEqual([]);
     expect(s.treaties).toEqual({});
@@ -94,7 +94,7 @@ describe('Fenwick Charter quest foundation', () => {
     const s = newGame(7);
     const { quests: _quests, items: _items, treaties: _treaties, ...prior } = s;
     const migrated = parseSave(JSON.stringify({ ...prior, version: 4 }));
-    expect(migrated.version).toBe(7);
+    expect(migrated.version).toBe(8);
     expect(migrated.quests.Q00.status).toBe('available');
     expect(migrated.items).toEqual([]);
     expect(migrated.treaties).toEqual({});

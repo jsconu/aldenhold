@@ -3,6 +3,7 @@ import { hexDistance, hexKey, hexNeighbors, type Hex } from './hex';
 import { random } from './rng';
 import type { Army, Battle, BattleUnit, FactionId, Side, SpellId, Terrain } from './types';
 import { attackFor, heroLevel, heroMaxHp, isHero, level } from './units';
+import { EQUIPMENT } from './equipment';
 
 export const BATTLE_W = 12;
 export const BATTLE_H = 9;
@@ -93,7 +94,7 @@ export function terrainAt(b: Battle, h: Hex) {
 function startingMorale(b: Battle, side: Side, type: string, xp: number, leadership: number): number {
   if (isHero(type)) return 100;
   const walls = b.walls && side === 'defender' ? 10 : 0;
-  return Math.min(100, 60 + 8 * level(xp) + leadership + walls);
+  return Math.min(100, 60 + 8 * (level(xp) - 1) + leadership + walls);
 }
 
 function deploy(b: Battle, army: Army, side: Side, cols: number[]) {
@@ -121,6 +122,7 @@ function deploy(b: Battle, army: Army, side: Side, cols: number[]) {
       maxMen: type.hero ? heroMaxHp(t.type, t.xp) : t.men,
       xp: t.xp,
       mana: t.mana ?? 0,
+      gear: { ...t.gear },
       morale: startingMorale(b, side, t.type, t.xp, leadership),
       routing: false,
       fled: false,
@@ -164,12 +166,12 @@ export function unitAt(b: Battle, h: Hex): BattleUnit | undefined {
 }
 
 export function attackOf(u: BattleUnit): number {
-  return attackFor(u.type, u.xp);
+  return attackFor(u.type, u.xp) * (u.gear.bow ? EQUIPMENT[u.gear.bow].attackFactor : 1);
 }
 
 export function defenseOf(b: Battle, u: BattleUnit): number {
   const wall = b.walls && u.side === 'defender' ? 1 : 0;
-  return Math.max(1, UNIT_TYPES[u.type].defense + terrainAt(b, u).defense + wall);
+  return Math.max(1, UNIT_TYPES[u.type].defense + EQUIPMENT[u.gear.armor].defenseBonus + terrainAt(b, u).defense + wall);
 }
 
 /** Fighting weight: men for a troop, a fixed value for a hero (wounds don't weaken their blows). */
@@ -231,7 +233,7 @@ export function attackTargets(b: Battle, u: BattleUnit): BattleUnit[] {
 
 /** Missile range, including the bonus for standing on high ground. Melee troops stay at 1. */
 export function rangeOf(b: Battle, u: BattleUnit): number {
-  const range = UNIT_TYPES[u.type].range;
+  const range = UNIT_TYPES[u.type].range + (u.gear.bow ? EQUIPMENT[u.gear.bow].rangeBonus : 0);
   return range > 1 ? range + terrainAt(b, u).rangeBonus : range;
 }
 
@@ -483,7 +485,7 @@ export function autoResolve(b: Battle) {
 
 function aiSide(b: Battle) {
   // Missile troops and casters act first so melee troops don't block them.
-  const reach = (u: BattleUnit) => Math.max(UNIT_TYPES[u.type].range, knownSpells(u).length ? 5 : 0);
+  const reach = (u: BattleUnit) => Math.max(rangeOf(b, u), knownSpells(u).length ? 5 : 0);
   const units = fighting(b, b.active).sort((x, y) => reach(y) - reach(x));
   for (const u of units) {
     if (b.outcome) return;
@@ -517,7 +519,7 @@ function aiUnit(b: Battle, u: BattleUnit) {
   const caster = knownSpells(u).length > 0 && u.mana >= 2;
   if (caster && aiSpell(b, u)) return;
   // Casters with mana hang back at spell range; archers at bow range; everyone else closes in.
-  const range = caster ? 4 : UNIT_TYPES[u.type].range;
+  const range = caster ? 4 : rangeOf(b, u);
   const score = (h: Hex) => {
     const d = nearestEnemyDistance(b, h, u.side);
     const g = terrainAt(b, h);
