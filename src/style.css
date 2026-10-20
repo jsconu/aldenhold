@@ -391,3 +391,10 @@ button.travel-destination b { color: var(--gold); font-size: 11px; }
 .route-warning { font-size: 11px; color: #ffd5a2; margin-left: 3px; }
 .route-clear { margin-left: 6px; }
 .plan-route-button { font: 600 12px/1.4 system-ui, sans-serif; }
+
+/* Spell targeting overlays appear only while aiming; terrain art stays untouched. */
+.hit.spell-area { fill: #ffb347; fill-opacity: 0.28; stroke: #ffb347; stroke-width: 2; }
+.unit.spell-affected .body { stroke: #ffd27a; stroke-width: 3; }
+.effect-badge { fill: #fff078; font-size: 14px; paint-order: stroke; stroke: #171320; stroke-width: 2px; }
+.spell-preview { border: 1px solid var(--gold); padding: 10px; margin-top: 10px; }
+.spell-preview ul { padding-left: 20px; }

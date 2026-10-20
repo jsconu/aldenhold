@@ -21,7 +21,7 @@ const OFFER_MONTHS = 3;
 export function newGame(seed = Math.floor(Math.random() * 2 ** 31), campaignId: CampaignId = 'valley-quickplay'): GameState {
   const def = getCampaign(campaignId);
   const state: GameState = {
-    version: 8,
+    version: 9,
     campaignId: def.id,
     campaignRevision: def.revision,
     endingReason: null,

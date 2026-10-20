@@ -83,7 +83,7 @@ describe('save migration v3 → v4', () => {
     const s = takeFenwick();
     endTurn(s);
     const migrated = parseSave(asV3(s));
-    expect(migrated.version).toBe(8);
+    expect(migrated.version).toBe(9);
     expect(migrated.journal.every((j) => j.kind === 'earlier' && j.place === null)).toBe(true);
     expect(migrated.journal.map((j) => j.text)).toEqual(s.log.map((l) => l.replace(/^[A-Za-z]+, year \d+: /, '')).reverse());
     expect(migrated.journal[0]).toMatchObject({ id: 1, turn: 1 });

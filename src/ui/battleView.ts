@@ -1,11 +1,12 @@
+import { EFFECTS } from '../content/spells';
 import {
   attackOf, attackTargets, alive, defenseOf, isAI, knownSpells, playerSide, RALLY_AT, rangeOf, reachable, ROUT_AT, spellTargets,
-  terrainAt, unitLabel, reserves, FIELD_LIMIT,
+  terrainAt, unitLabel, reserves, FIELD_LIMIT, movementOf, previewSpell, spellAffected, spellCost, teleportDestinations,
 } from '../game/battle';
 import { nodeName } from '../game/campaign';
 import { SPELLS, TERRAIN, UNIT_TYPES } from '../game/data';
 import { heroLevel, level } from '../game/units';
-import { hexKey } from '../game/hex';
+import { hexKey, hexDistance } from '../game/hex';
 import type { Battle, BattleUnit, GameState, Terrain } from '../game/types';
 import { pixelSprite, pixelSpriteDefs } from './pixelSprites';
 import { spriteDefs, terrainArt } from './sprites';
@@ -38,7 +39,9 @@ export function renderBattle(state: GameState, ui: UIState): string {
   const reach = sel ? reachable(b, sel) : new Map<string, number>();
   const casting = sel && ui.battleSpell ? spellTargets(b, sel, ui.battleSpell) : null;
   const targets = new Set((casting ?? (sel ? attackTargets(b, sel) : [])).map((u) => u.id));
-  const friendlySpell = !!ui.battleSpell && SPELLS[ui.battleSpell].target === 'friend';
+  const chosen = sel && ui.battleSpell ? b.units.find((u) => u.id === ui.battleTarget && spellTargets(b, sel, ui.battleSpell!).includes(u)) : undefined;
+  const affected = sel && chosen && ui.battleSpell ? spellAffected(b, sel, ui.battleSpell, chosen) : [];
+  const destinations = sel && chosen && ui.battleSpell === 'teleport' ? new Set(teleportDestinations(b, sel, chosen).map(hexKey)) : new Set<string>();
 
   let ground = '';
   let overlay = '';
@@ -49,8 +52,9 @@ export function renderBattle(state: GameState, ui: UIState): string {
       const t = TERRAIN[kind];
       ground += `<polygon points="${hexPoints(cx, cy)}" class="hex ${kind}"/>${terrainArt(kind, cx, cy, col * 31 + row * 7)}`;
       // A transparent hit area on top of the art carries the click, the tooltip and the move highlight.
-      const reachable = reach.has(hexKey({ col, row })) && !casting;
-      overlay += `<polygon points="${hexPoints(cx, cy)}" class="hit${reachable ? ' reach' : ''}" data-action="hex" data-col="${col}" data-row="${row}">
+      const reachable = (reach.has(hexKey({ col, row })) && !casting) || destinations.has(hexKey({ col, row }));
+      const area = !!(chosen && ui.battleSpell && SPELLS[ui.battleSpell].radius && hexDistance(chosen, { col, row }) <= SPELLS[ui.battleSpell].radius);
+      overlay += `<polygon points="${hexPoints(cx, cy)}" class="hit${reachable ? ' reach' : ''}${area ? ' spell-area' : ''}" data-action="hex" data-col="${col}" data-row="${row}">
         <title>${t.name}: ${t.text}</title></polygon>`;
     }
   }
@@ -63,7 +67,7 @@ export function renderBattle(state: GameState, ui: UIState): string {
       const hero = !!t.hero;
       const cls = [
         'unit', mine ? 'mine' : 'foe', hero ? 'hero' : '', sel?.id === u.id ? 'sel' : '', u.routing ? 'routing' : '', spent ? 'spent' : '',
-        targets.has(u.id) ? (friendlySpell ? 'boon' : 'target') : '',
+        targets.has(u.id) ? (u.side === sel?.side ? 'boon' : 'target') : '', affected.includes(u) ? 'spell-affected' : '',
       ].filter(Boolean).join(' ');
       const frac = Math.min(1, u.men / u.maxMen);
       const morale = hero ? 1 : u.morale / 100;
@@ -76,6 +80,7 @@ export function renderBattle(state: GameState, ui: UIState): string {
         <text x="${cx}" y="${cy + 17}" class="men">${u.routing ? 'RUN' : u.men}</text>
         <rect x="${cx - 14}" y="${cy + 19}" width="28" height="3" class="hp-bg"/>
         <rect x="${cx - 14}" y="${cy + 19}" width="${(28 * frac).toFixed(1)}" height="3" class="hp"/>
+        ${u.effects.length ? `<text x="${cx + 16}" y="${cy - 10}" class="effect-badge"><title>${esc(u.effects.map((e) => `${EFFECTS[e.id].name}: ${e.turns} turns`).join('; '))}</title>✦</text>` : ''}
         ${hero ? '' : `<rect x="${cx - 14}" y="${cy + 22}" width="28" height="2" class="hp-bg"/>
         <rect x="${cx - 14}" y="${cy + 22}" width="${(28 * morale).toFixed(1)}" height="2" class="morale${u.morale < 40 ? ' low' : ''}"/>`}
       </g>`;
@@ -125,14 +130,16 @@ function renderLegend(b: Battle): string {
 
 function renderUnit(b: Battle, u: BattleUnit, ui: UIState): string {
   const t = UNIT_TYPES[u.type];
-  const spells = knownSpells(u);
+  const spells = UNIT_TYPES[u.type].hero?.spells ?? [];
+  const known = knownSpells(u);
   const title = t.hero ? `★ ${esc(u.name ?? t.name)} <small>${t.name}, Lv ${heroLevel(u.xp)}</small>` : `${esc(t.name)}${level(u.xp) ? ` <small>Lv ${level(u.xp)}</small>` : ''}`;
   const spellButtons = spells
     .map((id) => {
       const sp = SPELLS[id];
-      const usable = spellTargets(b, u, id).length > 0;
+      const unlocked = known.includes(id);
+      const usable = unlocked && spellTargets(b, u, id).length > 0;
       return `<button data-action="spell" data-spell="${id}" class="${ui.battleSpell === id ? 'primary' : ''}" ${usable ? '' : 'disabled'}
-        title="${esc(sp.text)} Range ${sp.range}.">${sp.name} <span>${sp.cost} mana</span></button>`;
+        title="${esc(sp.text)} Range ${sp.range}.">${sp.name} <span>${unlocked ? `${spellCost(u, id)} mana` : `Lv ${sp.level}`}</span></button>`;
     })
     .join('');
   return `<h2>${title}</h2>
@@ -141,13 +148,16 @@ function renderUnit(b: Battle, u: BattleUnit, ui: UIState): string {
       ${t.hero ? `<dt>Leadership</dt><dd>+${t.hero.leadership} morale to the army</dd>` : `<dt>Morale</dt><dd>${u.morale}${u.routing ? ' (running)' : ''}</dd>`}
       <dt>Attack</dt><dd>${attackOf(u).toFixed(1)}</dd>
       <dt>Defense</dt><dd>${defenseOf(b, u)}</dd>
-      <dt>Move</dt><dd>${u.moved ? 'done' : t.move}</dd>
+      <dt>Move</dt><dd>${u.moved ? 'done' : movementOf(u)}</dd>
       ${t.range > 1 ? `<dt>Range</dt><dd>${rangeOf(b, u)} (not when an enemy is next to it)</dd>` : ''}
+      <dt>Effects</dt><dd>${u.effects.length ? u.effects.map((e) => `${EFFECTS[e.id].name} (${e.turns} turns): ${EFFECTS[e.id].text}`).join('<br>') : 'None'}</dd>
+      <dt>Spell resistance</dt><dd>${Object.entries(t.resistances ?? {}).map(([kind, value]) => `${kind} ${value}%`).join(', ') || 'None'}${t.hero ? '; fearless (Terror immune)' : ''}</dd>
       <dt>Ground</dt><dd>${terrainAt(b, u).name}</dd>
       ${spells.length ? `<dt>Mana</dt><dd>${u.mana}</dd>` : ''}
     </dl>
     ${spells.length ? `<div class="spells">${spellButtons}</div>
-      <p class="sub">${ui.battleSpell ? `Click a ${SPELLS[ui.battleSpell].target === 'friend' ? 'green-ringed friend' : 'red-ringed enemy'} to cast ${SPELLS[ui.battleSpell].name}.` : 'Pick a spell, then a target.'}</p>` : ''}`;
+      <p class="sub">${ui.battleSpell ? `${esc(SPELLS[ui.battleSpell].text)} Select a highlighted formation${ui.battleSpell === 'teleport' ? ', then a highlighted empty hex' : ''}, review the effect and confirm.` : 'Choose a spell, then select a target. Locked spells show their required level. Level 10 reduces mana cost by one (minimum two).'}</p>
+      ${renderSpellPreview(b, u, ui)}` : ''}`;
 }
 
 function renderOutcome(b: Battle): string {
@@ -166,4 +176,26 @@ function renderReserves(b: Battle): string {
   return `<details class="log reserves" open><summary>Reserves (${held.length} formations)</summary>
     <p class="sub">Only the first ${FIELD_LIMIT} formations in each army deploy. Reserves stay off-field for the entire battle: no attacks, spells, combat losses or experience. They retreat with the army and share pursuit losses; if cut off, they scatter with it.</p>
     <ul>${held.map((u) => `<li>${esc(unitLabel(b, u))}: ${u.men} ${UNIT_TYPES[u.type].hero ? 'HP' : 'men'} — reserve (field full)</li>`).join('')}</ul></details>`;
+}
+
+function renderSpellPreview(b: Battle, caster: BattleUnit, ui: UIState): string {
+  const id = ui.battleSpell;
+  const target = b.units.find((u) => u.id === ui.battleTarget);
+  if (!id || !target) return '';
+  const preview = previewSpell(b, caster, id, target, ui.battleDestination ?? undefined);
+  if (!preview) return id === 'teleport' && spellTargets(b, caster, id).includes(target) ? '<p class="sub">Choose an empty highlighted destination for Teleport.</p>' : '';
+  const friendlyFire = preview.impacts.some((hit) => hit.unit.side === caster.side && hit.damage > 0);
+  return `<section class="spell-preview" aria-label="Spell preview"><h3>${SPELLS[id].name} preview</h3>
+    ${friendlyFire ? '<p class="msg">Friendly fire: this spell will hurt your formations.</p>' : ''}
+    <ul>${preview.impacts.map((hit) => `<li>${esc(unitLabel(b, hit.unit))}: ${[
+      hit.damage ? `${hit.damage} damage (${hit.unit.men - hit.damage} remaining)` : '', hit.healing ? `restore ${hit.healing}` : '',
+      hit.add ? `${EFFECTS[hit.add].name} for ${EFFECTS[hit.add].turns} turns` : '',
+      hit.remove.length ? `remove ${hit.remove.map((effect) => EFFECTS[effect].name).join(', ')}` : '',
+      id === 'terror' ? `lose up to ${30 + 5 * heroLevel(caster.xp)} morale` : '', id === 'rally' ? 'restore up to 40 morale' : '',
+      preview.destination ? `teleport to ${preview.destination.col + 1}, ${preview.destination.row + 1}; move spent` : '',
+    ].filter(Boolean).join('; ') || 'No damage'}</li>`).join('')}</ul>
+    ${preview.breaksWalls ? '<p>Battlefield walls break: defenders lose their +1 wall defense.</p>' : ''}
+    <button data-action="spell-confirm" class="primary">Cast ${SPELLS[id].name} — ${spellCost(caster, id)} mana</button>
+    <p class="sub">Consumes the caster’s attack and remaining move. Effects expire at the end of the affected side’s turn.</p>
+    </section>`;
 }
