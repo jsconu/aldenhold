@@ -1,6 +1,25 @@
 export type FactionId = 'player' | 'orcs' | 'neutral';
 export type Side = 'attacker' | 'defender';
 export type Terrain = 'plain' | 'forest' | 'hill';
+export type SpellId = 'fireball' | 'terror' | 'heal' | 'rally';
+
+export interface Spell {
+  id: SpellId;
+  name: string;
+  cost: number;
+  range: number;
+  target: 'enemy' | 'friend';
+  text: string;
+}
+
+export interface HeroTraits {
+  /** Morale bonus for every troop in the hero's army. */
+  leadership: number;
+  /** Fighting weight in the damage formula; a hero's hit points don't make them hit harder. */
+  power: number;
+  mana: number;
+  spells: SpellId[];
+}
 
 export interface UnitType {
   id: string;
@@ -16,12 +35,18 @@ export interface UnitType {
   upkeep: number;
   /** Where the player can raise it: any owned town, the capital only, or never. */
   recruit: 'any' | 'capital' | null;
+  /** Present for heroes. For heroes, `men` is base hit points and `cost` the hiring fee. */
+  hero?: HeroTraits;
 }
 
 export interface Troop {
   id: number;
   type: string;
+  /** Men in the troop; hit points for a hero. */
   men: number;
+  /** Heroes only. */
+  name?: string;
+  mana?: number;
   xp: number;
   /** Already marched (or was raised) this month. */
   moved: boolean;
@@ -58,9 +83,18 @@ export interface BattleUnit {
   armyId: number;
   troopId: number;
   type: string;
+  name?: string;
   men: number;
   startMen: number;
+  /** Cap for healing: starting men for troops, full hit points for heroes. */
+  maxMen: number;
   xp: number;
+  mana: number;
+  morale: number;
+  routing: boolean;
+  fled: boolean;
+  /** Attacks and spells this battle; heroes earn extra experience from them. */
+  deeds: number;
   col: number;
   row: number;
   moved: boolean;
@@ -91,8 +125,15 @@ export interface PendingBattle {
   defenderId: number;
 }
 
+export interface HeroOffer {
+  town: string;
+  type: string;
+  name: string;
+  expires: number;
+}
+
 export interface GameState {
-  version: 1;
+  version: 2;
   turn: number;
   gold: number;
   nextId: number;
@@ -103,6 +144,7 @@ export interface GameState {
   armies: Army[];
   battle: Battle | null;
   pending: PendingBattle[];
+  offers: HeroOffer[];
   log: string[];
   status: 'playing' | 'won' | 'lost';
 }

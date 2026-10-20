@@ -135,3 +135,21 @@ main { display: grid; grid-template-columns: minmax(0, 1fr) 340px; min-height: c
 .stats { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; margin: 10px 0; }
 .stats dt { color: var(--muted); }
 .stats dd { margin: 0; }
+
+/* Heroes, spells and morale */
+.troops li.hero .tname { color: var(--gold); }
+.troops .tname small { color: var(--muted); font-size: 12px; margin-left: 4px; }
+.offer { border: 1px dashed var(--gold); border-radius: 6px; padding: 6px 10px; margin: 6px 0; }
+.offer p { margin: 0 0 6px; font-size: 14px; }
+.offer .sub { display: block; margin: 2px 0 0; }
+.notice { font-size: 13px; margin: 0 0 10px; }
+button.link { background: none; border: none; padding: 0; color: var(--gold); text-decoration: underline; cursor: pointer; font-size: 13px; }
+.spells { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.spells button { display: flex; justify-content: space-between; font-size: 14px; }
+.spells button span { color: #9fc3ff; font-size: 12px; }
+.unit.hero .body { stroke: var(--gold); stroke-width: 3; }
+.unit.boon .body { stroke: #6fe08a; stroke-width: 4; stroke-dasharray: 5 3; }
+.unit.routing .body { fill-opacity: 0.45; }
+.unit.routing .men { fill: #ffd27a; font-weight: bold; }
+.unit .morale { fill: #9fc3ff; }
+.unit .morale.low { fill: #ffb347; }

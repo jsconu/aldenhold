@@ -1,19 +1,21 @@
 import './style.css';
-import { attack, attackTargets, autoResolve, moveUnit, playerEndTurn, playerSide, reachable, retreat, unitAt } from './game/battle';
-import { applyBattle, armyAt, endTurn, moveTroops, newGame, recruit, setTax } from './game/campaign';
+import {
+  attack, attackTargets, autoResolve, castSpell, moveUnit, playerEndTurn, playerSide, reachable, retreat, spellTargets, unitAt,
+} from './game/battle';
+import { applyBattle, armyAt, endTurn, hireHero, moveTroops, newGame, recruit, setTax } from './game/campaign';
 import { hexKey } from './game/hex';
-import type { GameState } from './game/types';
+import type { GameState, SpellId } from './game/types';
 import { renderBattle, selectedUnit } from './ui/battleView';
 import { moveTargets, renderCampaign } from './ui/campaignView';
 import type { UIState } from './ui/shared';
 
-const SAVE_KEY = 'aragon-save-v1';
+const SAVE_KEY = 'aragon-save-v2';
 
 function load(): GameState | null {
   try {
     const raw = localStorage.getItem(SAVE_KEY);
     const s = raw ? (JSON.parse(raw) as GameState) : null;
-    return s?.version === 1 ? s : null;
+    return s?.version === 2 ? s : null;
   } catch {
     return null;
   }
@@ -28,7 +30,7 @@ function save() {
 }
 
 let state: GameState = load() ?? newGame();
-const ui: UIState = { selected: 'aldenhold', checked: new Set(), battleUnit: null, message: '' };
+const ui: UIState = { selected: 'aldenhold', checked: new Set(), battleUnit: null, battleSpell: null, message: '' };
 selectNode(ui.selected!);
 
 const app = document.getElementById('app')!;
@@ -56,6 +58,18 @@ function onAction(action: string, data: DOMStringMap) {
       endTurn(state);
       if (ui.selected) selectNode(ui.selected);
       break;
+    case 'hire': {
+      const offer = state.offers[Number(data.offer)];
+      ui.message = offer ? hireHero(state, offer) ?? '' : 'That offer is gone.';
+      if (ui.selected) selectNode(ui.selected);
+      break;
+    }
+    case 'goto':
+      selectNode(data.node!);
+      break;
+    case 'spell':
+      ui.battleSpell = ui.battleSpell === data.spell ? null : (data.spell as SpellId);
+      break;
     case 'recruit':
       ui.message = recruit(state, data.node!, data.type!) ?? '';
       break;
@@ -76,6 +90,7 @@ function onAction(action: string, data: DOMStringMap) {
     case 'battle-end':
       playerEndTurn(state.battle!);
       ui.battleUnit = null;
+      ui.battleSpell = null;
       break;
     case 'battle-auto':
       autoResolve(state.battle!);
@@ -86,6 +101,7 @@ function onAction(action: string, data: DOMStringMap) {
     case 'battle-continue':
       applyBattle(state, state.battle!);
       ui.battleUnit = null;
+      ui.battleSpell = null;
       if (ui.selected) selectNode(ui.selected);
       break;
   }
@@ -95,11 +111,18 @@ function onHex(col: number, row: number) {
   const b = state.battle!;
   if (b.outcome || b.active !== playerSide(b)) return;
   const clicked = unitAt(b, { col, row });
+  const sel = selectedUnit(b, ui);
+  if (sel && ui.battleSpell && clicked && spellTargets(b, sel, ui.battleSpell).includes(clicked)) {
+    castSpell(b, sel.id, ui.battleSpell, clicked.id);
+    ui.battleSpell = null;
+    return;
+  }
   if (clicked && clicked.side === b.active) {
+    if (clicked.id !== ui.battleUnit) ui.battleSpell = null;
     ui.battleUnit = clicked.id;
     return;
   }
-  const sel = selectedUnit(b, ui);
+  ui.battleSpell = null;
   if (!sel) return;
   if (clicked && attackTargets(b, sel).includes(clicked)) attack(b, sel.id, clicked.id);
   else if (!clicked && reachable(b, sel).has(hexKey({ col, row }))) moveUnit(b, sel.id, { col, row });

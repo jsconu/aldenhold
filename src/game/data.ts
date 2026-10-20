@@ -1,4 +1,4 @@
-import type { FactionId, MapNode, Town, UnitType } from './types';
+import type { FactionId, MapNode, Spell, SpellId, Town, UnitType } from './types';
 
 export const UNIT_TYPES: Record<string, UnitType> = {
   militia: { id: 'militia', name: 'Militia', short: 'MIL', attack: 2, defense: 2, move: 3, range: 1, men: 20, cost: 60, upkeep: 4, recruit: 'any' },
@@ -8,7 +8,37 @@ export const UNIT_TYPES: Record<string, UnitType> = {
   warband: { id: 'warband', name: 'Orc Warband', short: 'ORC', attack: 3, defense: 2, move: 3, range: 1, men: 20, cost: 0, upkeep: 0, recruit: null },
   orcArchers: { id: 'orcArchers', name: 'Orc Archers', short: 'OAR', attack: 2, defense: 1, move: 3, range: 3, men: 15, cost: 0, upkeep: 0, recruit: null },
   troll: { id: 'troll', name: 'Troll', short: 'TRL', attack: 9, defense: 5, move: 3, range: 1, men: 6, cost: 0, upkeep: 0, recruit: null },
+
+  // Heroes: `men` is base hit points, `cost` the hiring fee.
+  lord: { id: 'lord', name: 'Lord', short: 'LRD', attack: 4, defense: 5, move: 4, range: 1, men: 30, cost: 0, upkeep: 0, recruit: null,
+    hero: { leadership: 15, power: 12, mana: 0, spells: [] } },
+  champion: { id: 'champion', name: 'Champion', short: 'CHM', attack: 5, defense: 5, move: 4, range: 1, men: 26, cost: 250, upkeep: 20, recruit: null,
+    hero: { leadership: 10, power: 12, mana: 0, spells: [] } },
+  priest: { id: 'priest', name: 'Priest', short: 'PRI', attack: 2, defense: 3, move: 3, range: 1, men: 18, cost: 300, upkeep: 20, recruit: null,
+    hero: { leadership: 5, power: 8, mana: 12, spells: ['heal', 'rally'] } },
+  mage: { id: 'mage', name: 'Mage', short: 'MAG', attack: 1, defense: 2, move: 3, range: 1, men: 14, cost: 350, upkeep: 25, recruit: null,
+    hero: { leadership: 0, power: 6, mana: 12, spells: ['fireball', 'terror'] } },
+  warchief: { id: 'warchief', name: 'Orc Warchief', short: 'WAR', attack: 5, defense: 4, move: 3, range: 1, men: 26, cost: 0, upkeep: 0, recruit: null,
+    hero: { leadership: 10, power: 12, mana: 0, spells: [] } },
+  shaman: { id: 'shaman', name: 'Orc Shaman', short: 'SHA', attack: 1, defense: 2, move: 3, range: 1, men: 14, cost: 0, upkeep: 0, recruit: null,
+    hero: { leadership: 0, power: 6, mana: 12, spells: ['fireball'] } },
 };
+
+export const SPELLS: Record<SpellId, Spell> = {
+  fireball: { id: 'fireball', name: 'Fireball', cost: 4, range: 5, target: 'enemy', text: 'Burns an enemy troop and shakes its nerve.' },
+  terror: { id: 'terror', name: 'Terror', cost: 3, range: 5, target: 'enemy', text: 'Fills an enemy troop with dread; it may break and run.' },
+  heal: { id: 'heal', name: 'Heal', cost: 3, range: 3, target: 'friend', text: 'Brings wounded men back into the line, or mends a hero.' },
+  rally: { id: 'rally', name: 'Rally', cost: 2, range: 4, target: 'friend', text: 'Steadies a troop. Brings running troops back to the fight.' },
+};
+
+/** Heroes for hire. The lord is the player's own and never offered. */
+export const HIREABLE_HEROES = ['champion', 'priest', 'mage'];
+export const HERO_NAMES: Record<string, string[]> = {
+  champion: ['Brannoc', 'Edith of Wray', 'Tamsin Hale', 'Corin Ashby'],
+  priest: ['Brother Osric', 'Mother Elswyth', 'Father Anselm', 'Sister Maud'],
+  mage: ['Ysolde', 'Master Pell', 'Varro the Grey', 'Hesketh'],
+};
+export const LORD_NAME = 'Aldric';
 
 export const CAPITAL = 'aldenhold';
 export const LAIR = 'gharzak';
@@ -51,14 +81,18 @@ export const START_TOWNS: Town[] = [
   { id: 'gharzak', owner: 'orcs', pop: 0, tax: 0, kind: 'lair' },
 ];
 
-export const START_ARMIES: { owner: FactionId; at: string; troops: string[] }[] = [
-  { owner: 'player', at: 'aldenhold', troops: ['militia', 'militia', 'spearmen', 'archers'] },
+export type StartTroop = string | { type: string; name: string };
+
+export const START_ARMIES: { owner: FactionId; at: string; troops: StartTroop[] }[] = [
+  { owner: 'player', at: 'aldenhold', troops: [{ type: 'lord', name: LORD_NAME }, 'militia', 'militia', 'spearmen', 'archers'] },
   { owner: 'player', at: 'millbrook', troops: ['militia'] },
   { owner: 'neutral', at: 'fenwick', troops: ['militia'] },
   { owner: 'neutral', at: 'harrowgate', troops: ['militia', 'militia'] },
   { owner: 'neutral', at: 'duskwater', troops: ['militia', 'archers'] },
-  { owner: 'orcs', at: 'gharzak', troops: ['warband', 'warband', 'warband', 'orcArchers', 'troll'] },
+  { owner: 'orcs', at: 'gharzak', troops: [{ type: 'warchief', name: 'Gorrash' }, { type: 'shaman', name: 'Murg' }, 'warband', 'warband', 'warband', 'orcArchers', 'troll'] },
   { owner: 'orcs', at: 'pass', troops: ['warband', 'warband'] },
 ];
 
 export const STARTING_GOLD = 300;
+/** A priest waits in the capital at the start, so new players meet hiring early. */
+export const START_OFFER = { town: 'aldenhold', type: 'priest', name: 'Brother Osric', expires: 4 };

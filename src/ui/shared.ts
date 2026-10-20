@@ -1,3 +1,5 @@
+import type { SpellId } from '../game/types';
+
 export interface UIState {
   /** Selected map node. */
   selected: string | null;
@@ -5,6 +7,8 @@ export interface UIState {
   checked: Set<number>;
   /** Selected unit in the current battle. */
   battleUnit: number | null;
+  /** Spell the selected hero is about to cast. */
+  battleSpell: SpellId | null;
   message: string;
 }
 

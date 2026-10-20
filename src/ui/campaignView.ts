@@ -1,8 +1,8 @@
 import {
   armyAt, canRecruitAt, dateLabel, monthlyIncome, monthlyUpkeep, neighborsOf, nodeName, townGrowth, townIncome,
 } from '../game/campaign';
-import { level } from '../game/battle';
-import { UNIT_TYPES } from '../game/data';
+import { SPELLS, UNIT_TYPES } from '../game/data';
+import { heroLevel, heroMaxHp, heroMaxMana, level } from '../game/units';
 import type { Army, FactionId, GameState } from '../game/types';
 import { esc, type UIState } from './shared';
 
@@ -34,6 +34,7 @@ export function renderCampaign(state: GameState, ui: UIState): string {
     <section class="map-wrap">${renderMap(state, ui)}</section>
     <aside class="side">
       ${ui.message ? `<p class="msg">${esc(ui.message)}</p>` : ''}
+      ${renderOfferNotice(state, ui)}
       ${ui.selected ? renderNodePanel(state, ui, ui.selected) : '<p class="hint">Click a place on the map. Your troops show as blue shields.</p>'}
       <details class="log" open><summary>Chronicle</summary><ul>${state.log.slice(0, 14).map((l) => `<li>${esc(l)}</li>`).join('')}</ul></details>
     </aside>
@@ -101,6 +102,7 @@ function renderNodePanel(state: GameState, ui: UIState, id: string): string {
               ${t.name} <span>${t.cost}g</span></button>`)
           .join('')}</div>`;
       if (town.kind !== 'capital') html += `<p class="sub">Knights can only be raised in Aldenhold.</p>`;
+      html += renderOffers(state, id);
     }
   } else {
     html += `<p class="sub">Open country</p>`;
@@ -115,16 +117,52 @@ function renderArmy(ui: UIState, a: Army): string {
   const rows = a.troops
     .map((t) => {
       const type = UNIT_TYPES[t.type];
-      const lv = level(t.xp);
       const box = mine
         ? `<input type="checkbox" data-change="check" data-troop="${t.id}" ${ui.checked.has(t.id) ? 'checked' : ''} ${t.moved ? 'disabled' : ''}/>`
         : '';
+      const marched = t.moved && mine ? '<span class="tag">marched</span>' : '';
+      if (type.hero) {
+        const mana = type.hero.mana ? ` · ${t.mana ?? 0}/${heroMaxMana(t.type, t.xp)} mana` : '';
+        return `<li class="hero ${t.moved && mine ? 'done' : ''}"><label>${box}<span class="tname">★ ${esc(t.name ?? type.name)}
+          <small>${type.name}</small></span><span class="men">${t.men}/${heroMaxHp(t.type, t.xp)} HP${mana}</span>
+          <span class="lv">Lv ${heroLevel(t.xp)}</span>${marched}</label></li>`;
+      }
+      const lv = level(t.xp);
       return `<li class="${t.moved && mine ? 'done' : ''}"><label>${box}<span class="tname">${type.name}</span>
-        <span class="men">${t.men} men</span>${lv ? `<span class="lv">Lv ${lv}</span>` : ''}${t.moved && mine ? '<span class="tag">marched</span>' : ''}</label></li>`;
+        <span class="men">${t.men} men</span>${lv ? `<span class="lv">Lv ${lv}</span>` : ''}${marched}</label></li>`;
     })
     .join('');
   const ready = mine && a.troops.some((t) => !t.moved);
   return `<div class="army-card own-${a.owner}"><h3>${mine ? 'Your troops' : a.owner === 'orcs' ? 'Orc host' : 'Town militia'}</h3>
     <ul class="troops">${rows}</ul>
     ${ready ? `<p class="hint">Tick the troops to send, then click a glowing place on the map.</p>` : ''}</div>`;
+}
+
+function heroSummary(typeId: string): string {
+  const t = UNIT_TYPES[typeId];
+  const spells = t.hero!.spells.map((sp) => SPELLS[sp].name).join(', ');
+  const lead = t.hero!.leadership ? `leadership +${t.hero!.leadership}` : '';
+  return [`${t.men} HP`, `attack ${t.attack}`, `defense ${t.defense}`, lead, spells && `spells: ${spells}`].filter(Boolean).join(' · ');
+}
+
+function renderOffers(state: GameState, townId: string): string {
+  const offers = state.offers.filter((o) => o.town === townId);
+  if (!offers.length) return '';
+  return `<h3>Heroes for hire</h3>${offers
+    .map((o) => {
+      const t = UNIT_TYPES[o.type];
+      const i = state.offers.indexOf(o);
+      return `<div class="offer"><p><b>${esc(o.name)}</b>, ${t.name.toLowerCase()}. ${heroSummary(o.type)}.
+        <span class="sub">Pay ${t.upkeep} gold a month. Leaves after ${state.turn >= o.expires ? 'this month' : `${o.expires - state.turn + 1} months`}.</span></p>
+        <button data-action="hire" data-offer="${i}" ${state.gold < t.cost ? 'disabled' : ''}>Hire for ${t.cost}g</button></div>`;
+    })
+    .join('')}`;
+}
+
+function renderOfferNotice(state: GameState, ui: UIState): string {
+  const elsewhere = state.offers.filter((o) => o.town !== ui.selected);
+  if (!elsewhere.length) return '';
+  return `<p class="notice">${elsewhere
+    .map((o) => `<button class="link" data-action="goto" data-node="${o.town}">${esc(o.name)} waits in ${esc(nodeName(state, o.town))}</button>`)
+    .join(' · ')}</p>`;
 }

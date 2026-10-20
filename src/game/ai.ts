@@ -1,6 +1,7 @@
 import { armyAt, enterNode, log, makeTroop, neighborsOf, nodeName } from './campaign';
 import { LAIR } from './data';
 import type { GameState } from './types';
+import { isHero } from './units';
 
 const SPAWN_EVERY = 3;
 const RAID_EVERY = 4;
@@ -16,8 +17,11 @@ export function orcTurn(state: GameState) {
       else state.armies.push({ id: state.nextId++, owner: 'orcs', at: LAIR, from: null, troops: [makeTroop(state, type)] });
     }
     const garrison = armyAt(state, LAIR, 'orcs');
-    if (state.turn % RAID_EVERY === 0 && garrison && garrison.troops.length >= RAID_MIN_GARRISON) {
-      const raiders = garrison.troops.splice(0, Math.ceil(garrison.troops.length / 2));
+    if (state.turn % RAID_EVERY === 0 && garrison && garrison.troops.filter((t) => !isHero(t.type)).length >= RAID_MIN_GARRISON) {
+      // The warchief and shaman stay home; half the rank and file ride out.
+      const ranks = garrison.troops.filter((t) => !isHero(t.type));
+      const raiders = ranks.slice(0, Math.ceil(ranks.length / 2));
+      garrison.troops = garrison.troops.filter((t) => !raiders.includes(t));
       state.armies.push({ id: state.nextId++, owner: 'orcs', at: LAIR, from: null, troops: raiders });
       log(state, 'A war party rides out of Gharzak Hold.');
     }

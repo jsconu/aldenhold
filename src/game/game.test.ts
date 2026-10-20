@@ -75,7 +75,7 @@ describe('marching', () => {
     const first = home.troops[0].id;
     expect(moveTroops(s, 'aldenhold', [first], 'bridge')).toBeNull();
     expect(armyAt(s, 'bridge', 'player')!.troops.map((t) => t.id)).toEqual([first]);
-    expect(armyAt(s, 'aldenhold', 'player')!.troops).toHaveLength(3);
+    expect(armyAt(s, 'aldenhold', 'player')!.troops).toHaveLength(4);
     // Already marched this month.
     expect(moveTroops(s, 'bridge', [first], 'aldenhold')).not.toBeNull();
   });

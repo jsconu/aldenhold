@@ -1,16 +1,22 @@
 import { orcTurn } from './ai';
 import { autoResolve, createBattle, isAI, runAI } from './battle';
-import { CAPITAL, LAIR, MAP_EDGES, MAP_NODES, START_ARMIES, START_TOWNS, STARTING_GOLD, UNIT_TYPES } from './data';
+import {
+  CAPITAL, HERO_NAMES, HIREABLE_HEROES, LAIR, MAP_EDGES, MAP_NODES, START_ARMIES, START_OFFER, START_TOWNS, STARTING_GOLD, UNIT_TYPES,
+} from './data';
 import { random } from './rng';
-import type { Army, Battle, FactionId, GameState, Town, Troop } from './types';
+import type { Army, Battle, FactionId, GameState, HeroOffer, Town, Troop } from './types';
+import { heroLevel, heroMaxHp, heroMaxMana, isHero } from './units';
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const MAX_TAX = 50;
 const MIN_POP_AFTER_RECRUIT = 500;
+const OFFER_CHANCE = 0.3;
+const MAX_OFFERS = 2;
+const OFFER_MONTHS = 3;
 
 export function newGame(seed = Math.floor(Math.random() * 2 ** 31)): GameState {
   const state: GameState = {
-    version: 1,
+    version: 2,
     turn: 1,
     gold: STARTING_GOLD,
     nextId: 1,
@@ -21,19 +27,63 @@ export function newGame(seed = Math.floor(Math.random() * 2 ** 31)): GameState {
     armies: [],
     battle: null,
     pending: [],
+    offers: [{ ...START_OFFER }],
     log: [],
     status: 'playing',
   };
   for (const t of START_TOWNS) state.towns[t.id] = { ...t };
   for (const a of START_ARMIES) {
-    state.armies.push({ id: state.nextId++, owner: a.owner, at: a.at, from: null, troops: a.troops.map((t) => makeTroop(state, t)) });
+    state.armies.push({ id: state.nextId++, owner: a.owner, at: a.at, from: null, troops: a.troops.map((t) => (typeof t === 'string' ? makeTroop(state, t) : makeTroop(state, t.type, t.name))) });
   }
   log(state, 'Your father is dead and Aldenhold is yours. Orcs raid the valley from Gharzak Hold. Bring the free towns under your banner and break the Hold.');
   return state;
 }
 
-export function makeTroop(state: GameState, type: string): Troop {
-  return { id: state.nextId++, type, men: UNIT_TYPES[type].men, xp: 0, moved: false };
+export function makeTroop(state: GameState, type: string, name?: string): Troop {
+  const t: Troop = { id: state.nextId++, type, men: UNIT_TYPES[type].men, xp: 0, moved: false };
+  if (isHero(type)) {
+    t.name = name ?? UNIT_TYPES[type].name;
+    t.men = heroMaxHp(type, 0);
+    t.mana = heroMaxMana(type, 0);
+  }
+  return t;
+}
+
+export function lordOf(state: GameState): Troop | undefined {
+  return state.armies.filter((a) => a.owner === 'player').flatMap((a) => a.troops).find((t) => t.type === 'lord');
+}
+
+/** Hire a hero who has offered their service. Returns an error message, or null. */
+export function hireHero(state: GameState, offer: HeroOffer): string | null {
+  const town = state.towns[offer.town];
+  const type = UNIT_TYPES[offer.type];
+  if (state.battle || state.status !== 'playing') return 'Not now.';
+  if (!state.offers.includes(offer) || town?.owner !== 'player') return 'That offer is gone.';
+  if (state.gold < type.cost) return `You need ${type.cost} gold.`;
+  state.gold -= type.cost;
+  state.offers = state.offers.filter((o) => o !== offer);
+  const troop = makeTroop(state, offer.type, offer.name);
+  troop.moved = true;
+  const army = armyAt(state, offer.town, 'player');
+  if (army) army.troops.push(troop);
+  else state.armies.push({ id: state.nextId++, owner: 'player', at: offer.town, from: null, troops: [troop] });
+  log(state, `${offer.name} the ${type.name.toLowerCase()} joins you in ${nodeName(state, offer.town)}.`);
+  return null;
+}
+
+function newOffers(state: GameState) {
+  state.offers = state.offers.filter((o) => o.expires >= state.turn && state.towns[o.town]?.owner === 'player');
+  if (state.offers.length >= MAX_OFFERS || random(state) >= OFFER_CHANCE) return;
+  const towns = Object.values(state.towns).filter((t) => t.owner === 'player' && t.kind !== 'lair');
+  if (!towns.length) return;
+  const town = towns[Math.floor(random(state) * towns.length)];
+  const type = HIREABLE_HEROES[Math.floor(random(state) * HIREABLE_HEROES.length)];
+  const taken = new Set([...state.armies.flatMap((a) => a.troops.map((t) => t.name)), ...state.offers.map((o) => o.name)]);
+  const names = HERO_NAMES[type].filter((n) => !taken.has(n));
+  if (!names.length) return;
+  const name = names[Math.floor(random(state) * names.length)];
+  state.offers.push({ town: town.id, type, name, expires: state.turn + OFFER_MONTHS });
+  log(state, `${name}, a ${UNIT_TYPES[type].name.toLowerCase()}, offers to serve you in ${nodeName(state, town.id)}.`);
 }
 
 export function log(state: GameState, line: string) {
@@ -198,7 +248,18 @@ export function applyBattle(state: GameState, b: Battle) {
       const u = b.units.find((x) => x.troopId === t.id);
       if (!u) continue;
       t.men = u.men;
-      if (t.men > 0) t.xp += 1;
+      if (t.men <= 0) {
+        if (t.name) log(state, `${t.name} died at ${nodeName(state, b.at)}.`);
+        continue;
+      }
+      if (isHero(t.type)) {
+        const before = heroLevel(t.xp);
+        t.mana = u.mana;
+        t.xp += 1 + Math.floor(u.deeds / 2);
+        if (heroLevel(t.xp) > before && army.owner === 'player') log(state, `${t.name} reaches level ${heroLevel(t.xp)}.`);
+      } else {
+        t.xp += 1;
+      }
     }
     army.troops = army.troops.filter((t) => t.men > 0);
     if (!army.troops.length) removeArmy(state, army);
@@ -211,25 +272,42 @@ export function applyBattle(state: GameState, b: Battle) {
     log(state, winner === 'player' ? `Victory at ${place}.` : `Defeat at ${place}.`);
   }
 
-  if (b.outcome === 'attacker' && attacker && findArmy(state, attacker.id)) {
+  const survives = (a: Army | undefined): a is Army => !!a && !!findArmy(state, a.id);
+  if (b.outcome === 'attacker' && survives(attacker)) {
+    if (survives(defender)) fallBack(state, defender);
     settle(state, attacker);
-  } else if (b.outcome === 'defender' && attacker && findArmy(state, attacker.id)) {
+  } else if (b.outcome === 'defender' && survives(attacker)) {
     fallBack(state, attacker);
   }
   checkStatus(state);
   startNextPending(state);
 }
 
+/** Survivors of a lost battle: attackers go back where they came from; defenders to a safe neighbor. */
 function fallBack(state: GameState, army: Army) {
-  const back = army.from;
-  for (const t of army.troops) t.men = Math.max(1, Math.floor(t.men * 0.9));
-  if (!back || state.armies.some((a) => a.at === back && a.owner !== army.owner)) {
-    log(state, `With nowhere to run, the survivors scatter.`);
-    removeArmy(state, army);
+  for (const t of army.troops) if (!isHero(t.type)) t.men = Math.max(1, Math.floor(t.men * 0.9));
+  // A beaten army only falls back to its own towns or open country, never into someone else's town.
+  const safe = (node: string) =>
+    !state.armies.some((a) => a.at === node && a.owner !== army.owner) && (!state.towns[node] || state.towns[node].owner === army.owner);
+  const ownTown = (node: string) => Number(state.towns[node]?.owner === army.owner);
+  const options = army.from ? [army.from] : neighborsOf(state, army.at).sort((x, y) => ownTown(y) - ownTown(x));
+  const back = options.find(safe);
+  if (back) {
+    army.at = back;
+    settle(state, army);
     return;
   }
-  army.at = back;
-  settle(state, army);
+  removeArmy(state, army);
+  const lord = army.troops.find((t) => t.type === 'lord');
+  if (lord && state.towns[CAPITAL].owner === 'player' && safe(CAPITAL)) {
+    lord.moved = true;
+    const escaped: Army = { id: state.nextId++, owner: 'player', at: CAPITAL, from: null, troops: [lord] };
+    state.armies.push(escaped);
+    settle(state, escaped);
+    log(state, `Cut off, the army scatters. ${lord.name} escapes to ${nodeName(state, CAPITAL)}.`);
+  } else {
+    log(state, 'Cut off, the survivors scatter.');
+  }
 }
 
 function startNextPending(state: GameState) {
@@ -247,6 +325,9 @@ function checkStatus(state: GameState) {
   } else if (state.towns[CAPITAL].owner !== 'player') {
     state.status = 'lost';
     log(state, 'Aldenhold has fallen. Your house is ended.');
+  } else if (!lordOf(state)) {
+    state.status = 'lost';
+    log(state, 'Your lord is dead. With no heir, your house is ended.');
   }
 }
 
@@ -254,15 +335,25 @@ function payMonth(state: GameState) {
   for (const t of Object.values(state.towns)) {
     if (t.owner === 'player') t.pop = Math.max(0, t.pop + townGrowth(t));
   }
+  // Heroes mend a quarter of their wounds and recover all their mana each month.
+  for (const t of state.armies.flatMap((a) => a.troops)) {
+    if (!isHero(t.type)) continue;
+    const max = heroMaxHp(t.type, t.xp);
+    t.men = Math.min(max, t.men + Math.ceil(max / 4));
+    t.mana = heroMaxMana(t.type, t.xp);
+  }
   const income = monthlyIncome(state);
   const upkeep = monthlyUpkeep(state);
   state.gold += income - upkeep;
   if (state.gold < 0) {
     state.gold = 0;
-    const armies = state.armies.filter((a) => a.owner === 'player' && a.troops.length);
-    const biggest = armies.sort((a, c) => c.troops.length - a.troops.length)[0];
+    // Heroes stay loyal; hired soldiers walk.
+    const soldiers = (a: Army) => a.troops.filter((t) => !isHero(t.type));
+    const armies = state.armies.filter((a) => a.owner === 'player' && soldiers(a).length);
+    const biggest = armies.sort((a, c) => soldiers(c).length - soldiers(a).length)[0];
     if (biggest) {
-      const gone = biggest.troops.pop()!;
+      const gone = soldiers(biggest).at(-1)!;
+      biggest.troops = biggest.troops.filter((t) => t !== gone);
       if (!biggest.troops.length) removeArmy(state, biggest);
       log(state, `The treasury is empty. Unpaid ${UNIT_TYPES[gone.type].name} desert at ${nodeName(state, biggest.at)}.`);
     }
@@ -274,6 +365,7 @@ export function endTurn(state: GameState) {
   payMonth(state);
   state.turn++;
   for (const a of state.armies) for (const t of a.troops) t.moved = false;
+  newOffers(state);
   orcTurn(state);
   checkStatus(state);
 }
