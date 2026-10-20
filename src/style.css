@@ -238,3 +238,13 @@ button.link { background: none; border: none; padding: 0; color: var(--gold); te
 .building-card p { margin: 5px 0 8px; }
 .building-card button { max-width: 100%; white-space: normal; }
 .building-card small { display: block; margin: 5px 0; }
+
+
+/* Veteran refits stay collapsed until a unit owner wants the full comparison. */
+.refit-panel { padding: 8px; margin: 8px 0; border: 1px solid #a18c655c; border-radius: 6px; }
+.refit-panel summary { cursor: pointer; font-weight: 600; }
+.refit-row { border-top: 1px solid #7775; margin-top: 9px; padding-top: 9px; }
+.refit-row > small, .refit-option small { display: block; color: #bcb9a9; margin: 3px 0; }
+.refit-option { margin: 7px 0; }
+.refit-option button { white-space: normal; max-width: 100%; }
+.gear-label { display: inline-block; font-size: 11px; color: #cfc5ac; }
