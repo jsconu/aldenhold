@@ -1,4 +1,5 @@
 import { BUILDINGS } from './cities';
+import { townLocation } from './world';
 import { recordPurchase } from './economy';
 import { level, isHero } from './units';
 import type { EquipmentId, EquipmentSlot, GameState, GoodId, GoodsStock, Loadout, Troop } from './types';
@@ -68,7 +69,7 @@ export function refitQuote(state: GameState, townId: string, troopId: number, it
   const item = EQUIPMENT[itemId];
   const town = state.towns[townId];
   const city = state.cityEconomies[townId];
-  const army = state.armies.find((a) => a.owner === 'player' && a.at === townId &&
+  const army = state.armies.find((a) => a.owner === 'player' && a.at === townLocation(state, townId) &&
     a.troops.some((t) => t.id === troopId));
   const troop = army?.troops.find((t) => t.id === troopId);
   const men = troop?.men ?? 0;
@@ -82,7 +83,7 @@ export function refitQuote(state: GameState, townId: string, troopId: number, it
   else if (item.slot === 'bow' && troop.type !== 'archers') reason = 'Only archer formations can use bows.';
   else if (item.slot === 'armor' && troop.type === 'archers' && itemId === 'plate') reason = 'Archers cannot wear plate.';
   else if (troop.refit) reason = 'This formation is already refitting.';
-  else if (troop.moved) reason = 'This formation has already acted this month.';
+  else if (troop.mp <= 0) reason = 'This formation has already acted this month.';
   else if (level(troop.xp) < item.level) reason = `Requires level ${item.level}.`;
   else if (ranks[item.slot].indexOf(itemId) <= ranks[item.slot].indexOf(troop.gear[item.slot]!)) reason = 'Already equipped or an inferior tier.';
   else if (item.requiresForge && city.buildings.forge < 1) reason = `Requires a ${BUILDINGS.forge.name} in this town.`;
@@ -103,7 +104,7 @@ export function beginRefit(state: GameState, townId: string, troopId: number, it
   const troop = quote.troop;
   troop.refit = { item, startedTurn: state.turn, orderedMen: troop.men,
     paidGold: quote.gold, paidGoods: quote.materials };
-  troop.moved = true;
+  troop.mp = 0;
   recordPurchase(state, townId, 'refit', quote.gold, `refit:${troop.id}:${state.turn}`, EQUIPMENT[item].name);
   return null;
 }

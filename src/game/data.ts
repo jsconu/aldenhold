@@ -5,7 +5,7 @@
  */
 import { VALLEY_QUICKPLAY } from '../content/campaigns/valleyQuickplay';
 
-export { HERO_NAMES, HIREABLE_HEROES, SPELLS, TERRAIN, UNIT_TYPES } from '../content/rules';
+export { HERO_NAMES, HIREABLE_HEROES, LAND, SPELLS, TERRAIN, UNIT_TYPES } from '../content/rules';
 export type { StartTroop } from './types';
 
 export const LORD_NAME = VALLEY_QUICKPLAY.lordName;

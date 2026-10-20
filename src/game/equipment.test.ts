@@ -110,7 +110,7 @@ describe('experience-gated equipment', () => {
     s.towns.aldenhold.owner = 'orcs';
     expect(refitQuote(s, 'aldenhold', t.id, 'long-bow').reason).toMatch(/owned town/);
     s.towns.aldenhold.owner = 'player';
-    t.moved = true;
+    t.mp = 0;
     expect(refitQuote(s, 'aldenhold', t.id, 'long-bow').reason).toMatch(/already acted/);
   });
 
@@ -148,7 +148,7 @@ describe('experience-gated equipment', () => {
     }
     (legacy as { version: number }).version = 7;
     const restored = parseSave(JSON.stringify(legacy));
-    expect(restored.version).toBe(9);
+    expect(restored.version).toBe(10);
     expect(restored.gold).toBe(beforeGold);
     expect(restored.treasury.pending).toEqual([]);
     expect(restored.armies.find((a) => a.owner === 'player')!.troops.find((u) => u.id === t.id)!.gear.bow).toBe('short-bow');

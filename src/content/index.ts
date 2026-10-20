@@ -1,19 +1,21 @@
 import type { CampaignDefinition, CampaignId } from '../game/types';
 import { VALLEY_QUICKPLAY } from './campaigns/valleyQuickplay';
+import { WESTERN_REALM } from './campaigns/westernRealm';
 import { ITEMS } from './items';
 import { QUESTS } from './quests';
-import { HERO_NAMES, HIREABLE_HEROES, SPELLS, TERRAIN, UNIT_TYPES } from './rules';
+import { HERO_NAMES, HIREABLE_HEROES, LAND, SPELLS, TERRAIN, UNIT_TYPES } from './rules';
 
 /** Everything static the game is built from. Runtime state lives in GameState and never edits these. */
 export const CATALOG = {
   units: UNIT_TYPES,
   spells: SPELLS,
   terrain: TERRAIN,
+  land: LAND,
   items: ITEMS,
   quests: QUESTS,
   hireableHeroes: HIREABLE_HEROES,
   heroNames: HERO_NAMES,
-  campaigns: { 'valley-quickplay': VALLEY_QUICKPLAY } as Record<CampaignId, CampaignDefinition>,
+  campaigns: { 'western-realm': WESTERN_REALM, 'valley-quickplay': VALLEY_QUICKPLAY } as Record<CampaignId, CampaignDefinition>,
 };
 
 export type Catalog = typeof CATALOG;

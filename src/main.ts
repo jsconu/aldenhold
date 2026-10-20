@@ -2,9 +2,10 @@ import './style.css';
 import {
   attack, attackTargets, autoResolve, castSpell, moveUnit, playerEndTurn, playerSide, reachable, retreat, spellTargets, teleportDestinations, unitAt,
 } from './game/battle';
-import { applyBattle, armyAt, endTurn, hireHero, moveTroops, newGame, recruit, setTax } from './game/campaign';
+import { applyBattle, armyAt, campaignOf, endTurn, hireHero, moveTroops, newGame, recruit, setTax } from './game/campaign';
+import { townLocation } from './game/world';
 import { hexKey } from './game/hex';
-import type { SpellId } from './game/types';
+import type { CampaignId, GameState, SpellId } from './game/types';
 import { renderBattle, selectedUnit } from './ui/battleView';
 import { moveTargets, plannedRoute, renderCampaign } from './ui/campaignView';
 import { esc, type UIState } from './ui/shared';
@@ -47,8 +48,17 @@ function exportSave() {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-const ui: UIState = { selected: 'aldenhold', checked: new Set(), battleUnit: null, battleSpell: null, message: '', view: 'map' };
-selectNode(ui.selected!);
+const ui: UIState = {
+  selected: null, checked: new Set(), battleUnit: null, battleSpell: null, message: '', view: 'map',
+  // With no saved game, open on the campaign chooser.
+  choosing: !loaded.state && !loaded.blocked,
+};
+selectNode(capitalOf(state));
+
+/** Where the map opens: the campaign's capital. */
+function capitalOf(s: GameState): string {
+  return townLocation(s, campaignOf(s).capital);
+}
 
 const app = document.getElementById('app')!;
 
@@ -64,22 +74,29 @@ function render() {
 function selectNode(id: string) {
   ui.selected = id;
   const army = armyAt(state, id, 'player');
-  ui.checked = new Set(army?.troops.filter((t) => !t.moved).map((t) => t.id) ?? []);
+  ui.checked = new Set(army?.troops.filter((t) => t.mp > 0 && !t.refit).map((t) => t.id) ?? []);
 }
 
 function onAction(action: string, data: DOMStringMap) {
   ui.message = '';
   switch (action) {
     case 'new-game':
-      if (state.status !== 'playing' || confirm('Start a new game? Your current game will be lost.')) {
-        state = newGame();
-        autosaveBlocked = false;
-        saveWarning = '';
-        ui.battleUnit = null;
-        ui.battleSpell = null;
-        ui.view = 'map';
-        selectNode('aldenhold');
-      }
+      ui.choosing = true;
+      break;
+    case 'cancel-choose':
+      ui.choosing = false;
+      break;
+    case 'start-campaign':
+      state = newGame(undefined, data.campaign as CampaignId);
+      autosaveBlocked = false;
+      saveWarning = '';
+      ui.choosing = false;
+      ui.battleUnit = null;
+      ui.battleSpell = null;
+      ui.view = 'map';
+      ui.routeOrigin = null;
+      ui.routeDestination = null;
+      selectNode(capitalOf(state));
       break;
     case 'plan-route':
       ui.routeOrigin = ui.selected;
@@ -96,7 +113,7 @@ function onAction(action: string, data: DOMStringMap) {
     case 'route-first-leg': {
       const route = plannedRoute(state, ui);
       if (!route || route.stops.length < 2 || !ui.routeOrigin || ui.selected !== ui.routeOrigin ||
-        !moveTargets(state, ui).includes(route.stops[1].id)) {
+        !moveTargets(state, ui).has(route.stops[1].id)) {
         ui.message = 'Select ready troops at the departure city before marching.';
         break;
       }
@@ -117,7 +134,7 @@ function onAction(action: string, data: DOMStringMap) {
       break;
     case 'view-fenwick':
       ui.view = 'map';
-      selectNode('fenwick');
+      selectNode(townLocation(state, 'fenwick'));
       break;
     case 'fenwick-sign':
       ui.message = decideFenwickCharter(state, 'sign') ?? '';
@@ -185,7 +202,7 @@ function onAction(action: string, data: DOMStringMap) {
         if (id !== ui.routeOrigin) ui.routeDestination = id;
         break;
       }
-      if (ui.selected && moveTargets(state, ui).includes(id)) {
+      if (ui.selected && moveTargets(state, ui).has(id)) {
         const err = moveTroops(state, ui.selected, [...ui.checked], id);
         ui.message = err ?? '';
         if (!err) selectNode(id);
@@ -284,7 +301,7 @@ app.addEventListener('change', async (e) => {
       ui.battleUnit = null;
       ui.battleSpell = null;
       ui.message = '';
-      selectNode('aldenhold');
+      selectNode(capitalOf(state));
       save();
     } catch {
       saveWarning = 'Import failed: the file is invalid or uses an unsupported version. Your current game and saved progress have not been changed.';

@@ -1,6 +1,7 @@
 import { FENWICK_CHARTER } from '../content/quests';
 import { deed, neighborsOf } from './campaign';
 import type { FactionId, GameState, QuestProgress } from './types';
+import { townLocation } from './world';
 
 export function newQuestState(): Record<string, QuestProgress> {
   return { Q00: { status: 'available', stage: 'decision', choice: null, resolvedTurn: null } };
@@ -11,8 +12,9 @@ export function decideFenwickCharter(state: GameState, choice: 'sign' | 'decline
   if (state.status !== 'playing' || state.battle) return 'You cannot negotiate during a battle.';
   const quest = state.quests[FENWICK_CHARTER.id];
   if (!quest || quest.status !== 'available' || state.towns.fenwick?.owner !== 'neutral') return 'The council has already decided.';
+  const fenwick = townLocation(state, 'fenwick');
   const envoyInRange = state.armies.some((a) => a.owner === 'player' &&
-    (a.at === 'fenwick' || neighborsOf(state, 'fenwick').includes(a.at)));
+    (a.at === fenwick || neighborsOf(state, fenwick).includes(a.at)));
   if (!envoyInRange) return 'Send an army to Fenwick or a neighboring road before negotiating.';
   quest.status = choice === 'sign' ? 'succeeded' : 'failed';
   quest.stage = 'resolved';
@@ -21,9 +23,9 @@ export function decideFenwickCharter(state: GameState, choice: 'sign' | 'decline
   if (choice === 'sign') {
     state.treaties.fenwick = { relation: 'ally', passage: true, signedTurn: state.turn };
     if (!state.items.includes(FENWICK_CHARTER.rewardItem)) state.items.push(FENWICK_CHARTER.rewardItem);
-    deed(state, 'story', 'Signed the Fenwick Charter. The free council keeps its town; your troops gain peaceful passage and its sealed charter.', 'fenwick');
+    deed(state, 'story', 'Signed the Fenwick Charter. The free council keeps its town; your troops gain peaceful passage and its sealed charter.', townLocation(state, 'fenwick'));
   } else {
-    deed(state, 'story', 'Rejected the Fenwick Charter. Fenwick remains independent and its militia bars the road.', 'fenwick');
+    deed(state, 'story', 'Rejected the Fenwick Charter. Fenwick remains independent and its militia bars the road.', townLocation(state, 'fenwick'));
   }
   return null;
 }
@@ -33,14 +35,14 @@ export function onTownOwnershipChange(state: GameState, id: string, owner: Facti
   if (id !== 'fenwick' || owner === 'neutral') return;
   if (state.treaties.fenwick) {
     delete state.treaties.fenwick;
-    deed(state, 'realm', 'The Fenwick passage treaty has ended with the change of ruler.', 'fenwick');
+    deed(state, 'realm', 'The Fenwick passage treaty has ended with the change of ruler.', townLocation(state, 'fenwick'));
   }
   const quest = state.quests[FENWICK_CHARTER.id];
   if (quest?.status === 'available') {
     quest.status = 'superseded';
     quest.stage = 'resolved';
     quest.resolvedTurn = state.turn;
-    deed(state, 'story', 'The Fenwick council can no longer offer a charter after the town changed hands.', 'fenwick');
+    deed(state, 'story', 'The Fenwick council can no longer offer a charter after the town changed hands.', townLocation(state, 'fenwick'));
   }
 }
 

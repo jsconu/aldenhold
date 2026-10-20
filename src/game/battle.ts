@@ -1,8 +1,8 @@
 import { EFFECTS } from '../content/spells';
-import { SPELLS, TERRAIN, UNIT_TYPES } from './data';
+import { LAND, SPELLS, TERRAIN, UNIT_TYPES } from './data';
 import { hexDistance, hexKey, hexNeighbors, hexLine, type Hex } from './hex';
 import { random } from './rng';
-import type { Army, Battle, BattleUnit, FactionId, Side, SpellId, Terrain, EffectId } from './types';
+import type { Army, Battle, BattleUnit, FactionId, Land, Side, SpellId, Terrain, EffectId } from './types';
 import { attackFor, heroLevel, heroMaxHp, isHero, level } from './units';
 import { EQUIPMENT } from './equipment';
 
@@ -22,7 +22,7 @@ export function other(side: Side): Side {
   return side === 'attacker' ? 'defender' : 'attacker';
 }
 
-export function createBattle(at: string, attacker: Army, defender: Army, walls: boolean, seed: number): Battle {
+export function createBattle(at: string, attacker: Army, defender: Army, walls: boolean, seed: number, land: Land = 'plains'): Battle {
   const b: Battle = {
     at,
     attackerId: attacker.id,
@@ -40,7 +40,7 @@ export function createBattle(at: string, attacker: Army, defender: Army, walls: 
     retreated: null,
     seed,
   };
-  b.terrain = generateTerrain(b);
+  b.terrain = generateTerrain(b, land);
   deploy(b, attacker, 'attacker', [2, 1, 0]);
   deploy(b, defender, 'defender', [BATTLE_W - 3, BATTLE_W - 2, BATTLE_W - 1]);
   return b;
@@ -50,17 +50,15 @@ export function leadershipOf(army: Army): number {
   return Math.max(0, ...army.troops.map((t) => (t.men > 0 ? UNIT_TYPES[t.type].hero?.leadership ?? 0 : 0)));
 }
 
-/** Weights for scattering single features over the middle of the field. */
-const SCATTER: [Terrain, number][] = [['forest', 0.1], ['hill', 0.06], ['marsh', 0.035], ['thorns', 0.03], ['ruins', 0.02], ['rocks', 0.03]];
-
-/** Middle of the field gets features; the three columns at each edge stay open for deployment. */
-function generateTerrain(rng: { seed: number }): Terrain[][] {
+/** The middle of the field gets features shaped by the land outside; the three columns at each edge stay open. */
+function generateTerrain(rng: { seed: number }, land: Land): Terrain[][] {
+  const { battleScatter, battleStream } = LAND[land];
   const t: Terrain[][] = Array.from({ length: BATTLE_W }, () => Array<Terrain>(BATTLE_H).fill('plain'));
   const middle = (col: number) => col >= 3 && col < BATTLE_W - 3;
   for (let col = 3; col < BATTLE_W - 3; col++) {
     for (let row = 0; row < BATTLE_H; row++) {
       let r = random(rng);
-      for (const [kind, weight] of SCATTER) {
+      for (const [kind, weight] of battleScatter) {
         if (r < weight) {
           t[col][row] = kind;
           break;
@@ -69,8 +67,8 @@ function generateTerrain(rng: { seed: number }): Terrain[][] {
       }
     }
   }
-  // Half the fields have a stream winding from top to bottom.
-  if (random(rng) < 0.5) {
+  // Some fields have a stream winding from top to bottom; how often depends on the land.
+  if (random(rng) < battleStream) {
     let col = 5 + Math.floor(random(rng) * 2);
     for (let row = 0; row < BATTLE_H; row++) {
       t[col][row] = 'stream';

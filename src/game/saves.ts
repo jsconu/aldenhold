@@ -10,6 +10,7 @@ import { basicLoadout, EQUIPMENT, equipmentQuoteGold } from './equipment';
 import { endingReason } from './campaign';
 import { TERRAIN, UNIT_TYPES } from './data';
 import { heroMaxHp, heroMaxMana, isHero } from './units';
+import { isLocation } from './world';
 import type { CampaignId, DeedKind, GameState, JournalEntry, LedgerCategory, Town, EquipmentId } from './types';
 
 /** Storage slot names are stable; the schema version lives inside the save itself. */
@@ -47,7 +48,7 @@ const ledgerCategories: LedgerCategory[] = ['tax', 'wages', 'recruitment', 'hero
 /** Validate both shape and references before exposing a save to rules or rendering. */
 function validate(value: unknown, allowMissingBattleTroops = false): asserts value is GameState {
   const s = object(value);
-  requireValue(s.version === 9, 'unsupported schema version');
+  requireValue(s.version === 10, 'unsupported schema version');
   requireValue(text(s.campaignId) && Object.hasOwn(CATALOG.campaigns, s.campaignId), 'unknown campaign');
   const def = getCampaign(s.campaignId as CampaignId);
   requireValue(s.campaignRevision === def.revision, 'unsupported campaign revision');
@@ -61,6 +62,11 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
     nodes.add(n.id);
   }
   requireValue(nodes.size === def.nodes.length && def.nodes.every((n) => nodes.has(n.id)), 'campaign map locations');
+  /** A location: a node id on the valley, an in-bounds hex key on a hex map. */
+  const loc = (at: unknown): at is string => text(at) && (def.hex ? isLocation(value as GameState, at) : nodes.has(at));
+  /** Ledger cities are towns on a hex map; on the valley any named node can carry army wages. */
+  const ledgerCity = (city: unknown) => text(city) && (def.hex ? def.towns.some((t) => t.id === city) : nodes.has(city));
+  const maxMp = (type: string) => (def.hex ? UNIT_TYPES[type].march : 1);
   for (const edge of array(s.edges)) {
     const e = array(edge);
     requireValue(e.length === 2 && text(e[0]) && text(e[1]) && nodes.has(e[0]) && nodes.has(e[1]), 'road references');
@@ -69,7 +75,7 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
   requireValue(Object.keys(towns).length === def.towns.length && def.towns.every((t) => Object.hasOwn(towns, t.id)), 'campaign towns');
   for (const [id, entry] of Object.entries(towns)) {
     const t = object(entry);
-    requireValue(t.id === id && nodes.has(id) && oneOf(t.owner, factions) && integer(t.pop) && integer(t.tax, 0, 50) && oneOf(t.kind, ['capital', 'town', 'lair']), 'town');
+    requireValue(t.id === id && def.towns.some((d) => d.id === id) && oneOf(t.owner, factions) && integer(t.pop) && integer(t.tax, 0, 50) && oneOf(t.kind, ['capital', 'town', 'lair']), 'town');
   }
   const ids = new Set<number>();
   const useId = (id: unknown) => {
@@ -79,12 +85,12 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
   for (const entry of array(s.armies)) {
     const a = object(entry);
     useId(a.id);
-    requireValue(oneOf(a.owner, factions) && text(a.at) && nodes.has(a.at) && (a.from === null || (text(a.from) && nodes.has(a.from))), 'army location or owner');
+    requireValue(oneOf(a.owner, factions) && loc(a.at) && (a.from === null || loc(a.from)), 'army location or owner');
     requireValue(array(a.troops).length > 0, 'empty army');
     for (const item of array(a.troops)) {
       const t = object(item);
       useId(t.id);
-      requireValue(text(t.type) && Object.hasOwn(UNIT_TYPES, t.type) && integer(t.xp) && integer(t.men, 1) && bool(t.moved), 'troop');
+      requireValue(text(t.type) && Object.hasOwn(UNIT_TYPES, t.type) && integer(t.xp) && integer(t.men, 1) && integer(t.mp, 0, maxMp(t.type)), 'troop');
       requireValue(t.name === undefined || text(t.name), 'troop name');
       requireValue(t.men <= (isHero(t.type) ? heroMaxHp(t.type, t.xp) : UNIT_TYPES[t.type].men), 'troop strength');
       requireValue(isHero(t.type) ? integer(t.mana, 0, heroMaxMana(t.type, t.xp)) : t.mana === undefined || t.mana === 0, 'troop mana');
@@ -97,7 +103,7 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
         const refit = object(t.refit);
         requireValue(text(refit.item) && Object.hasOwn(EQUIPMENT, refit.item), 'refit item');
         const defn = EQUIPMENT[refit.item as EquipmentId];
-        requireValue(!isHero(t.type) && t.moved === true && refit.startedTurn === s.turn &&
+        requireValue(!isHero(t.type) && t.mp === 0 && refit.startedTurn === s.turn &&
           integer(refit.orderedMen, Number(t.men), UNIT_TYPES[t.type].men) &&
           refit.paidGold === equipmentQuoteGold(defn.id, refit.orderedMen as number) &&
           (defn.slot === 'bow' ? t.type === 'archers' : !(t.type === 'archers' && defn.id === 'plate')),
@@ -127,7 +133,7 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
     const list = array(entries);
     for (const element of list) {
       const e = object(element);
-      requireValue(e.turn === month && (e.city === null || (text(e.city) && nodes.has(e.city))) &&
+      requireValue(e.turn === month && (e.city === null || ledgerCity(e.city)) &&
         oneOf(e.category, ledgerCategories) && integer(e.amount, -Number.MAX_SAFE_INTEGER) &&
         text(e.counterparty) && text(e.actionId) && e.actionId.length > 0 &&
         !unique.has(e.actionId), 'treasury transaction');
@@ -232,11 +238,11 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
   array(s.journal).forEach((entry, i) => {
     const j = object(entry);
     requireValue(j.id === i + 1 && integer(j.turn, 1, Number(s.turn)) && oneOf(j.kind, deedKinds) && text(j.text), 'journal entry');
-    requireValue(j.place === null || (text(j.place) && nodes.has(j.place)), 'journal place');
+    requireValue(j.place === null || loc(j.place), 'journal place');
   });
   if (s.battle !== null) {
     const b = object(s.battle);
-    requireValue(text(b.at) && nodes.has(b.at) && b.width === BATTLE_W && b.height === BATTLE_H, 'battle map');
+    requireValue(loc(b.at) && b.width === BATTLE_W && b.height === BATTLE_H, 'battle map');
     requireValue(integer(b.round, 1, 21) && integer(b.seed, -2147483648, 2147483647) && bool(b.walls), 'battle numbers');
     requireValue(oneOf(b.active, sides) && oneOf(b.outcome, [null, ...sides]) && oneOf(b.retreated, [null, ...sides]), 'battle status');
     const owners = object(b.owners);
@@ -377,6 +383,22 @@ function upgradeToV9(value: Record<string, unknown>) {
   value.version = 9;
 }
 
+/**
+ * v9 → v10 replaces each troop's `moved` flag with movement points. Every v9 save is the nine-location valley,
+ * where a march costs the whole month: a troop that hadn't moved has 1 point left, one that had (or is
+ * refitting) has 0.
+ */
+function upgradeToV10(value: Record<string, unknown>) {
+  for (const a of array(value.armies)) {
+    for (const entry of array(object(a).troops)) {
+      const t = object(entry);
+      t.mp = t.moved === true ? 0 : 1;
+      delete t.moved;
+    }
+  }
+  value.version = 10;
+}
+
 /** Migration runs on parsed JSON only; it never edits the legacy storage entry. */
 export function parseSave(raw: string): GameState {
   requireValue(new TextEncoder().encode(raw).length <= MAX_SAVE_BYTES, 'file exceeds 5 MB');
@@ -403,6 +425,7 @@ export function parseSave(raw: string): GameState {
     upgradeToV7(value);
     upgradeToV8(value);
     upgradeToV9(value);
+    upgradeToV10(value);
     validate(value, true);
     if (value.battle) {
       const b = value.battle;
@@ -421,6 +444,7 @@ export function parseSave(raw: string): GameState {
   if (value.version === 6) upgradeToV7(value);
   if (value.version === 7) upgradeToV8(value);
   if (value.version === 8) upgradeToV9(value);
+  if (value.version === 9) upgradeToV10(value);
   validate(value);
   return value;
 }

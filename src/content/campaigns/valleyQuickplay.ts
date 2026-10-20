@@ -8,6 +8,7 @@ export const VALLEY_QUICKPLAY: CampaignDefinition = {
   id: 'valley-quickplay',
   revision: 1,
   name: 'The Valley (quick play)',
+  blurb: 'A short game on nine locations: take the free towns and break Gharzak Hold.',
   intro: 'Your father is dead and Aldenhold is yours. Orcs raid the valley from Gharzak Hold. Bring the free towns under your banner and break the Hold.',
   capital: 'aldenhold',
   lair: 'gharzak',

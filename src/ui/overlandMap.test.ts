@@ -47,7 +47,7 @@ describe('overland atlas and navigation', () => {
     const selected = 'aldenhold';
     const soldiers = armyAt(state, selected, 'player')!.troops.map((t) => t.id);
     const presentation = ui({ selected, checked: new Set(soldiers) });
-    const legal = moveTargets(state, presentation);
+    const legal = [...moveTargets(state, presentation).keys()];
     expect(legal.sort()).toEqual(['bridge', 'fenwick', 'millbrook']);
     const markup = renderOverland(state, presentation, legal);
     expect(markup.match(/class="atlas-site [^"]*can-march"/g)).toHaveLength(legal.length);
@@ -62,7 +62,7 @@ describe('overland atlas and navigation', () => {
     expect(html).toContain('data-action="map-layer" data-layer="political"');
     expect(html).toContain('data-action="map-zoom" data-zoom="in"');
     expect(html).toContain('data-action="node" data-node="bridge"');
-    expect(html).toContain('Hex-by-hex travel is planned');
+    expect(html).toContain('For hex-by-hex travel, start the Western Realm');
     expect(html).toContain('Travel road');
     expect(html).toContain('Inspect →');
   });

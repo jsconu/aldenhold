@@ -265,9 +265,12 @@ export const SPRITES: Record<string, string[]> = {
   ],
 };
 
-/** Merge runs of same-coloured pixels in a row into one rect, so a sprite is a few dozen rects, not 256. */
 function spriteRects(rows: string[], team: { T: string; t: string }): string {
-  const colourOf = (ch: string) => (ch === 'T' ? team.T : ch === 't' ? team.t : PALETTE[ch]);
+  return pixelRects(rows, (ch) => (ch === 'T' ? team.T : ch === 't' ? team.t : PALETTE[ch]));
+}
+
+/** Merge runs of same-coloured pixels in a row into one rect, so a sprite is a few dozen rects, not one per pixel. */
+export function pixelRects(rows: string[], colourOf: (ch: string) => string | undefined): string {
   let out = '';
   rows.forEach((row, y) => {
     let x = 0;
@@ -275,7 +278,8 @@ function spriteRects(rows: string[], team: { T: string; t: string }): string {
       const ch = row[x];
       let end = x + 1;
       while (end < row.length && row[end] === ch) end++;
-      if (ch !== '.') out += `<rect x="${x}" y="${y}" width="${end - x}" height="1" fill="${colourOf(ch)}"/>`;
+      const fill = ch === '.' ? undefined : colourOf(ch);
+      if (fill) out += `<rect x="${x}" y="${y}" width="${end - x}" height="1" fill="${fill}"/>`;
       x = end;
     }
   });

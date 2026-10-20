@@ -63,7 +63,7 @@ The three columns at each edge stay open for deployment. The battle AI prefers g
 
 ## Code layout
 
-- `src/content/`: static content, never mutated at runtime. `rules.ts` has unit types, spells, terrain and the hero roster (tune balance here); `campaigns/` has one `CampaignDefinition` per campaign; `validate.ts` checks it all.
+- `src/content/`: static content, never mutated at runtime. `rules.ts` has unit types, spells, battlefield terrain, overland land types and the hero roster (tune balance here); `campaigns/` has one `CampaignDefinition` per campaign (the quick-play valley's graph, and the Western Realm's hex map as ASCII rows); `validate.ts` checks it all.
 - `src/game/`: pure rules with no DOM. Everything here is unit-tested.
   - `data.ts`: compatibility re-exports of the content for older modules.
   - `campaign.ts`: the strategic layer (turns, economy, movement, battle start/finish) and the permanent journal.
@@ -71,8 +71,9 @@ The three columns at each edge stay open for deployment. The battle AI prefers g
   - `ai.ts`: orc strategic AI.
   - `units.ts`: troop and hero levels, hit points, mana and attack.
   - `battle.ts`: the tactical layer (movement, combat, morale, spells), plus a battle AI that also powers auto-resolve and casts spells.
+  - `world.ts`: the only module that knows a campaign's map: which town stands where, neighbours, movement costs, roads and pathfinding, for both the valley's graph and hex maps.
   - `hex.ts`, `rng.ts`: helpers. The RNG is seeded and stored in the save, so games can be replayed.
-- `src/ui/`: rendering into DOM/SVG. No game rules live here. `pixelSprites.ts` holds tactical unit art; `sprites.ts` keeps small interface icons and terrain art.
+- `src/ui/`: rendering into DOM/SVG. No game rules live here. `pixelSprites.ts` holds tactical unit art; `sprites.ts` keeps small interface icons and terrain art. `pixelTiles.ts` paints the hex overland terrain and `hexMapView.ts` draws the Western Realm's map; `overlandMap.ts` is the valley's painted atlas.
 
 ## Battle math
 

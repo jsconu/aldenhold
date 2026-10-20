@@ -1,6 +1,8 @@
 import type { SpellId } from '../game/types';
 
 export interface UIState {
+  /** The campaign chooser is open. */
+  choosing?: boolean;
   /** Selected map node. */
   selected: string | null;
   /** Troops ticked to march from the selected node. */

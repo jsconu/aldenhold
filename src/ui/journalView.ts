@@ -4,6 +4,7 @@ import { esc } from './shared';
 import { FENWICK_CHARTER } from '../content/quests';
 import { ITEMS } from '../content/items';
 import { questSummary } from '../game/quests';
+import { townLocation } from '../game/world';
 
 const KIND_LABEL: Record<DeedKind, string> = {
   story: 'Story',
@@ -51,7 +52,7 @@ export function renderJournal(state: GameState): string {
     </div>
     <section class="quest-ledger"><h2>Quests</h2>
       <p><b>${esc(FENWICK_CHARTER.name)}</b> — ${esc(questSummary(state))}.
-      <button class="link" data-action="goto" data-node="fenwick">View Fenwick</button></p>
+      <button class="link" data-action="goto" data-node="${townLocation(state, 'fenwick')}">View Fenwick</button></p>
     </section>
     <section class="quest-ledger"><h2>Inventory</h2>
       ${state.items.length ? `<ul>${state.items.map((id) => {

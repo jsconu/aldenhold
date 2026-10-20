@@ -36,6 +36,10 @@ const ENDOWMENTS: Record<string, { fertility: number; forest: number; ore: numbe
   fenwick: { fertility: 0.9, forest: 1.1, ore: 0.9 },
   harrowgate: { fertility: 0.7, forest: 0.6, ore: 1.3 },
   duskwater: { fertility: 0.8, forest: 1.4, ore: 0.2 },
+  // Western Realm towns that the quick-play valley doesn't have.
+  greenveil: { fertility: 0.6, forest: 1.6, ore: 0.2 },
+  westmere: { fertility: 1.2, forest: 0.5, ore: 0.6 },
+  reedhaven: { fertility: 1, forest: 0.8, ore: 0 },
 };
 export function endowment(city: string) {
   return ENDOWMENTS[city] ?? { fertility: 0.8, forest: 0.5, ore: 0.5 };

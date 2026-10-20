@@ -398,3 +398,25 @@ button.travel-destination b { color: var(--gold); font-size: 11px; }
 .effect-badge { fill: #fff078; font-size: 14px; paint-order: stroke; stroke: #171320; stroke-width: 2px; }
 .spell-preview { border: 1px solid var(--gold); padding: 10px; margin-top: 10px; }
 .spell-preview ul { padding-left: 20px; }
+
+/* Western Realm hex map: pixel terrain under an SVG layer, all in native pixels and scaled up crisply. */
+.map.overland { width: 100%; height: auto; background: #10100c; border-radius: 6px; image-rendering: pixelated; }
+.overland .terrain { image-rendering: pixelated; image-rendering: crisp-edges; }
+.overland use, .overland .map-army, .overland .place-label, .overland .army-count { pointer-events: none; }
+.overland .cell { fill: transparent; cursor: pointer; }
+.overland .cell:hover { fill: rgba(255, 255, 255, 0.14); }
+.overland .reach { fill: rgba(255, 250, 200, 0.3); }
+.overland .reach.ends { fill: rgba(255, 90, 60, 0.32); stroke: #ff5a3c; stroke-width: 1; }
+.overland .selected { fill: rgba(255, 221, 85, 0.18); stroke: #ffdd55; stroke-width: 1.5; }
+.overland .place-label { font: bold 7px ui-monospace, Consolas, monospace; fill: #ffffff; text-anchor: middle; paint-order: stroke; stroke: #10100c; stroke-width: 2.4px; }
+.overland .place-label.landmark { font-weight: normal; font-style: italic; fill: #ece0b4; }
+.overland .army-count { font: bold 7px ui-monospace, Consolas, monospace; fill: #ffffff; paint-order: stroke; stroke: #10100c; stroke-width: 2.4px; }
+
+/* Campaign chooser */
+.chooser { position: fixed; inset: 0; z-index: 20; background: rgba(10, 10, 8, 0.72); display: flex; align-items: center; justify-content: center; padding: 16px; }
+.chooser-box { background: var(--panel); border: 1px solid var(--gold); border-radius: 10px; padding: 18px 20px; max-width: 760px; width: 100%; }
+.chooser-box h2 { margin: 0 0 6px; }
+.campaign-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin: 12px 0; }
+.campaign-card { border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px; background: var(--panel-2); }
+.campaign-card h3 { margin: 0 0 4px; color: var(--gold); }
+.campaign-card p { margin: 0 0 10px; font-size: 14px; }

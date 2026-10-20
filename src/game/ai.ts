@@ -1,5 +1,6 @@
-import { armyAt, campaignOf, enterNode, log, makeTroop, neighborsOf, nodeName } from './campaign';
-import type { GameState } from './types';
+import { armyAt, campaignOf, enterNode, log, makeTroop, marchAlong, neighborsOf, nodeName, sharedMp } from './campaign';
+import type { Army, GameState } from './types';
+import { marchOptions, pathTo, stepCost, stopsMarch, townAt, townLocation, worldOf } from './world';
 import { isHero } from './units';
 
 const SPAWN_EVERY = 3;
@@ -8,8 +9,9 @@ const RAID_MIN_GARRISON = 4;
 
 /** Orc strategy: the Hold grows its garrison and sends raiders at the nearest town not held by orcs. */
 export function orcTurn(state: GameState) {
-  const LAIR = campaignOf(state).lair;
-  if (state.towns[LAIR].owner === 'orcs') {
+  const lairId = campaignOf(state).lair;
+  const LAIR = townLocation(state, lairId);
+  if (state.towns[lairId].owner === 'orcs') {
     if (state.turn % SPAWN_EVERY === 0) {
       const type = state.turn % (SPAWN_EVERY * 2) === 0 ? 'troll' : 'warband';
       const garrison = armyAt(state, LAIR, 'orcs');
@@ -29,8 +31,13 @@ export function orcTurn(state: GameState) {
 
   // Everything outside the Hold, plus a fresh war party, marches one step.
   const marching = state.armies.filter((a) => a.owner === 'orcs' && (a.at !== LAIR || a !== armyAt(state, LAIR, 'orcs')));
+  const hex = worldOf(state).kind === 'hex';
   for (const army of marching) {
     if (state.status !== 'playing' || !state.armies.includes(army)) continue;
+    if (hex) {
+      raidAcrossHexes(state, army);
+      continue;
+    }
     const step = stepTowardTarget(state, army.at);
     if (!step) continue;
     if (state.armies.some((a) => a.at === step && a.owner === 'player')) {
@@ -46,7 +53,7 @@ export function stepTowardTarget(state: GameState, from: string): string | null 
   const queue = [from];
   while (queue.length) {
     const cur = queue.shift()!;
-    const town = state.towns[cur];
+    const town = townAt(state, cur);
     if (cur !== from && town && town.owner !== 'orcs') {
       let step = cur;
       while (prev.get(step) !== from) step = prev.get(step)!;
@@ -60,4 +67,44 @@ export function stepTowardTarget(state: GameState, from: string): string | null 
     }
   }
   return null;
+}
+
+/** Planning cost of pushing through an enemy army, so raiders go around strong points when there's a fair way round. */
+const FIGHT_COST = 4;
+
+/** On a hex map, march along the cheapest raid route as far as this month's movement allows. */
+function raidAcrossHexes(state: GameState, army: Army) {
+  let budget = sharedMp(army.troops);
+  const steps: string[] = [];
+  for (const at of raidPath(state, army)) {
+    budget -= stepCost(state, at);
+    if (budget < 0) break;
+    steps.push(at);
+    if (stopsMarch(state, at, 'orcs')) break;
+  }
+  if (!steps.length) return;
+  const end = steps.at(-1)!;
+  if (state.armies.some((a) => a.at === end && a.owner === 'player')) log(state, `Orcs attack your troops at ${nodeName(state, end)}!`);
+  for (const t of army.troops) t.mp = 0;
+  marchAlong(state, army, steps);
+}
+
+/** Cheapest route to the nearest town not held by orcs, fighting through anyone in the way unless a detour is cheap. */
+export function raidPath(state: GameState, army: Army): string[] {
+  const options = marchOptions(state, army.at, 'orcs', Infinity, true);
+  let best: { at: string; cost: number } | null = null;
+  for (const [at, step] of options) {
+    const town = townAt(state, at);
+    if (!town || town.owner === 'orcs') continue;
+    if (!best || step.cost < best.cost) best = { at, cost: step.cost };
+  }
+  if (!best) return [];
+  const path = pathTo(options, best.at);
+  const fights = path.filter((k) => state.armies.some((a) => a.at === k && a.owner !== 'orcs')).length;
+  if (fights) {
+    const around = marchOptions(state, army.at, 'orcs', Infinity);
+    const detour = around.get(best.at);
+    if (detour && detour.cost <= best.cost + fights * FIGHT_COST) return pathTo(around, best.at);
+  }
+  return path;
 }

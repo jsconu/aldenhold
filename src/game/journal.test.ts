@@ -50,7 +50,7 @@ describe('campaign journal', () => {
     // Leave Millbrook empty with an orc band next door at Duskwater; every other town is already theirs.
     for (const id of ['fenwick', 'harrowgate', 'duskwater']) s.towns[id].owner = 'orcs';
     s.armies = s.armies.filter((a) => a.owner !== 'neutral' && a.at !== 'millbrook' && a.at !== 'pass');
-    s.armies.push({ id: s.nextId++, owner: 'orcs', at: 'duskwater', from: null, troops: [{ id: s.nextId++, type: 'warband', men: 20, xp: 0, moved: false, gear: { bow: null, armor: 'leather' }, refit: null }] });
+    s.armies.push({ id: s.nextId++, owner: 'orcs', at: 'duskwater', from: null, troops: [{ id: s.nextId++, type: 'warband', men: 20, xp: 0, mp: 1, gear: { bow: null, armor: 'leather' }, refit: null }] });
     endTurn(s);
     expect(s.towns.millbrook.owner).toBe('orcs');
     expect(s.journal.at(-1)).toMatchObject({ kind: 'loss', place: 'millbrook', text: 'Orcs have taken Millbrook from you.' });
@@ -83,7 +83,7 @@ describe('save migration v3 → v4', () => {
     const s = takeFenwick();
     endTurn(s);
     const migrated = parseSave(asV3(s));
-    expect(migrated.version).toBe(9);
+    expect(migrated.version).toBe(10);
     expect(migrated.journal.every((j) => j.kind === 'earlier' && j.place === null)).toBe(true);
     expect(migrated.journal.map((j) => j.text)).toEqual(s.log.map((l) => l.replace(/^[A-Za-z]+, year \d+: /, '')).reverse());
     expect(migrated.journal[0]).toMatchObject({ id: 1, turn: 1 });
