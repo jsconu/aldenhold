@@ -6,7 +6,7 @@ import { applyBattle, armyAt, endTurn, hireHero, moveTroops, newGame, recruit, s
 import { hexKey } from './game/hex';
 import type { SpellId } from './game/types';
 import { renderBattle, selectedUnit } from './ui/battleView';
-import { moveTargets, renderCampaign } from './ui/campaignView';
+import { moveTargets, plannedRoute, renderCampaign } from './ui/campaignView';
 import { esc, type UIState } from './ui/shared';
 import { loadGame, MAX_SAVE_BYTES, parseSave, saveGame } from './game/saves';
 import { CATALOG } from './content';
@@ -81,6 +81,40 @@ function onAction(action: string, data: DOMStringMap) {
         selectNode('aldenhold');
       }
       break;
+    case 'plan-route':
+      ui.routeOrigin = ui.selected;
+      ui.routeDestination = null;
+      ui.routePreference = 'shortest';
+      break;
+    case 'route-clear':
+      ui.routeOrigin = null;
+      ui.routeDestination = null;
+      break;
+    case 'route-preference':
+      if (data.preference === 'shortest' || data.preference === 'safer') ui.routePreference = data.preference;
+      break;
+    case 'route-first-leg': {
+      const route = plannedRoute(state, ui);
+      if (!route || route.stops.length < 2 || !ui.routeOrigin || ui.selected !== ui.routeOrigin ||
+        !moveTargets(state, ui).includes(route.stops[1].id)) {
+        ui.message = 'Select ready troops at the departure city before marching.';
+        break;
+      }
+      const firstLeg = route.stops[1].id;
+      ui.message = moveTroops(state, ui.routeOrigin, [...ui.checked], firstLeg) ?? '';
+      if (!ui.message) {
+        ui.routeOrigin = null;
+        ui.routeDestination = null;
+        selectNode(firstLeg);
+      }
+      break;
+    }
+    case 'map-layer':
+      if (data.layer === 'terrain' || data.layer === 'political') ui.mapLayer = data.layer;
+      break;
+    case 'map-zoom':
+      ui.mapZoom = Math.max(1, Math.min(2, (ui.mapZoom ?? 1) + (data.zoom === 'in' ? 0.5 : -0.5)));
+      break;
     case 'view-fenwick':
       ui.view = 'map';
       selectNode('fenwick');
@@ -135,6 +169,10 @@ function onAction(action: string, data: DOMStringMap) {
       break;
     case 'node': {
       const id = data.node!;
+      if (ui.routeOrigin && !ui.routeDestination) {
+        if (id !== ui.routeOrigin) ui.routeDestination = id;
+        break;
+      }
       if (ui.selected && moveTargets(state, ui).includes(id)) {
         const err = moveTroops(state, ui.selected, [...ui.checked], id);
         ui.message = err ?? '';
@@ -196,6 +234,24 @@ app.addEventListener('click', (e) => {
   onAction(el.dataset.action!, el.dataset);
   save();
   render();
+});
+
+// SVG location groups are keyboard-operable, not mouse-only.
+app.addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  const target = e.target;
+  if (!(target instanceof Element)) return;
+  const site = target.closest<SVGElement>('.atlas-site[data-action="node"]');
+  if (!site) return;
+  e.preventDefault();
+  onAction('node', site.dataset);
+  save();
+  render();
+  // Keep keyboard focus on the selected location after replacing the SVG.
+  const id = site.dataset.node;
+  const replacement = [...app.querySelectorAll<SVGElement>('.atlas-site[data-node]')]
+    .find((candidate) => candidate.dataset.node === id);
+  replacement?.focus();
 });
 
 app.addEventListener('change', async (e) => {

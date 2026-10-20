@@ -97,3 +97,13 @@ The reserve policy is deliberately explicit for this first slice: there are no m
 - Refits charge once for the formation's **surviving headcount**, consume real town materials, stop its movement this month, and only update equipment after the monthly phase. Defending battles while the order is pending use the old gear; save/reload neither repeats purchases nor accelerates refits.
 - UI shows level requirements, before/after equipment modifiers, material prices, and reasons unavailable options are disabled. Battlefield attack/range/defense and army payroll use actual equipped gear.
 - Remaining EQUIP scope: complete 22-piece equipment tree, icon overlays, city armories/stables, squad reinforcements, equipment salvage and condition, training, explicit refit queues, and independent battle effects for piercing damage. This is an incremental implementation, not the complete 1–10 equipment release.
+
+
+## Overland atlas increment (October 20, 2026)
+
+- Replaced the empty nine-node route diagram with an original SVG overland atlas: 43×22 small rendered hex tiles, visible farmland/forests/hills/mountains/rivers/wetlands, miniature castles, cities, watchtowers, passes and Stone Bridge; painted regional labels, compass, location plates, army counts and highlighted routes.
+- Geography uses deterministic, reproducible authored zones plus fixed coordinate noise; it is deliberately **not** rerolled with a campaign seed and is NOT persisted in saves. Road corridors are carved visually through river and mountain art to keep every existing graph connection legible.
+- Players can switch between Terrain and Realm Borders (political influence) views, zoom 100–200% centered on the currently selected named location and interact with SVG markers by mouse or keyboard. Sidebar road destinations expose adjacent town ownership, known garrisons and whether an immediate march is available.
+- Optional journey planner computes the shortest graph itinerary or a danger-averse alternative, marks numbered stops on the atlas, estimates minimum travel months and warns of known garrisons. It does **not** auto-execute later legs or alter actual move rules; first-leg movement uses the existing movement validator.
+- This increment deliberately keeps the original nine-node quick-play map, towns, edges, combat and schema v8 untouched. The hex tiles underneath are **visual geography only**, not selectable movement cells.
+- Remaining for MAP-01–05: a separate authored ~64×40-cell campaign, real terrain-cost pathfinding and river/bridge constraints, persistent fog of war and exploration, scouting, hazards/visibility, a larger atlas with twenty cities and objective sites, visual browser approval, and responsive pan/touch exploration.
