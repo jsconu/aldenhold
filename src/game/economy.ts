@@ -55,7 +55,7 @@ export function settleTreasury(state: GameState, taxes: CashFlow[], payroll: Cas
   const unpaidUpkeep = due - paid;
   state.gold = available;
   const income = entries.filter((e) => e.category === 'tax').reduce((s, e) => s + e.amount, 0);
-  const expenses = -entries.filter((e) => ['wages', 'recruitment', 'hero-hire'].includes(e.category)).reduce((s, e) => s + e.amount, 0);
+  const expenses = Math.max(0, -entries.filter((e) => ['wages', 'recruitment', 'hero-hire'].includes(e.category)).reduce((s, e) => s + e.amount, 0));
   const closing = opening + entries.reduce((sum, movement) => sum + movement.amount, 0);
   if (closing !== state.gold) throw new Error('Treasury did not reconcile.');
   const row: MonthlyLedger = { turn: state.turn, opening, closing, income, expenses, unpaidUpkeep, entries };
