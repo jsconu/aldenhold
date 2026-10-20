@@ -1,6 +1,7 @@
 import { CATALOG } from '../content';
 import {
-  armyAt, arrivalEstimates, campaignOf, canRecruitAt, dateLabel, monthlyIncome, monthlyUpkeep, neighborsOf, nodeName, playerMarchOptions, townGrowth, townIncome,
+  armyAt, arrivalEstimates, campaignOf, canRecruitAt, dateLabel, hireQuote, monthlyIncome, monthlyUpkeep, neighborsOf, nodeName, playerMarchOptions,
+  recruitQuote, townGrowth, townIncome,
 } from '../game/campaign';
 import { hasRoad, hexLand, marchRate, placeAt, townAt, townLocation, worldOf, type MarchStep } from '../game/world';
 import { renderHexMap } from './hexMapView';
@@ -12,7 +13,7 @@ import { renderJournal } from './journalView';
 import { renderTreasury } from './treasuryView';
 import { BUILDING_IDS, BUILDINGS, cityMaintenance, constructionQuote, developmentSites, endowment, totalCityMaintenance } from '../game/cities';
 import { FENWICK_CHARTER } from '../content/quests';
-import { questSummary } from '../game/quests';
+import { charterQuote, questSummary } from '../game/quests';
 import { esc, type UIState } from './shared';
 import { renderOverland } from './overlandMap';
 import { previewRoute, type RoutePreview } from '../game/overlandRoutes';
@@ -171,9 +172,13 @@ function renderNodePanel(state: GameState, ui: UIState, at: string): string {
         <p class="sub">Brings in ${townIncome(town)} gold a month. Population ${growth >= 0 ? 'grows' : 'shrinks'} by about ${Math.abs(growth)}.</p>
         <h3>Raise troops</h3><div class="recruit">${Object.values(UNIT_TYPES)
           .filter((t) => canRecruitAt(town, t.id))
-          .map((t) => `<button data-action="recruit" data-node="${id}" data-type="${t.id}" ${state.gold < t.cost ? 'disabled' : ''}
-              title="${t.men} men · attack ${t.attack} · defense ${t.defense} · move ${t.move}${t.range > 1 ? ` · range ${t.range}` : ''} · upkeep ${t.upkeep}/month">
-              ${t.name} <span>${t.cost}g</span></button>`)
+          .map((t) => {
+            const quote = recruitQuote(state, id, t.id);
+            const stats = `${t.men} men · attack ${t.attack} · defense ${t.defense} · move ${t.move}${t.range > 1 ? ` · range ${t.range}` : ''} · upkeep ${t.upkeep}/month`;
+            return `<button data-action="recruit" data-node="${id}" data-type="${t.id}" ${quote.reason ? 'disabled' : ''}
+              title="${esc(quote.reason ? `${quote.reason} (${stats})` : stats)}">
+              ${t.name} <span>${quote.gold}g</span></button>`;
+          })
           .join('')}</div>`;
       if (town.kind !== 'capital') html += `<p class="sub">Knights can only be raised in ${esc(nodeName(state, campaignOf(state).capital))}.</p>`;
       html += renderCityDevelopment(state, id);
@@ -235,16 +240,14 @@ function renderFenwickQuest(state: GameState): string {
   if (!q) return '';
   if (q.status !== 'available') return `<div class="quest-card"><h3>${esc(FENWICK_CHARTER.name)}</h3><p>${esc(questSummary(state))}</p>
     ${q.status === 'succeeded' && state.treaties.fenwick?.passage ? '<p class="sub">Your armies may share this town with its neutral garrison. Fenwick remains independent and pays no tax.</p>' : ''}</div>`;
-  const fenwick = townLocation(state, 'fenwick');
-  const near = state.armies.some((a) => a.owner === 'player' &&
-    (a.at === fenwick || neighborsOf(state, fenwick).includes(a.at)));
+  const { reason } = charterQuote(state);
   return `<div class="quest-card"><h3>${esc(FENWICK_CHARTER.name)}</h3>
     <p>${esc(FENWICK_CHARTER.text)}</p>
     <p class="sub">Reward: Sealed Fenwick Charter. Sign to gain peaceful passage, or decline and keep the military option.</p>
-    ${!near ? '<p class="hint">Bring an army to Fenwick or an adjacent road to send an envoy.</p>' : ''}
+    ${reason ? `<p class="hint">${esc(reason)}</p>` : ''}
     <div class="quest-actions">
-      <button data-action="fenwick-sign" ${!near ? 'disabled' : ''}>Sign the charter</button>
-      <button data-action="fenwick-decline" ${!near ? 'disabled' : ''}>Decline</button>
+      <button data-action="fenwick-sign" ${reason ? 'disabled' : ''}>Sign the charter</button>
+      <button data-action="fenwick-decline" ${reason ? 'disabled' : ''}>Decline</button>
     </div></div>`;
 }
 
@@ -325,7 +328,10 @@ function renderOffers(state: GameState, townId: string): string {
       const i = state.offers.indexOf(o);
       return `<div class="offer"><p><b>${esc(o.name)}</b>, ${t.name.toLowerCase()}. ${heroSummary(o.type)}.
         <span class="sub">Pay ${t.upkeep} gold a month. Leaves after ${state.turn >= o.expires ? 'this month' : `${o.expires - state.turn + 1} months`}.</span></p>
-        <button data-action="hire" data-offer="${i}" ${state.gold < t.cost ? 'disabled' : ''}>Hire for ${t.cost}g</button></div>`;
+        ${(() => {
+          const quote = hireQuote(state, o);
+          return `<button data-action="hire" data-offer="${i}" ${quote.reason ? `disabled title="${esc(quote.reason)}"` : ''}>Hire for ${quote.gold}g</button>`;
+        })()}</div>`;
     })
     .join('')}`;
 }

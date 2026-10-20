@@ -8,14 +8,22 @@ export function newQuestState(): Record<string, QuestProgress> {
 }
 
 /** The first complete choice/reward/treaty slice. Side quests Q01–Q18 will use the same state contract. */
-export function decideFenwickCharter(state: GameState, choice: 'sign' | 'decline'): string | null {
-  if (state.status !== 'playing' || state.battle) return 'You cannot negotiate during a battle.';
+/** Whether the Fenwick council will hear an envoy now (`reason` null means it will), for both sign and decline. */
+export function charterQuote(state: GameState): { reason: string | null } {
+  if (state.status !== 'playing' || state.battle) return { reason: 'You cannot negotiate during a battle.' };
   const quest = state.quests[FENWICK_CHARTER.id];
-  if (!quest || quest.status !== 'available' || state.towns.fenwick?.owner !== 'neutral') return 'The council has already decided.';
+  if (!quest || quest.status !== 'available' || state.towns.fenwick?.owner !== 'neutral') return { reason: 'The council has already decided.' };
   const fenwick = townLocation(state, 'fenwick');
   const envoyInRange = state.armies.some((a) => a.owner === 'player' &&
     (a.at === fenwick || neighborsOf(state, fenwick).includes(a.at)));
-  if (!envoyInRange) return 'Send an army to Fenwick or a neighboring road before negotiating.';
+  if (!envoyInRange) return { reason: 'Send an army to Fenwick or a neighboring road before negotiating.' };
+  return { reason: null };
+}
+
+export function decideFenwickCharter(state: GameState, choice: 'sign' | 'decline'): string | null {
+  const { reason } = charterQuote(state);
+  if (reason) return reason;
+  const quest = state.quests[FENWICK_CHARTER.id];
   quest.status = choice === 'sign' ? 'succeeded' : 'failed';
   quest.stage = 'resolved';
   quest.choice = choice;
