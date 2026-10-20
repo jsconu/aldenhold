@@ -222,6 +222,7 @@ export interface MonthlyLedger {
   expenses: number;
   /** Liability omitted from paid wages due to an empty treasury. */
   unpaidUpkeep: number;
+  unpaidMaintenance: number;
   entries: LedgerEntry[];
 }
 export interface Treasury {
