@@ -4,10 +4,11 @@ import { ITEMS } from '../content/items';
 import { QUESTS } from '../content/quests';
 import { newQuestState } from './quests';
 import { newTreasury } from './economy';
+import { BUILDING_IDS, BUILDINGS, developmentSites, GOODS, MAX_BUILDING_LEVEL, MAX_DEVELOPMENT_SITES, startingCities } from './cities';
 import { endingReason } from './campaign';
 import { TERRAIN, UNIT_TYPES } from './data';
 import { heroMaxHp, heroMaxMana, isHero } from './units';
-import type { CampaignId, DeedKind, GameState, JournalEntry, LedgerCategory } from './types';
+import type { CampaignId, DeedKind, GameState, JournalEntry, LedgerCategory, Town } from './types';
 
 /** Storage slot names are stable; the schema version lives inside the save itself. */
 export const SAVE_KEY = 'aragon-save-v3';
@@ -39,12 +40,12 @@ const factions = ['player', 'orcs', 'neutral'];
 const deedKinds: DeedKind[] = ['story', 'battle', 'capture', 'loss', 'hero', 'realm', 'ending', 'earlier'];
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const sides = ['attacker', 'defender'];
-const ledgerCategories: LedgerCategory[] = ['tax', 'wages', 'recruitment', 'hero-hire', 'balance-correction'];
+const ledgerCategories: LedgerCategory[] = ['tax', 'wages', 'recruitment', 'hero-hire', 'construction', 'maintenance', 'balance-correction'];
 
 /** Validate both shape and references before exposing a save to rules or rendering. */
 function validate(value: unknown, allowMissingBattleTroops = false): asserts value is GameState {
   const s = object(value);
-  requireValue(s.version === 6, 'unsupported schema version');
+  requireValue(s.version === 7, 'unsupported schema version');
   requireValue(text(s.campaignId) && Object.hasOwn(CATALOG.campaigns, s.campaignId), 'unknown campaign');
   const def = getCampaign(s.campaignId as CampaignId);
   requireValue(s.campaignRevision === def.revision, 'unsupported campaign revision');
@@ -123,18 +124,58 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
       'treasury month ordering');
     previous = month.turn as number;
     requireValue(integer(month.opening) && integer(month.closing) && integer(month.income) &&
-      integer(month.expenses) && integer(month.unpaidUpkeep), 'treasury amounts');
+      integer(month.expenses) && integer(month.unpaidUpkeep) && integer(month.unpaidMaintenance), 'treasury amounts');
     const transactions = checkEntries(month.entries, month.turn as number);
     requireValue(Number(month.opening) + transactions.reduce((sum, e) => sum + Number(e.amount), 0) === month.closing,
       'treasury does not reconcile');
     requireValue(transactions.filter((e) => e.category === 'tax').reduce((sum, e) => sum + Number(e.amount), 0) === month.income,
       'treasury income total');
-    requireValue(-transactions.filter((e) => ['wages', 'recruitment', 'hero-hire'].includes(String(e.category)))
+    requireValue(-transactions.filter((e) => ['wages', 'recruitment', 'hero-hire', 'construction', 'maintenance'].includes(String(e.category)))
       .reduce((sum, e) => sum + Number(e.amount), 0) === month.expenses, 'treasury expense total');
   }
   const history = array(treasury.history);
   if (history.length) requireValue(object(history.at(-1)).closing === treasury.opening,
     'treasury opening does not match last close');
+  const cities = object(s.cityEconomies);
+  requireValue(Object.keys(cities).length === Object.keys(towns).length &&
+    Object.keys(towns).every((id) => Object.hasOwn(cities, id)), 'city economy registry');
+  for (const [id, value] of Object.entries(cities)) {
+    const city = object(value);
+    const buildings = object(city.buildings);
+    const goods = object(city.goods);
+    requireValue(Object.keys(buildings).length === BUILDING_IDS.length &&
+      BUILDING_IDS.every((kind) => integer(buildings[kind], 0, MAX_BUILDING_LEVEL)), 'city buildings');
+    requireValue(Object.keys(goods).length === GOODS.length &&
+      GOODS.every((good) => integer(goods[good], 0, 1000000)), 'city goods');
+    const levels = buildings as unknown as GameState['cityEconomies'][string]['buildings'];
+    requireValue(developmentSites({ buildings: levels } as GameState['cityEconomies'][string]) <= MAX_DEVELOPMENT_SITES,
+      'city development sites');
+    if (object(towns[id]).kind === 'lair') requireValue(BUILDING_IDS.every((kind) => buildings[kind] === 0), 'lair industry');
+    if (city.project !== null) {
+      const p = object(city.project);
+      requireValue(oneOf(p.kind, BUILDING_IDS) && integer(p.targetLevel, 1, MAX_BUILDING_LEVEL) &&
+        p.targetLevel === Number(buildings[p.kind as string]) + 1 &&
+        p.startedTurn === s.turn && p.finishTurn === s.turn, 'city project');
+      const defn = BUILDINGS[p.kind as keyof typeof BUILDINGS];
+      const multiplier = p.targetLevel === 1 ? 1 : 1.7;
+      requireValue(p.paidGold === Math.ceil(defn.gold * multiplier), 'city project gold');
+      const paid = object(p.paidGoods);
+      requireValue(Object.keys(paid).length === Object.keys(defn.materials).length &&
+        Object.entries(defn.materials).every(([good, amount]) => paid[good] === Math.ceil(amount * multiplier)),
+        'city project materials');
+    }
+    if (city.lastMonth !== null) {
+      const m = object(city.lastMonth);
+      requireValue(integer(m.turn, 1, Number(s.turn)) && integer(m.consumedFood) &&
+        integer(m.unmetFood) && integer(m.workforce) && integer(m.employed) &&
+        Number(m.employed) <= Number(m.workforce), 'city workforce and demand');
+      for (const fld of ['produced', 'inputs']) {
+        const values = object(m[fld]);
+        requireValue(Object.keys(values).length === GOODS.length &&
+          GOODS.every((good) => integer(values[good], 0, 1000000)), 'city production');
+      }
+    }
+  }
   const quests = object(s.quests);
   requireValue(Object.keys(quests).length === Object.keys(QUESTS).length &&
     Object.keys(QUESTS).every((id) => Object.hasOwn(quests, id)), 'quest registry');
@@ -262,6 +303,14 @@ function upgradeToV6(value: Record<string, unknown>) {
   value.version = 6;
 }
 
+/** Existing saves know their owned towns, but not prior stocks or constructions. Seed honestly at migration. */
+function upgradeToV7(value: Record<string, unknown>) {
+  const towns = object(value.towns);
+  value.cityEconomies = startingCities(towns as unknown as Record<string, Town>);
+  for (const row of array(object(value.treasury).history)) object(row).unpaidMaintenance = 0;
+  value.version = 7;
+}
+
 /** Migration runs on parsed JSON only; it never edits the legacy storage entry. */
 export function parseSave(raw: string): GameState {
   requireValue(new TextEncoder().encode(raw).length <= MAX_SAVE_BYTES, 'file exceeds 5 MB');
@@ -285,6 +334,7 @@ export function parseSave(raw: string): GameState {
     upgradeToV4(value);
     upgradeToV5(value);
     upgradeToV6(value);
+    upgradeToV7(value);
     validate(value, true);
     if (value.battle) {
       const b = value.battle;
@@ -300,6 +350,7 @@ export function parseSave(raw: string): GameState {
   }
   if (value.version === 4) upgradeToV5(value);
   if (value.version === 5) upgradeToV6(value);
+  if (value.version === 6) upgradeToV7(value);
   validate(value);
   return value;
 }

@@ -14,7 +14,8 @@ function period(state: GameState, m: MonthlyLedger): string {
     <span>Costs −${m.expenses.toLocaleString()}g</span>
     <span>Closing ${m.closing.toLocaleString()}g</span></summary>
     <p class="sub">Opening treasury: ${m.opening.toLocaleString()}g.
-      ${m.unpaidUpkeep ? `Unpaid wages: ${m.unpaidUpkeep.toLocaleString()}g (soldiers may desert).` : 'All wages paid.'}</p>
+      ${m.unpaidUpkeep ? `Unpaid wages: ${m.unpaidUpkeep.toLocaleString()}g (soldiers may desert).` : 'All wages paid.'}
+      ${m.unpaidMaintenance ? `Unpaid city maintenance: ${m.unpaidMaintenance.toLocaleString()}g.` : ''}</p>
     <table class="finance-table"><thead><tr><th>Location</th><th>Source / action</th><th>Amount</th></tr></thead><tbody>
     ${m.entries.map((e) => `<tr><td>${esc(e.city ? nodeName(state, e.city) : 'Realm')}</td>
       <td>${esc(e.counterparty)} <small>(${esc(e.category)})</small></td>

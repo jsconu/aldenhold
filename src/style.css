@@ -227,3 +227,14 @@ button.link { background: none; border: none; padding: 0; color: var(--gold); te
 .finance-table { border-collapse: collapse; width: 100%; margin-top: 10px; font-size: 13px; }
 .finance-table th, .finance-table td { border-bottom: 1px solid #7774; padding: 6px 8px; text-align: left; }
 .finance-table td:last-child { font-variant-numeric: tabular-nums; text-align: right; }
+
+
+/* Strategic city-development controls: readable at narrow sidebar sizes */
+.city-development { border-top: 1px solid #7776; padding-top: 12px; margin: 16px 0; }
+.city-development h3 { margin: 0 0 8px; }
+.city-development .notice { border-left: 3px solid #b69d62; padding: 8px; }
+.building-grid { display: grid; grid-template-columns: 1fr; gap: 8px; }
+.building-card { padding: 10px; border: 1px solid #8885; border-radius: 6px; }
+.building-card p { margin: 5px 0 8px; }
+.building-card button { max-width: 100%; white-space: normal; }
+.building-card small { display: block; margin: 5px 0; }

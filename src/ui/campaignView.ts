@@ -6,6 +6,7 @@ import { heroLevel, heroMaxHp, heroMaxMana, level } from '../game/units';
 import type { Army, FactionId, GameState } from '../game/types';
 import { renderJournal } from './journalView';
 import { renderTreasury } from './treasuryView';
+import { BUILDING_IDS, BUILDINGS, cityMaintenance, constructionQuote, developmentSites, endowment, totalCityMaintenance } from '../game/cities';
 import { FENWICK_CHARTER } from '../content/quests';
 import { questSummary } from '../game/quests';
 import { esc, type UIState } from './shared';
@@ -22,12 +23,13 @@ export function moveTargets(state: GameState, ui: UIState): string[] {
 export function renderCampaign(state: GameState, ui: UIState): string {
   const income = monthlyIncome(state);
   const upkeep = monthlyUpkeep(state);
-  const net = income - upkeep;
+  const operating = totalCityMaintenance(state);
+  const net = income - upkeep - operating;
   return `
   <header class="bar">
     <h1>Aragon <small>working title</small></h1>
     <span class="date">${dateLabel(state.turn)}</span>
-    <span class="gold" title="Income ${income}, upkeep ${upkeep}">Gold <b>${state.gold}</b>
+    <span class="gold" title="Taxes ${income}, troop wages ${upkeep}, city maintenance ${operating}">Gold <b>${state.gold}</b>
       <em class="${net < 0 ? 'neg' : 'pos'}">${net >= 0 ? '+' : ''}${net}/month</em></span>
     <span class="spacer"></span>
     ${state.quests.Q00?.status === 'available' ? '<button data-action="view-fenwick" class="ghost">Fenwick envoy</button>' : ''}
@@ -109,6 +111,7 @@ function renderNodePanel(state: GameState, ui: UIState, id: string): string {
               ${t.name} <span>${t.cost}g</span></button>`)
           .join('')}</div>`;
       if (town.kind !== 'capital') html += `<p class="sub">Knights can only be raised in Aldenhold.</p>`;
+      html += renderCityDevelopment(state, id);
       html += renderOffers(state, id);
     }
   } else {
@@ -118,6 +121,44 @@ function renderNodePanel(state: GameState, ui: UIState, id: string): string {
   for (const a of armies) html += renderArmy(ui, a);
   if (!armies.length) html += `<p class="sub">No troops here.</p>`;
   return html;
+}
+
+function renderCityDevelopment(state: GameState, id: string): string {
+  const city = state.cityEconomies[id];
+  if (!city) return '';
+  const stock = city.goods;
+  const latest = city.lastMonth;
+  const project = city.project;
+  const stockLine = `Food ${stock.food} · Timber ${stock.timber} · Ore ${stock.ore} · Tools ${stock.tools}`;
+  const results = latest
+    ? `Last month: produced ${latest.produced.food} food, ${latest.produced.timber} timber, ${latest.produced.ore} ore,
+      ${latest.produced.tools} tools; consumed ${latest.consumedFood} food.
+      ${latest.unmetFood > 0 ? `Food shortage: ${latest.unmetFood} units.` : ''}
+      Workers ${latest.employed}/${latest.workforce} employed in industry.`
+    : 'Production starts at the end of the first month. Food consumption is 1 unit per 100 residents.';
+  const cards = BUILDING_IDS.map((kind) => {
+    const def = BUILDINGS[kind];
+    const q = constructionQuote(state, id, kind);
+    const level = city.buildings[kind];
+    const req = Object.entries(q.materials).map(([name, n]) => `${n} ${name}`).join(' + ');
+    const yieldFactor = def.resource ? endowment(id)[def.resource] : 1;
+    const maxOutput = Math.floor(q.targetLevel * def.capacity * yieldFactor);
+    return `<div class="building-card"><div><b>${def.name}</b> <small>Level ${level}/2</small></div>
+      <p class="sub">${def.output}: up to ${maxOutput}/month at next tier (subject to labor and inputs).
+        Upkeep +${def.upkeep}g/month per new tier.</p>
+      <button data-action="construct" data-node="${id}" data-kind="${kind}" ${q.reason ? 'disabled' : ''}
+        title="${q.reason ? esc(q.reason) : 'Begin construction (completes after this month)'}">
+        ${level ? 'Upgrade' : 'Build'} · ${q.gold}g + ${req}</button>
+      ${q.reason && q.reason !== 'One construction project at a time.' ? `<small class="hint">${esc(q.reason)}</small>` : ''}
+    </div>`;
+  }).join('');
+  return `<section class="city-development"><h3>City development</h3>
+    <p class="sub">Public stocks: ${stockLine}. Sites used: ${developmentSites(city)}/3.
+      Maintenance ${cityMaintenance(state, id)}g/month.</p>
+    <p class="sub">${results}</p>
+    ${project ? `<p class="notice">Under construction: ${BUILDINGS[project.kind].name} level ${project.targetLevel}.
+      Already paid; completes after this month's production.</p>` : ''}
+    <div class="building-grid">${cards}</div></section>`;
 }
 
 function renderFenwickQuest(state: GameState): string {

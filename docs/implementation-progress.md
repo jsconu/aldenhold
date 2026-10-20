@@ -75,3 +75,15 @@ The reserve policy is deliberately explicit for this first slice: there are no m
 - When the realm cannot pay its troops, unpaid wages appear as a non-cash shortfall. Desertion and clamping the treasury to zero retain earlier gameplay behavior.
 - Each recorded month must satisfy opening cash + signed entries = closing cash. Save validation rejects inconsistent balances, invalid totals and duplicated transaction identifiers.
 - Future scope remains: city building costs, farm/mine upgrades, commodities, market prices, transfers, seasonal production, trade and governors. This increment is **not** the full ECO-01–ECO-18 economy.
+
+
+## Economy increment 2: invest in towns and produce local goods
+
+- Schema v7 adds per-town levels for Farms, Lumber Camps, Ore Mines, Tool Forges; food, timber, ore and tools stockpiles; one construction project per city; a latest-month production report.
+- Towns initially operate a free inherited farm; the first 3 development sites are available for distinct facilities. Each family has two tiers, local endowment requirements, construction gold/material quotes, recurring maintenance and workforce needs. Starting economic capacity preserves the old quick-play tax/upkeep balance.
+- Construction costs are paid/reserved as a real treasury debit plus actual local goods consumed exactly once at start. Work completes at the end of the month **after** production, so no same-month output or repeated charge. No cancellation/recovery yet.
+- Monthly production uses a fixed 45% workforce from actual population, deterministic staffing allocation and *beginning-of-phase materials* for input recipes. Farms produce food, lumber camps timber, mines ore, and tool forges consume existing timber+ore to make tools. Newly mined ore cannot feed a forge until the following month.
+- Towns consume food proportional to population. Food shortfalls are visible in city reports and reduce growth gradually, not through sudden city destruction. Buildings and stockpiles survive conquest.
+- Recurring city maintenance is a cash operating expense with a separate unpaid-maintenance line. Army desertion still triggers only on unpaid military wages; public resource production is **not** automatically treasury revenue.
+- Save v2–v6 migration retains the old cash ledger (with historical maintenance defaulted to zero) and seeds new stockpiles at the migration date without fabricating old city history.
+- Deferred: all 10 planned goods; specialized worker classes; 18 building families; sites unlocked to 6; construction queue/cancellation; durable degradation; commerce/trade; market prices; governors; private balances; external suppliers; fully distributed inputs and goods.

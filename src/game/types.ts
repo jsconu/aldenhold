@@ -205,7 +205,7 @@ export interface QuestProgress {
 }
 
 /** Signed cash movements: positive receipts, negative actual payments. */
-export type LedgerCategory = 'tax' | 'wages' | 'recruitment' | 'hero-hire' | 'balance-correction';
+export type LedgerCategory = 'tax' | 'wages' | 'recruitment' | 'hero-hire' | 'construction' | 'maintenance' | 'balance-correction';
 export interface LedgerEntry {
   turn: number;
   city: string | null;
@@ -222,6 +222,7 @@ export interface MonthlyLedger {
   expenses: number;
   /** Liability omitted from paid wages due to an empty treasury. */
   unpaidUpkeep: number;
+  unpaidMaintenance: number;
   entries: LedgerEntry[];
 }
 export interface Treasury {
@@ -232,14 +233,46 @@ export interface Treasury {
   history: MonthlyLedger[];
 }
 
+/** Local physical materials are not coins and cannot be spent by the treasury. */
+export type GoodId = 'food' | 'timber' | 'ore' | 'tools';
+export type BuildingId = 'farm' | 'lumber' | 'mine' | 'forge';
+export type GoodsStock = Record<GoodId, number>;
+export type BuildingLevels = Record<BuildingId, number>;
+
+export interface Construction {
+  kind: BuildingId;
+  targetLevel: number;
+  startedTurn: number;
+  finishTurn: number;
+  paidGold: number;
+  paidGoods: Partial<GoodsStock>;
+}
+/** Last month's physical flows, separate from public money and taxes. */
+export interface CityProduction {
+  turn: number;
+  produced: GoodsStock;
+  inputs: GoodsStock;
+  consumedFood: number;
+  unmetFood: number;
+  workforce: number;
+  employed: number;
+}
+export interface CityEconomy {
+  buildings: BuildingLevels;
+  goods: GoodsStock;
+  project: Construction | null;
+  lastMonth: CityProduction | null;
+}
+
 export interface GameState {
-  version: 6;
+  version: 7;
   campaignId: CampaignId;
   campaignRevision: number;
   endingReason: EndingReason | null;
   turn: number;
   gold: number;
   treasury: Treasury;
+  cityEconomies: Record<string, CityEconomy>;
   nextId: number;
   seed: number;
   nodes: MapNode[];
