@@ -12,6 +12,7 @@ import { FENWICK_CHARTER } from '../content/quests';
 import { questSummary } from '../game/quests';
 import { esc, type UIState } from './shared';
 import { renderOverland } from './overlandMap';
+import { previewRoute, type RoutePreview } from '../game/overlandRoutes';
 
 const OWNER_LABEL: Record<FactionId, string> = { player: 'Yours', orcs: 'Orcs', neutral: 'Free town' };
 
@@ -44,7 +45,7 @@ export function renderCampaign(state: GameState, ui: UIState): string {
   ${ui.view === 'treasury' ? renderTreasury(state) : ui.view === 'journal' ? renderJournal(state) : `<main class="campaign">
     <section class="map-wrap">
       ${renderMapToolbar(state, ui)}
-      ${renderOverland(state, ui, moveTargets(state, ui))}
+      ${renderOverland(state, ui, moveTargets(state, ui), plannedRoute(state, ui)?.stops.map((s) => s.id) ?? [])}
       <div class="atlas-legend" aria-label="Map legend">
         <span><i class="swatch swatch-forest"></i> Forest</span>
         <span><i class="swatch swatch-hills"></i> Hills</span>
@@ -57,6 +58,7 @@ export function renderCampaign(state: GameState, ui: UIState): string {
     <aside class="side">
       ${ui.message ? `<p class="msg">${esc(ui.message)}</p>` : ''}
       ${renderOfferNotice(state, ui)}
+      ${renderRoutePlanner(state, ui)}
       ${ui.selected ? renderTravelGuide(state, ui) : ''}
       ${ui.selected ? renderNodePanel(state, ui, ui.selected) : '<p class="hint">Click a place on the map. Your troops show as blue shields.</p>'}
       <details class="log" open><summary>Chronicle</summary><ul>${state.log.slice(0, 14).map((l) => `<li>${esc(l)}</li>`).join('')}</ul></details>
@@ -80,8 +82,47 @@ function renderMapToolbar(state: GameState, ui: UIState): string {
       <output aria-label="Map zoom">${Math.round(zoom * 100)}%</output>
       <button data-action="map-zoom" data-zoom="in" title="Zoom in on selected place" aria-label="Zoom in" ${zoom >= 2 ? 'disabled' : ''}>+</button>
     </div>
+    <button data-action="plan-route" class="plan-route-button" ${!ui.selected ? 'disabled' : ''}>${ui.routeOrigin ? 'New route' : 'Plan route'}</button>
     <span class="atlas-current">Viewing: ${esc(state.nodes.find((n) => n.id === ui.selected)?.name ?? 'The valley')}</span>
   </div>`;
+}
+
+export function plannedRoute(state: GameState, ui: UIState): RoutePreview | null {
+  if (!ui.routeOrigin || !ui.routeDestination) return null;
+  return previewRoute(state, ui.routeOrigin, ui.routeDestination, ui.routePreference ?? 'shortest');
+}
+
+/** Plan a campaign journey without secretly issuing multiple-month movement commands. */
+function renderRoutePlanner(state: GameState, ui: UIState): string {
+  if (!ui.routeOrigin) return '';
+  const from = nodeName(state, ui.routeOrigin);
+  const to = ui.routeDestination ? nodeName(state, ui.routeDestination) : null;
+  const route = plannedRoute(state, ui);
+  const preferences = `<div class="route-preferences">
+    <button data-action="route-preference" data-preference="shortest"
+      aria-pressed="${ui.routePreference !== 'safer'}"
+      class="${ui.routePreference !== 'safer' ? 'active' : ''}">Fewest roads</button>
+    <button data-action="route-preference" data-preference="safer"
+      aria-pressed="${ui.routePreference === 'safer'}"
+      class="${ui.routePreference === 'safer' ? 'active' : ''}">Prefer fewer garrisons</button>
+  </div>`;
+  const stopList = route ? `<ol class="route-stops">${route.stops.map((s) =>
+    `<li><strong>${esc(nodeName(state, s.id))}</strong>
+       ${s.risk ? `<span class="route-warning">${esc(s.risk)}</span>` : ''}</li>`).join('')}</ol>` : '';
+  const ready = route && route.stops.length > 1 && ui.selected === ui.routeOrigin &&
+    moveTargets(state, ui).includes(route.stops[1].id);
+  return `<section class="route-planner"><h3>Journey planner</h3>
+    <p class="sub">Departure: <b>${esc(from)}</b>
+    ${to ? ` · Destination: <b>${esc(to)}</b>` : ''}</p>
+    ${to ? preferences : '<p>Choose a destination on the map. This previews a route, not army movement.</p>'}
+    ${route ? `<p class="route-estimate">${route.legs} road leg${route.legs === 1 ? '' : 's'} ·
+      earliest ${esc(dateLabel(state.turn + Math.max(0, route.legs - 1)))}
+      <small>Assumes an army can move each month and no battles delay it.</small></p>${stopList}
+      ${route.legs > 0 ? `<button data-action="route-first-leg" ${ready ? '' : 'disabled'}
+        title="${ready ? 'March checked formations along the first road' : 'Select ready troops at the departure location'}">
+        March first leg →</button>` : ''}` : to ? '<p class="hint">No connected route available.</p>' : ''}
+    <button class="ghost route-clear" data-action="route-clear">Close planner</button>
+  </section>`;
 }
 
 /** Road-only movement is explicit instead of looking like free hex navigation. */
