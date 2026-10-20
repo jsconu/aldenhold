@@ -435,7 +435,7 @@ Levels listed are initial balancing requirements. Masterwork variants improve an
 
 ## 20 Image requirements for units and characters
 
-**ART-01 P1 Art direction.** Use illustrated tabletop fantasy: readable silhouettes, restrained earth colors, painted landscape detail and clear faction emblems. Preserve the existing SVG icon language for tiny UI symbols. Render tactical forces as illustrated tokens; do not require full directional animation to finish version 1.
+**ART-01 P1 Art direction.** *(Revised October 20 2026 at the owner's request: pixel art replaces the earlier illustrated direction.)* Units and characters are original pixel art in an EGA-inspired palette, evoking late-1980s PC strategy games: 16×16 base sprites drawn at whole-number or simple scales with crisp edges, black outlines and readable silhouettes. Team colour is part of each sprite (blue for the player, red for enemies) and is repeated on the token's base, so sides stay distinguishable without colour alone. Sprites face the enemy and are mirrored for the defending side. Preserve the existing SVG icon language for tiny UI symbols. Do not require directional animation to finish version 1. Terrain, city and portrait art should follow the same pixel direction; their exact resolution is decided with the ART-08 sample.
 
 | Asset family | Minimum quantity | Source and runtime specification |
 | --- | --- | --- |
