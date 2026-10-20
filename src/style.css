@@ -218,3 +218,12 @@ button.link { background: none; border: none; padding: 0; color: var(--gold); te
 .unit.hero .base { stroke: var(--gold); stroke-width: 2; }
 .unit.routing .px { opacity: 0.55; }
 .unit .men { paint-order: stroke; stroke: #1b1a17; stroke-width: 3px; }
+
+
+/* Lightweight, expandable realm finance ledger */
+.finance-period { border: 1px solid var(--line, #766c55); margin: 8px 0; padding: 10px; border-radius: 6px; }
+.finance-period summary { cursor: pointer; display: flex; gap: 16px; flex-wrap: wrap; }
+.finance-period summary span { font-variant-numeric: tabular-nums; }
+.finance-table { border-collapse: collapse; width: 100%; margin-top: 10px; font-size: 13px; }
+.finance-table th, .finance-table td { border-bottom: 1px solid #7774; padding: 6px 8px; text-align: left; }
+.finance-table td:last-child { font-variant-numeric: tabular-nums; text-align: right; }
