@@ -1,6 +1,9 @@
 import { dateLabel, nodeName } from '../game/campaign';
 import type { DeedKind, GameState, JournalEntry } from '../game/types';
 import { esc } from './shared';
+import { FENWICK_CHARTER } from '../content/quests';
+import { ITEMS } from '../content/items';
+import { questSummary } from '../game/quests';
 
 const KIND_LABEL: Record<DeedKind, string> = {
   story: 'Story',
@@ -46,6 +49,16 @@ export function renderJournal(state: GameState): string {
         <div><dt>Hero deeds</dt><dd>${count('hero')}</dd></div>
       </dl>
     </div>
+    <section class="quest-ledger"><h2>Quests</h2>
+      <p><b>${esc(FENWICK_CHARTER.name)}</b> — ${esc(questSummary(state))}.
+      <button class="link" data-action="goto" data-node="fenwick">View Fenwick</button></p>
+    </section>
+    <section class="quest-ledger"><h2>Inventory</h2>
+      ${state.items.length ? `<ul>${state.items.map((id) => {
+        const item = ITEMS[id];
+        return `<li><b>${esc(item.name)}</b> — ${esc(item.rules)}</li>`;
+      }).join('')}</ul>` : '<p class="sub">No campaign objects acquired yet.</p>'}
+    </section>
     ${sections || '<p class="hint">Nothing recorded yet.</p>'}
   </main>`;
 }
