@@ -372,3 +372,22 @@ button.travel-destination b { color: var(--gold); font-size: 11px; }
   .atlas-legend { gap: 8px; }
   .atlas-geography-labels { display: none; }
 }
+
+
+/* Planned journeys are projections, not orders. Distinguish them from immediate march targets. */
+.atlas-route-planned .atlas-road-shadow { stroke: #193c45; stroke-width: 10; }
+.atlas-route-planned .atlas-road-surface { stroke: #8de8e4; stroke-width: 5; stroke-dasharray: 7 4; }
+.atlas-route-number circle { fill: #204954; stroke: #e4f6eb; stroke-width: 1.5; }
+.atlas-route-number text { fill: #eafdf8; text-anchor: middle; font: bold 10px system-ui, sans-serif; pointer-events: none; }
+.route-planner { margin: 6px 0 14px; border: 1px solid #50787c; background: #27383a; padding: 11px; border-radius: 7px; }
+.route-planner h3 { margin: 0 0 5px; color: #9fe7dd; }
+.route-preferences { display: flex; flex-wrap: wrap; gap: 6px; margin: 7px 0; }
+.route-preferences button { font: 12px system-ui, sans-serif; padding: 6px; }
+.route-preferences .active { background: #395f60; border-color: #9fe7dd; }
+.route-estimate { font-weight: 600; }
+.route-estimate small { display: block; font: 12px/1.4 system-ui, sans-serif; color: #c7d2ca; }
+.route-stops { margin: 7px 0; padding-left: 24px; font: 13px/1.65 system-ui, sans-serif; }
+.route-stops li { border-bottom: 1px solid #9fe7dd32; }
+.route-warning { font-size: 11px; color: #ffd5a2; margin-left: 3px; }
+.route-clear { margin-left: 6px; }
+.plan-route-button { font: 600 12px/1.4 system-ui, sans-serif; }
