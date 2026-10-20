@@ -63,9 +63,11 @@ The three columns at each edge stay open for deployment. The battle AI prefers g
 
 ## Code layout
 
+- `src/content/`: static content, never mutated at runtime. `rules.ts` has unit types, spells, terrain and the hero roster (tune balance here); `campaigns/` has one `CampaignDefinition` per campaign; `validate.ts` checks it all.
 - `src/game/`: pure rules with no DOM. Everything here is unit-tested.
-  - `data.ts`: unit types, map and starting setup. Tune balance here.
-  - `campaign.ts`: the strategic layer (turns, economy, movement, battle start/finish).
+  - `data.ts`: compatibility re-exports of the content for older modules.
+  - `campaign.ts`: the strategic layer (turns, economy, movement, battle start/finish) and the permanent journal.
+  - `saves.ts`: save validation and versioned migrations.
   - `ai.ts`: orc strategic AI.
   - `units.ts`: troop and hero levels, hit points, mana and attack.
   - `battle.ts`: the tactical layer (movement, combat, morale, spells), plus a battle AI that also powers auto-resolve and casts spells.

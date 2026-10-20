@@ -4,6 +4,7 @@ import {
 import { SPELLS, UNIT_TYPES } from '../game/data';
 import { heroLevel, heroMaxHp, heroMaxMana, level } from '../game/units';
 import type { Army, FactionId, GameState } from '../game/types';
+import { renderJournal } from './journalView';
 import { esc, type UIState } from './shared';
 
 const OWNER_LABEL: Record<FactionId, string> = { player: 'Yours', orcs: 'Orcs', neutral: 'Free town' };
@@ -26,11 +27,12 @@ export function renderCampaign(state: GameState, ui: UIState): string {
     <span class="gold" title="Income ${income}, upkeep ${upkeep}">Gold <b>${state.gold}</b>
       <em class="${net < 0 ? 'neg' : 'pos'}">${net >= 0 ? '+' : ''}${net}/month</em></span>
     <span class="spacer"></span>
+    <button data-action="journal" class="ghost">${ui.view === 'journal' ? 'Back to the map' : `Journal (${state.journal.length})`}</button>
     <button data-action="new-game" class="ghost">New game</button>
     <button data-action="end-turn" class="primary" ${state.status !== 'playing' ? 'disabled' : ''}>End month</button>
   </header>
   ${state.status !== 'playing' ? `<div class="banner ${state.status}">${state.status === 'won' ? 'You have won. The valley is united.' : state.endingReason === 'lord-dead' ? 'You have lost. Your lord is dead.' : 'You have lost. Aldenhold has fallen.'} <button data-action="new-game">Play again</button></div>` : ''}
-  <main class="campaign">
+  ${ui.view === 'journal' ? renderJournal(state) : `<main class="campaign">
     <section class="map-wrap">${renderMap(state, ui)}</section>
     <aside class="side">
       ${ui.message ? `<p class="msg">${esc(ui.message)}</p>` : ''}
@@ -38,7 +40,7 @@ export function renderCampaign(state: GameState, ui: UIState): string {
       ${ui.selected ? renderNodePanel(state, ui, ui.selected) : '<p class="hint">Click a place on the map. Your troops show as blue shields.</p>'}
       <details class="log" open><summary>Chronicle</summary><ul>${state.log.slice(0, 14).map((l) => `<li>${esc(l)}</li>`).join('')}</ul></details>
     </aside>
-  </main>`;
+  </main>`}`;
 }
 
 function renderMap(state: GameState, ui: UIState): string {

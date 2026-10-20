@@ -1,9 +1,11 @@
 import { BATTLE_H, BATTLE_W, createBattle, FIELD_LIMIT } from './battle';
+import { CATALOG, getCampaign } from '../content';
 import { endingReason } from './campaign';
-import { CAPITAL, LAIR, MAP_NODES, START_TOWNS, TERRAIN, UNIT_TYPES } from './data';
+import { TERRAIN, UNIT_TYPES } from './data';
 import { heroMaxHp, heroMaxMana, isHero } from './units';
-import type { GameState } from './types';
+import type { CampaignId, DeedKind, GameState, JournalEntry } from './types';
 
+/** Storage slot names are stable; the schema version lives inside the save itself. */
 export const SAVE_KEY = 'aragon-save-v3';
 export const LEGACY_SAVE_KEY = 'aragon-save-v2';
 export const MAX_SAVE_BYTES = 5 * 1024 * 1024;
@@ -30,13 +32,17 @@ function text(value: unknown): value is string { return typeof value === 'string
 function bool(value: unknown): value is boolean { return typeof value === 'boolean'; }
 function oneOf(value: unknown, values: readonly unknown[]): boolean { return values.includes(value); }
 const factions = ['player', 'orcs', 'neutral'];
+const deedKinds: DeedKind[] = ['story', 'battle', 'capture', 'loss', 'hero', 'realm', 'ending', 'earlier'];
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const sides = ['attacker', 'defender'];
 
 /** Validate both shape and references before exposing a save to rules or rendering. */
 function validate(value: unknown, allowMissingBattleTroops = false): asserts value is GameState {
   const s = object(value);
-  requireValue(s.version === 3, 'unsupported schema version');
-  requireValue(s.campaignId === 'valley-quickplay' && s.campaignRevision === 1, 'unsupported campaign or revision');
+  requireValue(s.version === 4, 'unsupported schema version');
+  requireValue(text(s.campaignId) && Object.hasOwn(CATALOG.campaigns, s.campaignId), 'unknown campaign');
+  const def = getCampaign(s.campaignId as CampaignId);
+  requireValue(s.campaignRevision === def.revision, 'unsupported campaign revision');
   requireValue(integer(s.turn, 1) && integer(s.gold) && integer(s.nextId, 1) && integer(s.seed, -2147483648, 2147483647), 'campaign numbers');
   requireValue(oneOf(s.status, ['playing', 'won', 'lost']), 'campaign status');
   requireValue(oneOf(s.endingReason, [null, 'lair-captured', 'capital-lost', 'lord-dead']), 'ending reason');
@@ -46,13 +52,13 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
     requireValue(text(n.id) && n.id.length > 0 && !nodes.has(n.id) && text(n.name) && Number.isFinite(n.x) && Number.isFinite(n.y), 'map node');
     nodes.add(n.id);
   }
-  requireValue(nodes.size === MAP_NODES.length && MAP_NODES.every((n) => nodes.has(n.id)), 'quick-play map locations');
+  requireValue(nodes.size === def.nodes.length && def.nodes.every((n) => nodes.has(n.id)), 'campaign map locations');
   for (const edge of array(s.edges)) {
     const e = array(edge);
     requireValue(e.length === 2 && text(e[0]) && text(e[1]) && nodes.has(e[0]) && nodes.has(e[1]), 'road references');
   }
   const towns = object(s.towns);
-  requireValue(Object.keys(towns).length === START_TOWNS.length && START_TOWNS.every((t) => Object.hasOwn(towns, t.id)), 'quick-play towns');
+  requireValue(Object.keys(towns).length === def.towns.length && def.towns.every((t) => Object.hasOwn(towns, t.id)), 'campaign towns');
   for (const [id, entry] of Object.entries(towns)) {
     const t = object(entry);
     requireValue(t.id === id && nodes.has(id) && oneOf(t.owner, factions) && integer(t.pop) && integer(t.tax, 0, 50) && oneOf(t.kind, ['capital', 'town', 'lair']), 'town');
@@ -86,6 +92,11 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
     requireValue(text(o.town) && Object.hasOwn(towns, o.town) && text(o.type) && Object.hasOwn(UNIT_TYPES, o.type) && isHero(o.type) && text(o.name) && integer(o.expires, 1), 'hero offer');
   }
   requireValue(array(s.log).every(text), 'chronicle');
+  array(s.journal).forEach((entry, i) => {
+    const j = object(entry);
+    requireValue(j.id === i + 1 && integer(j.turn, 1, Number(s.turn)) && oneOf(j.kind, deedKinds) && text(j.text), 'journal entry');
+    requireValue(j.place === null || (text(j.place) && nodes.has(j.place)), 'journal place');
+  });
   if (s.battle !== null) {
     const b = object(s.battle);
     requireValue(text(b.at) && nodes.has(b.at) && b.width === BATTLE_W && b.height === BATTLE_H, 'battle map');
@@ -133,10 +144,33 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
   requireValue(state.status === 'playing' ? state.endingReason === null && reason === null : state.endingReason === reason && (state.status === 'won' ? reason === 'lair-captured' : reason === 'lord-dead' || reason === 'capital-lost'), 'inconsistent campaign ending');
 }
 
+/** Turn a chronicle line ("March, year 2: text") back into a month number and its text. */
+function parseChronicleLine(line: string): { turn: number; text: string } {
+  const m = /^([A-Z][a-z]+), year (\d+): (.*)$/s.exec(line);
+  const month = m ? MONTHS.indexOf(m[1]) : -1;
+  if (!m || month < 0) return { turn: 1, text: line };
+  return { turn: (Number(m[2]) - 1) * 12 + month + 1, text: m[3] };
+}
+
+/**
+ * v3 → v4 adds the permanent journal. Older games only kept the rolling chronicle, so its surviving lines
+ * become 'earlier' entries, oldest first. Nothing else changes.
+ */
+function upgradeToV4(value: Record<string, unknown>) {
+  const turn = integer(value.turn, 1) ? value.turn : 1;
+  const lines = array(value.log).filter(text).slice().reverse();
+  value.journal = lines.map((line, i): JournalEntry => {
+    const parsed = parseChronicleLine(line);
+    return { id: i + 1, turn: Math.min(Math.max(1, parsed.turn), turn), kind: 'earlier', text: parsed.text, place: null };
+  });
+  value.version = 4;
+}
+
 /** Migration runs on parsed JSON only; it never edits the legacy storage entry. */
 export function parseSave(raw: string): GameState {
   requireValue(new TextEncoder().encode(raw).length <= MAX_SAVE_BYTES, 'file exceeds 5 MB');
   const value = object(JSON.parse(raw));
+  if (value.version === 3) upgradeToV4(value);
   if (value.version === 2) {
     value.version = 3;
     value.campaignId = 'valley-quickplay';
@@ -145,12 +179,14 @@ export function parseSave(raw: string): GameState {
     if (value.battle !== null) for (const u of array(object(value.battle).units)) object(u).reserve = false;
     // Infer legacy terminal reasons only after validating the shape needed by the resolver.
     const towns = object(value.towns);
-    object(towns[CAPITAL]); object(towns[LAIR]);
+    const legacyWorld = getCampaign('valley-quickplay');
+    object(towns[legacyWorld.capital]); object(towns[legacyWorld.lair]);
     for (const a of array(value.armies)) for (const t of array(object(a).troops)) object(t);
     if (value.status !== 'playing') {
       value.endingReason = endingReason(value as unknown as GameState);
       value.status = value.endingReason === 'lair-captured' ? 'won' : 'lost';
     }
+    upgradeToV4(value);
     validate(value, true);
     if (value.battle) {
       const b = value.battle;

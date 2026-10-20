@@ -10,6 +10,8 @@ export interface UIState {
   /** Spell the selected hero is about to cast. */
   battleSpell: SpellId | null;
   message: string;
+  /** Campaign screen: the province map or the full journal. */
+  view: 'map' | 'journal';
 }
 
 export function esc(s: string): string {

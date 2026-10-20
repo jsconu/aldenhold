@@ -153,10 +153,46 @@ export interface HeroOffer {
 
 export type EndingReason = 'lair-captured' | 'capital-lost' | 'lord-dead';
 
+export type CampaignId = 'valley-quickplay';
+
+/** A troop in a campaign's starting setup: a unit type id, or a named hero. */
+export type StartTroop = string | { type: string; name: string };
+
+/** Static definition of a campaign: its world and opening position. Never mutated at runtime. */
+export interface CampaignDefinition {
+  id: CampaignId;
+  revision: number;
+  name: string;
+  /** First journal entry of a new game. */
+  intro: string;
+  capital: string;
+  lair: string;
+  startingGold: number;
+  lordName: string;
+  nodes: MapNode[];
+  edges: [string, string][];
+  towns: Town[];
+  armies: { owner: FactionId; at: string; troops: StartTroop[] }[];
+  offers: HeroOffer[];
+}
+
+/** Kinds of deed the permanent journal keeps. 'earlier' holds chronicle lines carried over from older saves. */
+export type DeedKind = 'story' | 'battle' | 'capture' | 'loss' | 'hero' | 'realm' | 'ending' | 'earlier';
+
+/** One permanent journal entry. The chronicle (GameState.log) stays a short, rolling news feed. */
+export interface JournalEntry {
+  id: number;
+  turn: number;
+  kind: DeedKind;
+  text: string;
+  /** Map location the deed happened at, if any. */
+  place: string | null;
+}
+
 export interface GameState {
-  version: 3;
-  campaignId: 'valley-quickplay';
-  campaignRevision: 1;
+  version: 4;
+  campaignId: CampaignId;
+  campaignRevision: number;
   endingReason: EndingReason | null;
   turn: number;
   gold: number;
@@ -170,5 +206,6 @@ export interface GameState {
   pending: PendingBattle[];
   offers: HeroOffer[];
   log: string[];
+  journal: JournalEntry[];
   status: 'playing' | 'won' | 'lost';
 }

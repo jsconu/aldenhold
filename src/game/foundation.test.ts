@@ -7,7 +7,7 @@ import { renderBattle } from '../ui/battleView';
 import { renderCampaign } from '../ui/campaignView';
 import type { UIState } from '../ui/shared';
 
-const ui: UIState = { selected: 'aldenhold', checked: new Set(), battleUnit: null, battleSpell: null, message: '' };
+const ui: UIState = { selected: 'aldenhold', checked: new Set(), battleUnit: null, battleSpell: null, message: '', view: 'map' };
 function largeBattle(count = 28) {
   const s = newGame(1);
   const a = armyAt(s, 'aldenhold', 'player')!;
