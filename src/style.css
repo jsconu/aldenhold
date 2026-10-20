@@ -206,3 +206,10 @@ button.link { background: none; border: none; padding: 0; color: var(--gold); te
 .deed.kind-battle .tag { color: #9fc3ff; }
 .deed.kind-earlier .what { color: var(--muted); }
 @media (max-width: 600px) { .deed { grid-template-columns: 1fr; gap: 2px; } }
+
+
+/* First diplomacy/quest vertical slice */
+.quest-card, .quest-ledger { border: 1px solid var(--line, #766c55); background: var(--panel, #262521); padding: 12px; margin: 12px 0; border-radius: 8px; }
+.quest-card h3, .quest-ledger h2 { margin: 0 0 8px; }
+.quest-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.quest-ledger ul { padding-left: 22px; }
