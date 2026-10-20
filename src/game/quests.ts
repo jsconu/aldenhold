@@ -1,5 +1,5 @@
 import { FENWICK_CHARTER } from '../content/quests';
-import { deed, neighborsOf, nodeName } from './campaign';
+import { deed, neighborsOf } from './campaign';
 import type { FactionId, GameState, QuestProgress } from './types';
 
 export function newQuestState(): Record<string, QuestProgress> {
