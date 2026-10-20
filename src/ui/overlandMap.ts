@@ -165,26 +165,29 @@ function atlasDefs(): string {
     </symbol>
   </defs>`;
 }
-function routeArtwork(state: GameState, selected: string | null, targets: string[]): string {
+function routeArtwork(state: GameState, selected: string | null, targets: string[], planned: readonly string[]): string {
   const byId = new Map(state.nodes.map((n) => [n.id, n]));
   return state.edges.map(([from, to]) => {
     const a = byId.get(from), b = byId.get(to);
     if (!a || !b) return '';
     const active = (selected === from && targets.includes(to)) || (selected === to && targets.includes(from));
+    const plannedSegment = planned.some((id, index) => index > 0 &&
+      ((planned[index - 1] === from && id === to) || (planned[index - 1] === to && id === from)));
     const d = routePath(a, b);
-    return `<g class="atlas-route${active ? ' atlas-route-active' : ''}" data-route="${esc(from)}:${esc(to)}">
+    return `<g class="atlas-route${active ? ' atlas-route-active' : ''}${plannedSegment ? ' atlas-route-planned' : ''}" data-route="${esc(from)}:${esc(to)}">
       <path d="${d}" class="atlas-road-shadow"/>
       <path d="${d}" class="atlas-road-surface"/>
     </g>`;
   }).join('');
 }
 const MARKERS: Record<string, string> = { bridge: 'bridge', pass: 'pass', watchtower: 'watchtower' };
-function mapSite(state: GameState, node: MapNode, selected: string | null, targets: string[]): string {
+function mapSite(state: GameState, node: MapNode, selected: string | null, targets: string[], planned: readonly string[]): string {
   const town = state.towns[node.id];
   const owner: FactionId = town?.owner ?? 'neutral';
   const icon = town ? (town.kind === 'capital' ? 'capital' : town.kind === 'lair' ? 'lair' : 'town') :
     (MARKERS[node.id] ?? 'waypoint');
   const selectedSite = selected === node.id;
+  const stopIndex = planned.indexOf(node.id);
   const canMarch = targets.includes(node.id);
   const armies = state.armies.filter((a) => a.at === node.id);
   const armyCount = armies.reduce((sum, army) => sum + army.troops.length, 0);
@@ -207,6 +210,8 @@ function mapSite(state: GameState, node: MapNode, selected: string | null, targe
       <use href="#atlas-${icon}" x="${markerX}" y="${markerY}" width="${size}" height="36" class="atlas-site-art"/>
       <rect x="${labelX}" y="${labelY}" width="${labelW}" height="24" rx="5" class="atlas-nameplate"/>
       <text x="${labelX + labelW / 2}" y="${labelY + 16}" class="atlas-site-name">${esc(node.name)}</text>
+      ${stopIndex >= 0 ? `<g class="atlas-route-number" transform="translate(${node.x - 18},${node.y - 22})">
+        <circle r="9"/><text dy="4">${stopIndex + 1}</text></g>` : ''}
       ${armyCount ? `<g class="atlas-army-badge" transform="translate(${node.x + 17},${node.y - 24})">
         <circle r="10" class="atlas-army-disk"/>
         <text dy="4">${armyCount}</text></g>` : ''}
@@ -220,7 +225,7 @@ function mapViewBox(state: GameState, ui: UIState): string {
   const y = Math.min(ATLAS_HEIGHT - h, Math.max(0, focus.y - h / 2));
   return `${x.toFixed(1)} ${y.toFixed(1)} ${w.toFixed(1)} ${h.toFixed(1)}`;
 }
-export function renderOverland(state: GameState, ui: UIState, targets: string[]): string {
+export function renderOverland(state: GameState, ui: UIState, targets: string[], planned: readonly string[] = []): string {
   const tiles = atlasTiles(state);
   const mode = ui.mapLayer === 'political' ? 'political' : 'terrain';
   const grid = tiles.map(({ col, row, x, y, terrain }) => {
@@ -233,8 +238,8 @@ export function renderOverland(state: GameState, ui: UIState, targets: string[])
     const town = state.towns[n.id];
     return `<circle cx="${n.x}" cy="${n.y}" r="100" fill="url(#own-glow-${town.owner})"/>`;
   }).join('');
-  const roads = routeArtwork(state, ui.selected, targets);
-  const locations = state.nodes.map((n) => mapSite(state, n, ui.selected, targets)).join('');
+  const roads = routeArtwork(state, ui.selected, targets, planned);
+  const locations = state.nodes.map((n) => mapSite(state, n, ui.selected, targets, planned)).join('');
   return `<svg viewBox="${mapViewBox(state, ui)}" class="map overland-map layer-${mode}"
     role="group" aria-label="Illustrated province map, towns and travel routes">
     ${atlasDefs()}
