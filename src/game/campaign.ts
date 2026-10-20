@@ -4,6 +4,7 @@ import { getCampaign } from '../content';
 import { hasPassage } from './diplomacy';
 import { newTreasury, recordPurchase, settleTreasury } from './economy';
 import { newQuestState, onTownOwnershipChange } from './quests';
+import { advanceCities, cityMaintenance, startingCities } from './cities';
 import { HERO_NAMES, HIREABLE_HEROES, UNIT_TYPES } from './data';
 import { random } from './rng';
 import type { Army, Battle, CampaignDefinition, CampaignId, DeedKind, FactionId, GameState, HeroOffer, Town, Troop } from './types';
@@ -19,13 +20,14 @@ const OFFER_MONTHS = 3;
 export function newGame(seed = Math.floor(Math.random() * 2 ** 31), campaignId: CampaignId = 'valley-quickplay'): GameState {
   const def = getCampaign(campaignId);
   const state: GameState = {
-    version: 6,
+    version: 7,
     campaignId: def.id,
     campaignRevision: def.revision,
     endingReason: null,
     turn: 1,
     gold: def.startingGold,
     treasury: newTreasury(def.startingGold),
+    cityEconomies: {}, 
     nextId: 1,
     seed,
     nodes: def.nodes.map((n) => ({ ...n })),
@@ -43,6 +45,7 @@ export function newGame(seed = Math.floor(Math.random() * 2 ** 31), campaignId: 
     status: 'playing',
   };
   for (const t of def.towns) state.towns[t.id] = { ...t };
+  state.cityEconomies = startingCities(state.towns);
   for (const a of def.armies) {
     state.armies.push({ id: state.nextId++, owner: a.owner, at: a.at, from: null, troops: a.troops.map((t) => (typeof t === 'string' ? makeTroop(state, t) : makeTroop(state, t.type, t.name))) });
   }
@@ -375,8 +378,14 @@ export function checkStatus(state: GameState) {
 }
 
 function payMonth(state: GameState) {
+  // Recurring building charges are based on operating sites, not projects finishing this month.
+  const maintenance = Object.values(state.towns).filter((t) => t.owner === 'player')
+    .map((t) => ({ city: t.id, amount: cityMaintenance(state, t.id),
+      actionId: `maintenance:${state.turn}:${t.id}`, counterparty: 'City facilities' }));
+  const phase = advanceCities(state);
   for (const t of Object.values(state.towns)) {
-    if (t.owner === 'player') t.pop = Math.max(0, t.pop + townGrowth(t));
+    if (t.owner === 'player') t.pop = Math.max(0,
+      t.pop + townGrowth(t) - (phase.shortagePenalties[t.id] ?? 0));
   }
   // Heroes mend a quarter of their wounds and recover all their mana each month.
   for (const t of state.armies.flatMap((a) => a.troops)) {
@@ -391,7 +400,11 @@ function payMonth(state: GameState) {
   const payroll = state.armies.filter((a) => a.owner === 'player')
     .map((a) => ({ city: a.at, amount: a.troops.reduce((sum, t) => sum + UNIT_TYPES[t.type].upkeep, 0),
       actionId: `wages:${state.turn}:${a.id}`, counterparty: 'Army payroll' }));
-  const ledger = settleTreasury(state, taxes, payroll);
+  const ledger = settleTreasury(state, taxes, payroll, maintenance);
+  for (const completed of phase.completed) log(state, `Construction completed at ${completed}.`);
+  for (const shortage of phase.shortages) {
+    if (state.towns[shortage.city].owner === 'player') log(state, `${nodeName(state, shortage.city)} lacks ${shortage.missing} food units this month.`);
+  }
   if (ledger.unpaidUpkeep > 0) {
     // Heroes stay loyal; hired soldiers walk.
     const soldiers = (a: Army) => a.troops.filter((t) => !isHero(t.type));
