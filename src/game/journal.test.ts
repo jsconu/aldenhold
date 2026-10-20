@@ -30,9 +30,10 @@ describe('campaign journal', () => {
     const recent = s.journal.slice(1).map((j) => [j.kind, j.place, j.text]);
     expect(recent).toEqual([
       ['battle', 'fenwick', 'Victory at Fenwick.'],
+      ['story', 'fenwick', 'The Fenwick council can no longer offer a charter after the town changed hands.'],
       ['capture', 'fenwick', 'Fenwick now flies your banner.'],
     ]);
-    expect(s.journal.map((j) => j.id)).toEqual([1, 2, 3]);
+    expect(s.journal.map((j) => j.id)).toEqual([1, 2, 3, 4]);
   });
 
   it('keeps routine news out of the journal', () => {
