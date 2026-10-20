@@ -10,6 +10,7 @@ import { moveTargets, renderCampaign } from './ui/campaignView';
 import { esc, type UIState } from './ui/shared';
 import { loadGame, MAX_SAVE_BYTES, parseSave, saveGame } from './game/saves';
 import { CATALOG } from './content';
+import { decideFenwickCharter } from './game/quests';
 import { validateContent } from './content/validate';
 
 // Access localStorage inside the adapter: even reading the browser property can throw.
@@ -72,8 +73,19 @@ function onAction(action: string, data: DOMStringMap) {
         saveWarning = '';
         ui.battleUnit = null;
         ui.battleSpell = null;
+        ui.view = 'map';
         selectNode('aldenhold');
       }
+      break;
+    case 'view-fenwick':
+      ui.view = 'map';
+      selectNode('fenwick');
+      break;
+    case 'fenwick-sign':
+      ui.message = decideFenwickCharter(state, 'sign') ?? '';
+      break;
+    case 'fenwick-decline':
+      ui.message = decideFenwickCharter(state, 'decline') ?? '';
       break;
     case 'end-turn':
       endTurn(state);

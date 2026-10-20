@@ -30,9 +30,10 @@ describe('campaign journal', () => {
     const recent = s.journal.slice(1).map((j) => [j.kind, j.place, j.text]);
     expect(recent).toEqual([
       ['battle', 'fenwick', 'Victory at Fenwick.'],
+      ['story', 'fenwick', 'The Fenwick council can no longer offer a charter after the town changed hands.'],
       ['capture', 'fenwick', 'Fenwick now flies your banner.'],
     ]);
-    expect(s.journal.map((j) => j.id)).toEqual([1, 2, 3]);
+    expect(s.journal.map((j) => j.id)).toEqual([1, 2, 3, 4]);
   });
 
   it('keeps routine news out of the journal', () => {
@@ -82,7 +83,7 @@ describe('save migration v3 → v4', () => {
     const s = takeFenwick();
     endTurn(s);
     const migrated = parseSave(asV3(s));
-    expect(migrated.version).toBe(4);
+    expect(migrated.version).toBe(5);
     expect(migrated.journal.every((j) => j.kind === 'earlier' && j.place === null)).toBe(true);
     expect(migrated.journal.map((j) => j.text)).toEqual(s.log.map((l) => l.replace(/^[A-Za-z]+, year \d+: /, '')).reverse());
     expect(migrated.journal[0]).toMatchObject({ id: 1, turn: 1 });

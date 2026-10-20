@@ -5,6 +5,8 @@ import { SPELLS, UNIT_TYPES } from '../game/data';
 import { heroLevel, heroMaxHp, heroMaxMana, level } from '../game/units';
 import type { Army, FactionId, GameState } from '../game/types';
 import { renderJournal } from './journalView';
+import { FENWICK_CHARTER } from '../content/quests';
+import { questSummary } from '../game/quests';
 import { esc, type UIState } from './shared';
 
 const OWNER_LABEL: Record<FactionId, string> = { player: 'Yours', orcs: 'Orcs', neutral: 'Free town' };
@@ -27,6 +29,7 @@ export function renderCampaign(state: GameState, ui: UIState): string {
     <span class="gold" title="Income ${income}, upkeep ${upkeep}">Gold <b>${state.gold}</b>
       <em class="${net < 0 ? 'neg' : 'pos'}">${net >= 0 ? '+' : ''}${net}/month</em></span>
     <span class="spacer"></span>
+    ${state.quests.Q00?.status === 'available' ? '<button data-action="view-fenwick" class="ghost">Fenwick envoy</button>' : ''}
     <button data-action="journal" class="ghost">${ui.view === 'journal' ? 'Back to the map' : `Journal (${state.journal.length})`}</button>
     <button data-action="new-game" class="ghost">New game</button>
     <button data-action="end-turn" class="primary" ${state.status !== 'playing' ? 'disabled' : ''}>End month</button>
@@ -109,9 +112,27 @@ function renderNodePanel(state: GameState, ui: UIState, id: string): string {
   } else {
     html += `<p class="sub">Open country</p>`;
   }
+  if (id === 'fenwick') html += renderFenwickQuest(state);
   for (const a of armies) html += renderArmy(ui, a);
   if (!armies.length) html += `<p class="sub">No troops here.</p>`;
   return html;
+}
+
+function renderFenwickQuest(state: GameState): string {
+  const q = state.quests.Q00;
+  if (!q) return '';
+  if (q.status !== 'available') return `<div class="quest-card"><h3>${esc(FENWICK_CHARTER.name)}</h3><p>${esc(questSummary(state))}</p>
+    ${q.status === 'succeeded' && state.treaties.fenwick?.passage ? '<p class="sub">Your armies may share this town with its neutral garrison. Fenwick remains independent and pays no tax.</p>' : ''}</div>`;
+  const near = state.armies.some((a) => a.owner === 'player' &&
+    (a.at === 'fenwick' || neighborsOf(state, 'fenwick').includes(a.at)));
+  return `<div class="quest-card"><h3>${esc(FENWICK_CHARTER.name)}</h3>
+    <p>${esc(FENWICK_CHARTER.text)}</p>
+    <p class="sub">Reward: Sealed Fenwick Charter. Sign to gain peaceful passage, or decline and keep the military option.</p>
+    ${!near ? '<p class="hint">Bring an army to Fenwick or an adjacent road to send an envoy.</p>' : ''}
+    <div class="quest-actions">
+      <button data-action="fenwick-sign" ${!near ? 'disabled' : ''}>Sign the charter</button>
+      <button data-action="fenwick-decline" ${!near ? 'disabled' : ''}>Decline</button>
+    </div></div>`;
 }
 
 function renderArmy(ui: UIState, a: Army): string {

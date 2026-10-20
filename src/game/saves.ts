@@ -1,5 +1,8 @@
 import { BATTLE_H, BATTLE_W, createBattle, FIELD_LIMIT } from './battle';
 import { CATALOG, getCampaign } from '../content';
+import { ITEMS } from '../content/items';
+import { QUESTS } from '../content/quests';
+import { newQuestState } from './quests';
 import { endingReason } from './campaign';
 import { TERRAIN, UNIT_TYPES } from './data';
 import { heroMaxHp, heroMaxMana, isHero } from './units';
@@ -39,7 +42,7 @@ const sides = ['attacker', 'defender'];
 /** Validate both shape and references before exposing a save to rules or rendering. */
 function validate(value: unknown, allowMissingBattleTroops = false): asserts value is GameState {
   const s = object(value);
-  requireValue(s.version === 4, 'unsupported schema version');
+  requireValue(s.version === 5, 'unsupported schema version');
   requireValue(text(s.campaignId) && Object.hasOwn(CATALOG.campaigns, s.campaignId), 'unknown campaign');
   const def = getCampaign(s.campaignId as CampaignId);
   requireValue(s.campaignRevision === def.revision, 'unsupported campaign revision');
@@ -92,6 +95,37 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
     requireValue(text(o.town) && Object.hasOwn(towns, o.town) && text(o.type) && Object.hasOwn(UNIT_TYPES, o.type) && isHero(o.type) && text(o.name) && integer(o.expires, 1), 'hero offer');
   }
   requireValue(array(s.log).every(text), 'chronicle');
+  const quests = object(s.quests);
+  requireValue(Object.keys(quests).length === Object.keys(QUESTS).length &&
+    Object.keys(QUESTS).every((id) => Object.hasOwn(quests, id)), 'quest registry');
+  for (const entry of Object.values(quests)) {
+    const q = object(entry);
+    requireValue(oneOf(q.status, ['available', 'succeeded', 'failed', 'superseded']), 'quest status');
+    requireValue(oneOf(q.stage, ['decision', 'resolved']), 'quest stage');
+    requireValue(oneOf(q.choice, [null, 'sign', 'decline']), 'quest choice');
+    requireValue(q.resolvedTurn === null || integer(q.resolvedTurn, 1, Number(s.turn)), 'quest resolution month');
+    requireValue(q.status === 'available'
+      ? q.stage === 'decision' && q.choice === null && q.resolvedTurn === null
+      : q.stage === 'resolved' && q.resolvedTurn !== null, 'quest progress');
+    requireValue(q.status === 'succeeded' ? q.choice === 'sign' : q.status === 'failed'
+      ? q.choice === 'decline' : q.choice === null, 'quest outcome');
+  }
+  const inventory = array(s.items);
+  requireValue(inventory.every((id) => text(id) && Object.hasOwn(ITEMS, id)) &&
+    new Set(inventory).size === inventory.length, 'inventory objects');
+  const treaties = object(s.treaties);
+  for (const [id, entry] of Object.entries(treaties)) {
+    const t = object(entry);
+    requireValue(Object.hasOwn(towns, id) && oneOf(t.relation, ['hostile', 'neutral', 'truce', 'ally', 'vassal']) &&
+      bool(t.passage) && integer(t.signedTurn, 1, Number(s.turn)), 'treaty');
+    requireValue(!t.passage || t.relation === 'ally' || t.relation === 'vassal', 'treaty passage');
+  }
+  if (object(quests.Q00).status === 'succeeded') {
+    requireValue(inventory.includes('fenwick-charter'), 'missing charter reward');
+  }
+  if (Object.hasOwn(treaties, 'fenwick') && object(treaties.fenwick).passage) {
+    requireValue(object(quests.Q00).status === 'succeeded', 'treaty has no signed quest');
+  }
   array(s.journal).forEach((entry, i) => {
     const j = object(entry);
     requireValue(j.id === i + 1 && integer(j.turn, 1, Number(s.turn)) && oneOf(j.kind, deedKinds) && text(j.text), 'journal entry');
@@ -166,6 +200,21 @@ function upgradeToV4(value: Record<string, unknown>) {
   value.version = 4;
 }
 
+/** Preserve old saves without inventing a completed quest or giving retroactive rewards. */
+function upgradeToV5(value: Record<string, unknown>) {
+  const towns = object(value.towns);
+  const fenwick = object(towns.fenwick);
+  const quest = newQuestState();
+  if (fenwick.owner !== 'neutral') {
+    quest.Q00 = { status: 'superseded', stage: 'resolved', choice: null,
+      resolvedTurn: integer(value.turn, 1) ? value.turn : 1 };
+  }
+  value.quests = quest;
+  value.items = [];
+  value.treaties = {};
+  value.version = 5;
+}
+
 /** Migration runs on parsed JSON only; it never edits the legacy storage entry. */
 export function parseSave(raw: string): GameState {
   requireValue(new TextEncoder().encode(raw).length <= MAX_SAVE_BYTES, 'file exceeds 5 MB');
@@ -187,6 +236,7 @@ export function parseSave(raw: string): GameState {
       value.status = value.endingReason === 'lair-captured' ? 'won' : 'lost';
     }
     upgradeToV4(value);
+    upgradeToV5(value);
     validate(value, true);
     if (value.battle) {
       const b = value.battle;
@@ -200,6 +250,7 @@ export function parseSave(raw: string): GameState {
       }
     }
   }
+  if (value.version === 4) upgradeToV5(value);
   validate(value);
   return value;
 }

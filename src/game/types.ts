@@ -189,8 +189,23 @@ export interface JournalEntry {
   place: string | null;
 }
 
+/** A treaty belongs to one specific settlement, not to all neutral towns. */
+export interface Treaty {
+  relation: 'hostile' | 'neutral' | 'truce' | 'ally' | 'vassal';
+  passage: boolean;
+  signedTurn: number;
+}
+
+export type QuestStatus = 'available' | 'succeeded' | 'failed' | 'superseded';
+export interface QuestProgress {
+  status: QuestStatus;
+  stage: 'decision' | 'resolved';
+  choice: 'sign' | 'decline' | null;
+  resolvedTurn: number | null;
+}
+
 export interface GameState {
-  version: 4;
+  version: 5;
   campaignId: CampaignId;
   campaignRevision: number;
   endingReason: EndingReason | null;
@@ -207,5 +222,11 @@ export interface GameState {
   offers: HeroOffer[];
   log: string[];
   journal: JournalEntry[];
+  /** Quest state is separate from immutable quest content. */
+  quests: Record<string, QuestProgress>;
+  /** Unique non-consumable campaign-held objects; future equipment is kept separately. */
+  items: string[];
+  /** Location-scoped treaties; no accidental world-wide neutral-faction alliance. */
+  treaties: Record<string, Treaty>;
   status: 'playing' | 'won' | 'lost';
 }

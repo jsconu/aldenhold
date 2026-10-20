@@ -19,6 +19,16 @@ export function validateContent(catalog: Catalog): string[] {
   }
   for (const [key, spell] of Object.entries(catalog.spells)) if (spell.id !== key) err(`spell ${key}: id is "${spell.id}"`);
   for (const [key, terrain] of Object.entries(catalog.terrain)) if (terrain.id !== key) err(`terrain ${key}: id is "${terrain.id}"`);
+  for (const [id, item] of Object.entries(catalog.items)) {
+    if (item.id !== id) err(`item ${id}: mismatched id "${item.id}"`);
+    if (item.value < 0 || !Number.isFinite(item.value)) err(`item ${id}: invalid value`);
+    for (const questId of item.questIds) if (!Object.hasOwn(catalog.quests, questId)) err(`item ${id}: unknown quest "${questId}"`);
+  }
+  for (const [id, quest] of Object.entries(catalog.quests)) {
+    if (quest.id !== id) err(`quest ${id}: mismatched id "${quest.id}"`);
+    if (!Object.hasOwn(catalog.campaigns, quest.campaignId)) err(`quest ${id}: unknown campaign "${quest.campaignId}"`);
+    if (!catalog.items[quest.rewardItem]) err(`quest ${id}: unknown reward item "${quest.rewardItem}"`);
+  }
   for (const type of catalog.hireableHeroes) {
     if (!catalog.units[type]?.hero) err(`hireable hero "${type}" is not a hero unit`);
     if (!catalog.heroNames[type]?.length) err(`hireable hero "${type}" has no names`);
@@ -92,4 +102,9 @@ function validateCampaign(catalog: Catalog, c: CampaignDefinition, err: (msg: st
     }
   }
   for (const id of nodes) if (!reached.has(id)) err(`location "${id}" cannot be reached from the capital`);
+  for (const quest of Object.values(catalog.quests)) {
+    if (quest.campaignId !== c.id) continue;
+    known(quest.at, `quest "${quest.id}"`);
+    if (!reached.has(quest.at)) err(`quest "${quest.id}" cannot be reached`);
+  }
 }
