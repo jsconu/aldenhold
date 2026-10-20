@@ -5,7 +5,7 @@ export function newTreasury(opening: number): Treasury {
 }
 
 /** Records an expense already deducted by a rules action; no second charge happens here. */
-export function recordPurchase(state: GameState, city: string, category: 'recruitment' | 'hero-hire', price: number, actionId: string, counterparty: string) {
+export function recordPurchase(state: GameState, city: string, category: 'recruitment' | 'hero-hire' | 'construction', price: number, actionId: string, counterparty: string) {
   if (price <= 0) return;
   state.treasury.pending.push({ turn: state.turn, city, category, amount: -price, counterparty, actionId });
 }
@@ -26,7 +26,7 @@ function entry(state: GameState, category: LedgerCategory, flow: CashFlow, amoun
  * unpaid wages are reported separately, and the existing desertion consequence stays in campaign rules.
  * The rules layer computes receipts after population growth, matching the original monthly economy.
  */
-export function settleTreasury(state: GameState, taxes: CashFlow[], payroll: CashFlow[]): MonthlyLedger {
+export function settleTreasury(state: GameState, taxes: CashFlow[], payroll: CashFlow[], maintenance: CashFlow[] = []): MonthlyLedger {
   const opening = state.treasury.opening;
   const entries = [...state.treasury.pending];
   const expectedCurrent = opening + entries.reduce((sum, movement) => sum + movement.amount, 0);
@@ -53,12 +53,21 @@ export function settleTreasury(state: GameState, taxes: CashFlow[], payroll: Cas
     paid += amount;
   }
   const unpaidUpkeep = due - paid;
+  const maintenanceDue = maintenance.reduce((sum, flow) => sum + flow.amount, 0);
+  let maintenancePaid = 0;
+  for (const flow of maintenance) {
+    const amount = Math.min(flow.amount, available);
+    if (amount > 0) entries.push(entry(state, 'maintenance', flow, -amount));
+    available -= amount;
+    maintenancePaid += amount;
+  }
+  const unpaidMaintenance = maintenanceDue - maintenancePaid;
   state.gold = available;
   const income = entries.filter((e) => e.category === 'tax').reduce((s, e) => s + e.amount, 0);
-  const expenses = Math.max(0, -entries.filter((e) => ['wages', 'recruitment', 'hero-hire'].includes(e.category)).reduce((s, e) => s + e.amount, 0));
+  const expenses = Math.max(0, -entries.filter((e) => ['wages', 'recruitment', 'hero-hire', 'construction', 'maintenance'].includes(e.category)).reduce((s, e) => s + e.amount, 0));
   const closing = opening + entries.reduce((sum, movement) => sum + movement.amount, 0);
   if (closing !== state.gold) throw new Error('Treasury did not reconcile.');
-  const row: MonthlyLedger = { turn: state.turn, opening, closing, income, expenses, unpaidUpkeep, entries };
+  const row: MonthlyLedger = { turn: state.turn, opening, closing, income, expenses, unpaidUpkeep, unpaidMaintenance, entries };
   state.treasury.history.push(row);
   state.treasury.pending = [];
   state.treasury.opening = state.gold;
