@@ -88,6 +88,6 @@ describe('strategic route preview', () => {
     const ids = armyAt(state, 'aldenhold', 'player')!.troops.map((t) => t.id);
     expect(moveTroops(state, 'aldenhold', ids, first)).toBeNull();
     if (state.battle) return;
-    expect(moveTroops(state, first, ids, 'aldenhold')).toMatch(/cannot march/);
+    expect(moveTroops(state, first, ids, 'aldenhold')).toMatch(/can march this month/);
   });
 });
