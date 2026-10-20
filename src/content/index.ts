@@ -1,5 +1,7 @@
 import type { CampaignDefinition, CampaignId } from '../game/types';
 import { VALLEY_QUICKPLAY } from './campaigns/valleyQuickplay';
+import { ITEMS } from './items';
+import { QUESTS } from './quests';
 import { HERO_NAMES, HIREABLE_HEROES, SPELLS, TERRAIN, UNIT_TYPES } from './rules';
 
 /** Everything static the game is built from. Runtime state lives in GameState and never edits these. */
