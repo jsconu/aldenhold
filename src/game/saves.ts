@@ -3,10 +3,11 @@ import { CATALOG, getCampaign } from '../content';
 import { ITEMS } from '../content/items';
 import { QUESTS } from '../content/quests';
 import { newQuestState } from './quests';
+import { newTreasury } from './economy';
 import { endingReason } from './campaign';
 import { TERRAIN, UNIT_TYPES } from './data';
 import { heroMaxHp, heroMaxMana, isHero } from './units';
-import type { CampaignId, DeedKind, GameState, JournalEntry } from './types';
+import type { CampaignId, DeedKind, GameState, JournalEntry, LedgerCategory } from './types';
 
 /** Storage slot names are stable; the schema version lives inside the save itself. */
 export const SAVE_KEY = 'aragon-save-v3';
@@ -38,11 +39,12 @@ const factions = ['player', 'orcs', 'neutral'];
 const deedKinds: DeedKind[] = ['story', 'battle', 'capture', 'loss', 'hero', 'realm', 'ending', 'earlier'];
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const sides = ['attacker', 'defender'];
+const ledgerCategories: LedgerCategory[] = ['tax', 'wages', 'recruitment', 'hero-hire', 'balance-correction'];
 
 /** Validate both shape and references before exposing a save to rules or rendering. */
 function validate(value: unknown, allowMissingBattleTroops = false): asserts value is GameState {
   const s = object(value);
-  requireValue(s.version === 5, 'unsupported schema version');
+  requireValue(s.version === 6, 'unsupported schema version');
   requireValue(text(s.campaignId) && Object.hasOwn(CATALOG.campaigns, s.campaignId), 'unknown campaign');
   const def = getCampaign(s.campaignId as CampaignId);
   requireValue(s.campaignRevision === def.revision, 'unsupported campaign revision');
@@ -95,6 +97,44 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
     requireValue(text(o.town) && Object.hasOwn(towns, o.town) && text(o.type) && Object.hasOwn(UNIT_TYPES, o.type) && isHero(o.type) && text(o.name) && integer(o.expires, 1), 'hero offer');
   }
   requireValue(array(s.log).every(text), 'chronicle');
+  const treasury = object(s.treasury);
+  requireValue(integer(treasury.opening), 'treasury opening balance');
+  const checkEntries = (entries: unknown, month: number) => {
+    const unique = new Set<string>();
+    const list = array(entries);
+    for (const element of list) {
+      const e = object(element);
+      requireValue(e.turn === month && (e.city === null || (text(e.city) && nodes.has(e.city))) &&
+        oneOf(e.category, ledgerCategories) && integer(e.amount, -Number.MAX_SAFE_INTEGER) &&
+        text(e.counterparty) && text(e.actionId) && e.actionId.length > 0 &&
+        !unique.has(e.actionId), 'treasury transaction');
+      unique.add(e.actionId as string);
+      requireValue(e.category === 'tax' ? Number(e.amount) > 0 :
+        e.category === 'balance-correction' ? Number(e.amount) !== 0 : Number(e.amount) < 0,
+        'treasury transaction sign');
+    }
+    return list.map((e) => object(e));
+  };
+  checkEntries(treasury.pending, s.turn as number);
+  let previous = 0;
+  for (const element of array(treasury.history)) {
+    const month = object(element);
+    requireValue(integer(month.turn, 1, (s.turn as number) - 1) && Number(month.turn) > previous,
+      'treasury month ordering');
+    previous = month.turn as number;
+    requireValue(integer(month.opening) && integer(month.closing) && integer(month.income) &&
+      integer(month.expenses) && integer(month.unpaidUpkeep), 'treasury amounts');
+    const transactions = checkEntries(month.entries, month.turn as number);
+    requireValue(Number(month.opening) + transactions.reduce((sum, e) => sum + Number(e.amount), 0) === month.closing,
+      'treasury does not reconcile');
+    requireValue(transactions.filter((e) => e.category === 'tax').reduce((sum, e) => sum + Number(e.amount), 0) === month.income,
+      'treasury income total');
+    requireValue(-transactions.filter((e) => ['wages', 'recruitment', 'hero-hire'].includes(String(e.category)))
+      .reduce((sum, e) => sum + Number(e.amount), 0) === month.expenses, 'treasury expense total');
+  }
+  const history = array(treasury.history);
+  if (history.length) requireValue(object(history.at(-1)).closing === treasury.opening,
+    'treasury opening does not match last close');
   const quests = object(s.quests);
   requireValue(Object.keys(quests).length === Object.keys(QUESTS).length &&
     Object.keys(QUESTS).every((id) => Object.hasOwn(quests, id)), 'quest registry');
@@ -215,6 +255,13 @@ function upgradeToV5(value: Record<string, unknown>) {
   value.version = 5;
 }
 
+/** Start a truthful ledger at the import point. Historic gold flows cannot be reconstructed from old saves. */
+function upgradeToV6(value: Record<string, unknown>) {
+  requireValue(integer(value.gold), 'treasury migration balance');
+  value.treasury = newTreasury(value.gold as number);
+  value.version = 6;
+}
+
 /** Migration runs on parsed JSON only; it never edits the legacy storage entry. */
 export function parseSave(raw: string): GameState {
   requireValue(new TextEncoder().encode(raw).length <= MAX_SAVE_BYTES, 'file exceeds 5 MB');
@@ -237,6 +284,7 @@ export function parseSave(raw: string): GameState {
     }
     upgradeToV4(value);
     upgradeToV5(value);
+    upgradeToV6(value);
     validate(value, true);
     if (value.battle) {
       const b = value.battle;
@@ -251,6 +299,7 @@ export function parseSave(raw: string): GameState {
     }
   }
   if (value.version === 4) upgradeToV5(value);
+  if (value.version === 5) upgradeToV6(value);
   validate(value);
   return value;
 }

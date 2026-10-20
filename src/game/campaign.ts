@@ -2,6 +2,7 @@ import { orcTurn } from './ai';
 import { autoResolve, createBattle, isAI, runAI } from './battle';
 import { getCampaign } from '../content';
 import { hasPassage } from './diplomacy';
+import { newTreasury, recordPurchase, settleTreasury } from './economy';
 import { newQuestState, onTownOwnershipChange } from './quests';
 import { HERO_NAMES, HIREABLE_HEROES, UNIT_TYPES } from './data';
 import { random } from './rng';
@@ -18,12 +19,13 @@ const OFFER_MONTHS = 3;
 export function newGame(seed = Math.floor(Math.random() * 2 ** 31), campaignId: CampaignId = 'valley-quickplay'): GameState {
   const def = getCampaign(campaignId);
   const state: GameState = {
-    version: 5,
+    version: 6,
     campaignId: def.id,
     campaignRevision: def.revision,
     endingReason: null,
     turn: 1,
     gold: def.startingGold,
+    treasury: newTreasury(def.startingGold),
     nextId: 1,
     seed,
     nodes: def.nodes.map((n) => ({ ...n })),
@@ -77,6 +79,7 @@ export function hireHero(state: GameState, offer: HeroOffer): string | null {
   state.gold -= type.cost;
   state.offers = state.offers.filter((o) => o !== offer);
   const troop = makeTroop(state, offer.type, offer.name);
+  recordPurchase(state, offer.town, 'hero-hire', type.cost, `hire:${troop.id}`, offer.name);
   troop.moved = true;
   const army = armyAt(state, offer.town, 'player');
   if (army) army.troops.push(troop);
@@ -169,6 +172,7 @@ export function recruit(state: GameState, townId: string, typeId: string): strin
   state.gold -= type.cost;
   town.pop -= type.men;
   const troop = makeTroop(state, typeId);
+  recordPurchase(state, townId, 'recruitment', type.cost, `recruit:${troop.id}`, type.name);
   troop.moved = true;
   const army = armyAt(state, townId, 'player');
   if (army) army.troops.push(troop);
@@ -381,11 +385,14 @@ function payMonth(state: GameState) {
     t.men = Math.min(max, t.men + Math.ceil(max / 4));
     t.mana = heroMaxMana(t.type, t.xp);
   }
-  const income = monthlyIncome(state);
-  const upkeep = monthlyUpkeep(state);
-  state.gold += income - upkeep;
-  if (state.gold < 0) {
-    state.gold = 0;
+  // Post real tax receipts by town, and wage payments by army location.
+  const taxes = Object.values(state.towns).filter((t) => t.owner === 'player')
+    .map((t) => ({ city: t.id, amount: townIncome(t), actionId: `tax:${state.turn}:${t.id}`, counterparty: nodeName(state, t.id) }));
+  const payroll = state.armies.filter((a) => a.owner === 'player')
+    .map((a) => ({ city: a.at, amount: a.troops.reduce((sum, t) => sum + UNIT_TYPES[t.type].upkeep, 0),
+      actionId: `wages:${state.turn}:${a.id}`, counterparty: 'Army payroll' }));
+  const ledger = settleTreasury(state, taxes, payroll);
+  if (ledger.unpaidUpkeep > 0) {
     // Heroes stay loyal; hired soldiers walk.
     const soldiers = (a: Army) => a.troops.filter((t) => !isHero(t.type));
     const armies = state.armies.filter((a) => a.owner === 'player' && soldiers(a).length);

@@ -204,13 +204,42 @@ export interface QuestProgress {
   resolvedTurn: number | null;
 }
 
+/** Signed cash movements: positive receipts, negative actual payments. */
+export type LedgerCategory = 'tax' | 'wages' | 'recruitment' | 'hero-hire' | 'balance-correction';
+export interface LedgerEntry {
+  turn: number;
+  city: string | null;
+  category: LedgerCategory;
+  amount: number;
+  counterparty: string;
+  actionId: string;
+}
+export interface MonthlyLedger {
+  turn: number;
+  opening: number;
+  closing: number;
+  income: number;
+  expenses: number;
+  /** Liability omitted from paid wages due to an empty treasury. */
+  unpaidUpkeep: number;
+  entries: LedgerEntry[];
+}
+export interface Treasury {
+  /** Treasury balance at the beginning of the current month, before purchases. */
+  opening: number;
+  /** Current month's transactions, settled to a monthly ledger on End month. */
+  pending: LedgerEntry[];
+  history: MonthlyLedger[];
+}
+
 export interface GameState {
-  version: 5;
+  version: 6;
   campaignId: CampaignId;
   campaignRevision: number;
   endingReason: EndingReason | null;
   turn: number;
   gold: number;
+  treasury: Treasury;
   nextId: number;
   seed: number;
   nodes: MapNode[];
