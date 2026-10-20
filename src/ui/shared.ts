@@ -11,7 +11,7 @@ export interface UIState {
   battleSpell: SpellId | null;
   message: string;
   /** Campaign screen: the province map or the full journal. */
-  view: 'map' | 'journal';
+  view: 'map' | 'journal' | 'treasury';
 }
 
 export function esc(s: string): string {
