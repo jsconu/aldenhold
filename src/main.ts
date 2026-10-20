@@ -12,8 +12,9 @@ import { loadGame, MAX_SAVE_BYTES, parseSave, saveGame } from './game/saves';
 import { CATALOG } from './content';
 import { decideFenwickCharter } from './game/quests';
 import { buildCity, BUILDINGS } from './game/cities';
+import { beginRefit, EQUIPMENT } from './game/equipment';
 import { log } from './game/campaign';
-import type { BuildingId } from './game/types';
+import type { BuildingId, EquipmentId } from './game/types';
 import { validateContent } from './content/validate';
 
 // Access localStorage inside the adapter: even reading the browser property can throw.
@@ -90,6 +91,14 @@ function onAction(action: string, data: DOMStringMap) {
     case 'fenwick-decline':
       ui.message = decideFenwickCharter(state, 'decline') ?? '';
       break;
+    case 'refit': {
+      const item = data.item as EquipmentId;
+      if (!Object.hasOwn(EQUIPMENT, item)) { ui.message = 'Unknown equipment.'; break; }
+      const err = beginRefit(state, data.node!, Number(data.troop), item);
+      ui.message = err ?? 'Refit purchased. The new gear becomes available next month.';
+      if (!err) log(state, `A formation begins refitting with ${EQUIPMENT[item].name}.`);
+      break;
+    }
     case 'construct': {
       const kind = data.kind as BuildingId;
       if (!Object.hasOwn(BUILDINGS, kind)) { ui.message = 'Unknown building.'; break; }
