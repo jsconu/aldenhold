@@ -248,3 +248,127 @@ button.link { background: none; border: none; padding: 0; color: var(--gold); te
 .refit-option { margin: 7px 0; }
 .refit-option button { white-space: normal; max-width: 100%; }
 .gear-label { display: inline-block; font-size: 11px; color: #cfc5ac; }
+
+
+/* Overland atlas: landscape, readable realm map, and honest road-only navigation. */
+.campaign > .map-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 9px;
+  min-width: 0;
+  padding: 14px 15px 18px;
+}
+.map-toolbar {
+  width: 100%;
+  max-width: 980px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 0 auto;
+}
+.map-layer-group, .map-zoom-group { display: flex; align-items: center; gap: 3px; }
+.map-layer-group button { font: 600 12px/1.4 system-ui, sans-serif; padding: 5px 9px; }
+.map-layer-group button.active { background: #514426; border-color: #bf9854; color: #ffe6ac; }
+.map-zoom-group { margin-left: auto; }
+.map-zoom-group button { min-width: 29px; padding: 4px 8px; font: bold 16px system-ui, sans-serif; }
+.map-zoom-group output { min-width: 45px; text-align: center; font: 12px system-ui, sans-serif; color: #cbbd9b; }
+.atlas-current { font: 12px system-ui, sans-serif; color: var(--muted); }
+.overland-map {
+  width: 100%;
+  max-width: 980px;
+  margin: 0 auto;
+  height: auto;
+  display: block;
+  border-radius: 9px;
+  background: #455640;
+  box-shadow: 0 5px 18px #0b100b88, 0 0 0 1px #7f724f inset;
+  touch-action: manipulation;
+}
+.atlas-tile .atlas-ground { stroke: #26372b; stroke-width: .65; }
+.biome-grass .atlas-ground { fill: #647751; }
+.biome-farmland .atlas-ground { fill: #82905c; }
+.biome-forest .atlas-ground { fill: #405c40; }
+.biome-hills .atlas-ground { fill: #7c7957; }
+.biome-mountains .atlas-ground { fill: #636b69; }
+.biome-wetlands .atlas-ground { fill: #50695e; }
+.biome-river .atlas-ground { fill: #3d7684; }
+.biome-scrub .atlas-ground { fill: #8b8761; }
+.atlas-feature { pointer-events: none; opacity: .9; }
+.atlas-terrain, .atlas-roads, .atlas-geography-labels, .atlas-political-fields { transition: opacity .15s ease; }
+.atlas-political-fields { opacity: 0; }
+.overland-map.layer-political .atlas-terrain { opacity: .54; }
+.overland-map.layer-political .atlas-political-fields { opacity: 1; }
+.atlas-road-shadow { fill: none; stroke: #332c26; stroke-width: 7; stroke-linecap: round; stroke-linejoin: round; }
+.atlas-road-surface { fill: none; stroke: #d4bd8e; stroke-width: 3.5; stroke-linecap: round; stroke-dasharray: 4 5; }
+.atlas-route-active .atlas-road-shadow { stroke: #452f1e; stroke-width: 9; }
+.atlas-route-active .atlas-road-surface { stroke: #ffe590; stroke-width: 5; stroke-dasharray: none; }
+.atlas-geography-labels text {
+  fill: #dfd09d;
+  opacity: .61;
+  font: italic 15px Georgia, serif;
+  letter-spacing: 3px;
+  text-shadow: 0 1px 2px #142019;
+  paint-order: stroke;
+  stroke: #2c402e;
+  stroke-width: 3px;
+}
+.atlas-border { fill: none; stroke: #e4d4a1; stroke-width: 6; }
+.atlas-compass circle { fill: #232b23e0; stroke: #dbc388; stroke-width: 1.6; }
+.atlas-compass path { fill: #d4b67d; stroke: #684c30; stroke-width: 1; }
+.atlas-compass text { fill: #ffe4ac; font: 14px Georgia, serif; text-anchor: middle; }
+.atlas-site { cursor: pointer; outline: none; }
+.atlas-site-hit { fill: transparent; }
+.atlas-site-aura { fill: #b3a07950; stroke: #25221cc4; stroke-width: 2.5; }
+.atlas-site.atlas-owner-player .atlas-site-aura { fill: #428fc0a6; }
+.atlas-site.atlas-owner-orcs .atlas-site-aura { fill: #b95342b0; }
+.atlas-site.atlas-owner-neutral .atlas-site-aura { fill: #c4a36a8a; }
+.atlas-site-art { pointer-events: none; filter: drop-shadow(0 2px 1px #15221a); }
+.atlas-site .atlas-nameplate {
+  fill: #252a24eb;
+  stroke: #aa986e;
+  stroke-width: 1.4;
+}
+.atlas-site .atlas-site-name {
+  fill: #fff0d1; font: bold 13px Georgia, serif; text-anchor: middle;
+  letter-spacing: .1px; pointer-events: none;
+}
+.atlas-site:hover .atlas-nameplate, .atlas-site:focus-visible .atlas-nameplate { stroke: #fff0a8; stroke-width: 2.5; }
+.atlas-site:focus-visible .atlas-site-aura { stroke: #fff0a8; stroke-width: 4; }
+.atlas-site.is-selected .atlas-site-aura { stroke: #ffda7d; stroke-width: 4; }
+.atlas-march-ring { fill: none; stroke: #fff093; stroke-width: 3; stroke-dasharray: 5 4; }
+.atlas-site.can-march .atlas-site-aura { filter: drop-shadow(0 0 3px #f8cf70); }
+.atlas-army-badge .atlas-army-disk { fill: #28394c; stroke: #f1deb0; stroke-width: 1.6; }
+.atlas-army-badge text { fill: white; text-anchor: middle; font: bold 11px system-ui, sans-serif; pointer-events: none; }
+.atlas-legend {
+  max-width: 980px; margin: 0 auto; width: 100%;
+  display: flex; gap: 13px; flex-wrap: wrap; align-items: center;
+  font: 12px system-ui, sans-serif; color: #d3c7b1;
+}
+.atlas-legend > span { display: inline-flex; align-items: center; gap: 6px; }
+.atlas-legend .swatch { display: inline-block; width: 12px; height: 12px; border: 1px solid #c8bea0b3; border-radius: 2px; }
+.swatch-forest { background: #405c40; }
+.swatch-hills { background: #7c7957; }
+.swatch-water { background: #3d7684; }
+.swatch-marsh { background: #50695e; }
+.atlas-legend .swatch-road { background: #d4bd8e; height: 4px; border-radius: 1px; }
+.atlas-caption { max-width: 980px; margin: 0 auto; color: var(--muted); font: 12px/1.5 system-ui, sans-serif; }
+.travel-guide { margin: 3px 0 12px; border: 1px solid #69614a; padding: 8px 9px; border-radius: 7px; background: #302f26; }
+.travel-guide > summary { cursor: pointer; color: #e9d4a3; font-weight: 600; }
+.travel-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px; }
+button.travel-destination {
+  display: flex; flex-direction: column; align-items: start; gap: 1px;
+  min-width: 0; font: 12px system-ui, sans-serif; padding: 7px;
+}
+button.travel-destination > span { font-weight: 700; }
+button.travel-destination small { color: var(--muted); }
+button.travel-destination b { color: var(--gold); font-size: 11px; }
+@media (max-width: 550px) {
+  .campaign > .map-wrap { padding: 8px; }
+  .map-toolbar { gap: 6px; }
+  .map-zoom-group { margin-left: 0; }
+  .atlas-legend { gap: 8px; }
+  .atlas-geography-labels { display: none; }
+}
