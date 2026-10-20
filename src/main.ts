@@ -11,6 +11,9 @@ import { esc, type UIState } from './ui/shared';
 import { loadGame, MAX_SAVE_BYTES, parseSave, saveGame } from './game/saves';
 import { CATALOG } from './content';
 import { decideFenwickCharter } from './game/quests';
+import { buildCity, BUILDINGS } from './game/cities';
+import { log } from './game/campaign';
+import type { BuildingId } from './game/types';
 import { validateContent } from './content/validate';
 
 // Access localStorage inside the adapter: even reading the browser property can throw.
@@ -87,6 +90,14 @@ function onAction(action: string, data: DOMStringMap) {
     case 'fenwick-decline':
       ui.message = decideFenwickCharter(state, 'decline') ?? '';
       break;
+    case 'construct': {
+      const kind = data.kind as BuildingId;
+      if (!Object.hasOwn(BUILDINGS, kind)) { ui.message = 'Unknown building.'; break; }
+      const error = buildCity(state, data.node!, kind);
+      ui.message = error ?? 'Construction started and paid for. It will finish at month-end.';
+      if (!error) log(state, `Construction begins in ${data.node}: ${BUILDINGS[kind].name}.`);
+      break;
+    }
     case 'end-turn':
       endTurn(state);
       if (ui.selected) selectNode(ui.selected);
