@@ -10,6 +10,9 @@ import { HERO_NAMES, HIREABLE_HEROES, UNIT_TYPES } from './data';
 import { random } from './rng';
 import type { Army, Battle, CampaignDefinition, CampaignId, DeedKind, FactionId, GameState, HeroOffer, Town, Troop } from './types';
 import { heroLevel, heroMaxHp, heroMaxMana, isHero } from './units';
+import {
+  landAt, locationName, marchOptions, marchRate, neighbors, pathTo, stepCost, townAt, townLocation, worldOf,
+} from './world';
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const MAX_TAX = 50;
@@ -21,7 +24,7 @@ const OFFER_MONTHS = 3;
 export function newGame(seed = Math.floor(Math.random() * 2 ** 31), campaignId: CampaignId = 'valley-quickplay'): GameState {
   const def = getCampaign(campaignId);
   const state: GameState = {
-    version: 9,
+    version: 10,
     campaignId: def.id,
     campaignRevision: def.revision,
     endingReason: null,
@@ -48,10 +51,19 @@ export function newGame(seed = Math.floor(Math.random() * 2 ** 31), campaignId: 
   for (const t of def.towns) state.towns[t.id] = { ...t };
   state.cityEconomies = startingCities(state.towns);
   for (const a of def.armies) {
-    state.armies.push({ id: state.nextId++, owner: a.owner, at: a.at, from: null, troops: a.troops.map((t) => (typeof t === 'string' ? makeTroop(state, t) : makeTroop(state, t.type, t.name))) });
+    state.armies.push({ id: state.nextId++, owner: a.owner, at: startLocation(state, a.at), from: null, troops: a.troops.map((t) => (typeof t === 'string' ? makeTroop(state, t) : makeTroop(state, t.type, t.name))) });
   }
-  deed(state, 'story', def.intro, def.capital);
+  deed(state, 'story', def.intro, townLocation(state, def.capital));
   return state;
+}
+
+/** Start positions name a location on the valley and a town or landmark on a hex map. */
+function startLocation(state: GameState, id: string): string {
+  const world = worldOf(state);
+  if (world.kind === 'graph') return id;
+  const place = world.places.find((p) => p.id === id);
+  if (!place) throw new Error(`Unknown start place ${id}`);
+  return `${place.col},${place.row}`;
 }
 
 /** The static definition of the campaign this game is playing. */
@@ -61,7 +73,8 @@ export function campaignOf(state: GameState): CampaignDefinition {
 
 export function makeTroop(state: GameState, type: string, name?: string): Troop {
   const t: Troop = { id: state.nextId++, type, men: UNIT_TYPES[type].men, xp: 0,
-    moved: false, gear: basicLoadout(type), refit: null };
+    mp: 0, gear: basicLoadout(type), refit: null };
+  t.mp = marchRate(state, t);
   if (isHero(type)) {
     t.name = name ?? UNIT_TYPES[type].name;
     t.men = heroMaxHp(type, 0);
@@ -85,11 +98,8 @@ export function hireHero(state: GameState, offer: HeroOffer): string | null {
   state.offers = state.offers.filter((o) => o !== offer);
   const troop = makeTroop(state, offer.type, offer.name);
   recordPurchase(state, offer.town, 'hero-hire', type.cost, `hire:${troop.id}`, offer.name);
-  troop.moved = true;
-  const army = armyAt(state, offer.town, 'player');
-  if (army) army.troops.push(troop);
-  else state.armies.push({ id: state.nextId++, owner: 'player', at: offer.town, from: null, troops: [troop] });
-  deed(state, 'hero', `${offer.name} the ${type.name.toLowerCase()} joins you in ${nodeName(state, offer.town)}.`, offer.town);
+  joinGarrison(state, offer.town, troop);
+  deed(state, 'hero', `${offer.name} the ${type.name.toLowerCase()} joins you in ${nodeName(state, offer.town)}.`, townLocation(state, offer.town));
   return null;
 }
 
@@ -124,12 +134,22 @@ export function dateLabel(turn: number): string {
   return `${MONTHS[(turn - 1) % 12]}, year ${Math.floor((turn - 1) / 12) + 1}`;
 }
 
+/** Name of a location, town or landmark. */
 export function nodeName(state: GameState, id: string): string {
-  return state.nodes.find((n) => n.id === id)?.name ?? id;
+  return locationName(state, id);
 }
 
-export function neighborsOf(state: GameState, id: string): string[] {
-  return state.edges.flatMap(([a, b]) => (a === id ? [b] : b === id ? [a] : []));
+export function neighborsOf(state: GameState, at: string): string[] {
+  return neighbors(state, at);
+}
+
+/** Put a freshly raised or hired troop into the player's army in a town. It can't march until next month. */
+function joinGarrison(state: GameState, townId: string, troop: Troop) {
+  troop.mp = 0;
+  const at = townLocation(state, townId);
+  const army = armyAt(state, at, 'player');
+  if (army) army.troops.push(troop);
+  else state.armies.push({ id: state.nextId++, owner: 'player', at, from: null, troops: [troop] });
 }
 
 export function armyAt(state: GameState, node: string, owner?: FactionId): Army | undefined {
@@ -178,10 +198,7 @@ export function recruit(state: GameState, townId: string, typeId: string): strin
   town.pop -= type.men;
   const troop = makeTroop(state, typeId);
   recordPurchase(state, townId, 'recruitment', type.cost, `recruit:${troop.id}`, type.name);
-  troop.moved = true;
-  const army = armyAt(state, townId, 'player');
-  if (army) army.troops.push(troop);
-  else state.armies.push({ id: state.nextId++, owner: 'player', at: townId, from: null, troops: [troop] });
+  joinGarrison(state, townId, troop);
   log(state, `${type.name} raised in ${nodeName(state, townId)}.`);
   return null;
 }
@@ -191,30 +208,85 @@ export function setTax(state: GameState, townId: string, tax: number) {
   if (town?.owner === 'player') town.tax = Math.max(0, Math.min(MAX_TAX, Math.round(tax)));
 }
 
-/** March the chosen troops from one node to an adjacent one. Returns an error message, or null. */
+/** Movement points the chosen troops share: the slowest one sets the pace. */
+export function sharedMp(troops: Troop[]): number {
+  return troops.length ? Math.min(...troops.map((t) => t.mp)) : 0;
+}
+
+/** Where the chosen troops at `from` can get to this month, with the cheapest route to each. */
+export function playerMarchOptions(state: GameState, from: string, troopIds: number[]) {
+  const moving = armyAt(state, from, 'player')?.troops.filter((t) => troopIds.includes(t.id) && t.mp > 0 && !t.refit) ?? [];
+  return marchOptions(state, from, 'player', sharedMp(moving));
+}
+
+/**
+ * How many months the chosen troops need to reach each location (MAP-03), counting this month's remaining
+ * movement first and then a full month's march for the slowest troop. Battles and captures on the way are not
+ * predicted. Empty if none of the chosen troops can march.
+ */
+export function arrivalEstimates(state: GameState, from: string, troopIds: number[]): Map<string, number> {
+  const chosen = armyAt(state, from, 'player')?.troops.filter((t) => troopIds.includes(t.id) && !t.refit) ?? [];
+  if (!chosen.length) return new Map();
+  const left = sharedMp(chosen);
+  const rate = Math.min(...chosen.map((t) => marchRate(state, t)));
+  const months = new Map<string, number>();
+  for (const [at, step] of marchOptions(state, from, 'player', Infinity)) {
+    months.set(at, step.cost <= left ? 1 : 1 + Math.ceil((step.cost - left) / rate));
+  }
+  return months;
+}
+
+/**
+ * March the chosen troops along the cheapest route to `to`. On the valley that is always one road away; on a
+ * hex map it is as far as the slowest troop's movement allows. Returns an error message, or null.
+ */
 export function moveTroops(state: GameState, from: string, troopIds: number[], to: string): string | null {
   if (state.battle || state.status !== 'playing') return 'Not now.';
   const src = armyAt(state, from, 'player');
   if (!src) return 'You have no troops there.';
-  if (!neighborsOf(state, from).includes(to)) return 'That place is not next to this one.';
-  const moving = src.troops.filter((t) => troopIds.includes(t.id) && !t.moved);
+  const moving = src.troops.filter((t) => troopIds.includes(t.id) && t.mp > 0 && !t.refit);
   if (!moving.length) return 'None of the chosen troops can march this month.';
+  const options = marchOptions(state, from, 'player', sharedMp(moving));
+  const step = options.get(to);
+  if (!step) return worldOf(state).kind === 'graph' ? 'That place is not next to this one.' : 'Those troops can’t reach there this month.';
   src.troops = src.troops.filter((t) => !moving.includes(t));
   if (!src.troops.length) removeArmy(state, src);
-  for (const t of moving) t.moved = true;
+  for (const t of moving) t.mp -= step.cost;
   const army: Army = { id: state.nextId++, owner: 'player', at: from, from: null, troops: moving };
   state.armies.push(army);
-  enterNode(state, army, to);
+  marchAlong(state, army, pathTo(options, to));
   return null;
 }
 
-/** Move an army (already in state.armies) into a node: fight whoever holds it, or settle there. */
+/** Move an army (already in state.armies) one step into a location: fight whoever holds it, or settle there. */
 export function enterNode(state: GameState, army: Army, to: string) {
-  army.from = army.at;
-  army.at = to;
-  const enemy = state.armies.find((a) => a !== army && a.at === to && a.owner !== army.owner && !(a.owner === 'neutral' && hasPassage(state, army.owner, to)));
-  if (enemy) startBattle(state, army.id, enemy.id);
-  else settle(state, army);
+  marchAlong(state, army, [to]);
+}
+
+/** A neutral army an ally lets through doesn't fight; anyone else of another faction does. */
+function blocks(state: GameState, mover: Army, other: Army, at: string): boolean {
+  if (other === mover || other.at !== at || other.owner === mover.owner) return false;
+  const townId = townAt(state, at)?.id;
+  return !(other.owner === 'neutral' && townId !== undefined && hasPassage(state, mover.owner, townId));
+}
+
+/**
+ * Walk an army along a path. It stops at the first location held by another faction (a battle) or the first
+ * town it doesn't own and has no passage through (a capture); otherwise it settles at the end.
+ */
+export function marchAlong(state: GameState, army: Army, path: string[]) {
+  for (const at of path) {
+    army.from = army.at;
+    army.at = at;
+    const enemy = state.armies.find((a) => blocks(state, army, a, at));
+    if (enemy) {
+      startBattle(state, army.id, enemy.id);
+      return;
+    }
+    const town = townAt(state, at);
+    if (town && town.owner !== army.owner && !hasPassage(state, army.owner, town.id)) break;
+  }
+  settle(state, army);
 }
 
 function settle(state: GameState, army: Army) {
@@ -225,7 +297,7 @@ function settle(state: GameState, army: Army) {
     army = friend;
   }
   army.from = null;
-  const town = state.towns[army.at];
+  const town = townAt(state, army.at);
   if (town && town.owner !== army.owner && !hasPassage(state, army.owner, town.id)) captureTown(state, town, army.owner);
 }
 
@@ -237,9 +309,9 @@ function captureTown(state: GameState, town: Town, owner: FactionId) {
   town.pop = Math.floor(town.pop * 0.9);
   if (owner === 'player') {
     town.tax = 15;
-    deed(state, 'capture', town.kind === 'lair' ? `${name} has fallen to your army!` : `${name} now flies your banner.`, town.id);
+    deed(state, 'capture', town.kind === 'lair' ? `${name} has fallen to your army!` : `${name} now flies your banner.`, townLocation(state, town.id));
   } else if (was === 'player') {
-    deed(state, 'loss', `${owner === 'orcs' ? 'Orcs have' : 'The enemy has'} taken ${name} from you.`, town.id);
+    deed(state, 'loss', `${owner === 'orcs' ? 'Orcs have' : 'The enemy has'} taken ${name} from you.`, townLocation(state, town.id));
   } else if (owner === 'orcs') {
     log(state, `Orcs have taken ${name}.`);
   }
@@ -259,9 +331,9 @@ export function startBattle(state: GameState, attackerId: number, defenderId: nu
     state.pending.push({ attackerId, defenderId });
     return;
   }
-  const town = state.towns[attacker.at];
+  const town = townAt(state, attacker.at);
   const seed = Math.floor(random(state) * 2 ** 31);
-  const b = createBattle(attacker.at, attacker, defender, !!town && town.owner === defender.owner, seed);
+  const b = createBattle(attacker.at, attacker, defender, !!town && town.owner === defender.owner, seed, landAt(state, attacker.at));
   if (!involvesPlayer) {
     autoResolve(b);
     applyBattle(state, b);
@@ -322,9 +394,11 @@ export function applyBattle(state: GameState, b: Battle) {
 function fallBack(state: GameState, army: Army) {
   for (const t of army.troops) if (!isHero(t.type)) t.men = Math.max(1, Math.floor(t.men * 0.9));
   // A beaten army only falls back to its own towns or open country, never into someone else's town.
-  const safe = (node: string) =>
-    !state.armies.some((a) => a.at === node && a.owner !== army.owner) && (!state.towns[node] || state.towns[node].owner === army.owner);
-  const ownTown = (node: string) => Number(state.towns[node]?.owner === army.owner);
+  const safe = (at: string) => {
+    const town = townAt(state, at);
+    return stepCost(state, at) < Infinity && !state.armies.some((a) => a.at === at && a.owner !== army.owner) && (!town || town.owner === army.owner);
+  };
+  const ownTown = (at: string) => Number(townAt(state, at)?.owner === army.owner);
   const options = army.from ? [army.from] : neighborsOf(state, army.at).sort((x, y) => ownTown(y) - ownTown(x));
   const back = options.find(safe);
   if (back) {
@@ -334,10 +408,11 @@ function fallBack(state: GameState, army: Army) {
   }
   removeArmy(state, army);
   const lord = army.troops.find((t) => t.type === 'lord');
-  const capital = campaignOf(state).capital;
+  const capitalId = campaignOf(state).capital;
+  const capital = townLocation(state, capitalId);
   const where = army.at;
-  if (lord && state.towns[capital].owner === 'player' && safe(capital)) {
-    lord.moved = true;
+  if (lord && state.towns[capitalId].owner === 'player' && safe(capital)) {
+    lord.mp = 0;
     const escaped: Army = { id: state.nextId++, owner: 'player', at: capital, from: null, troops: [lord] };
     state.armies.push(escaped);
     settle(state, escaped);
@@ -375,8 +450,13 @@ export function checkStatus(state: GameState) {
   deed(state, 'ending', {
     'capital-lost': `${nodeName(state, capital)} has fallen. Your house is ended.`,
     'lord-dead': 'Your lord is dead. With no heir, your house is ended.',
-    'lair-captured': `${nodeName(state, lair)} is broken. The valley is yours.`,
-  }[reason], reason === 'lair-captured' ? lair : reason === 'capital-lost' ? capital : null);
+    'lair-captured': `${nodeName(state, lair)} is broken. ${worldOf(state).kind === 'graph' ? 'The valley' : 'The realm'} is yours.`,
+  }[reason], reason === 'lair-captured' ? townLocation(state, lair) : reason === 'capital-lost' ? townLocation(state, capital) : null);
+}
+
+/** Wages are booked to the town an army stands in; on the valley every location is a named node. */
+function payrollCity(state: GameState, at: string): string | null {
+  return worldOf(state).kind === 'graph' ? at : townAt(state, at)?.id ?? null;
 }
 
 function payMonth(state: GameState) {
@@ -400,7 +480,7 @@ function payMonth(state: GameState) {
   const taxes = Object.values(state.towns).filter((t) => t.owner === 'player')
     .map((t) => ({ city: t.id, amount: townIncome(t), actionId: `tax:${state.turn}:${t.id}`, counterparty: nodeName(state, t.id) }));
   const payroll = state.armies.filter((a) => a.owner === 'player')
-    .map((a) => ({ city: a.at, amount: a.troops.reduce((sum, t) => sum + troopUpkeep(t, UNIT_TYPES[t.type].upkeep), 0),
+    .map((a) => ({ city: payrollCity(state, a.at), amount: a.troops.reduce((sum, t) => sum + troopUpkeep(t, UNIT_TYPES[t.type].upkeep), 0),
       actionId: `wages:${state.turn}:${a.id}`, counterparty: 'Army payroll' }));
   const ledger = settleTreasury(state, taxes, payroll, maintenance);
   for (const completed of phase.completed) log(state, `Construction completed at ${completed}.`);
@@ -426,7 +506,7 @@ export function endTurn(state: GameState) {
   if (state.battle || state.status !== 'playing') return;
   payMonth(state);
   state.turn++;
-  for (const a of state.armies) for (const t of a.troops) t.moved = false;
+  for (const a of state.armies) for (const t of a.troops) t.mp = marchRate(state, t);
   newOffers(state);
   orcTurn(state);
   checkStatus(state);

@@ -1,7 +1,7 @@
-/** Small diplomatic side-story used to validate the quest framework in the original quick-play valley. */
+/** Small diplomatic side-story used to validate the quest framework. Fenwick is a free town in both campaigns. */
 export const FENWICK_CHARTER = {
   id: 'Q00',
-  campaignId: 'valley-quickplay',
+  campaignIds: ['valley-quickplay', 'western-realm'],
   name: 'The Fenwick Charter',
   giver: 'Fenwick Council',
   at: 'fenwick',

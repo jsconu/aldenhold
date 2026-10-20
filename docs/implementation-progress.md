@@ -124,3 +124,23 @@ The reserve policy is deliberately explicit for this first slice: there are no m
 The owner requested a substantially longer authored story before infinite continuation. [Expanded campaign specification](expanded-campaign.md) now governs scope: 48 fixed cities, 72 side quests, 24 main objectives in six acts, 60 non-city sites, 30 authored surprise battles, eight regions and an initial 128×80 real-hex design canvas. Story completion must preserve the same empire/save when opening the procedural frontier. The proposed 40–60-hour main story and 70–100-hour broad exploration ranges require playtesting.
 
 These are requirements and backlog entries, not implemented campaign content. The nine-node quick-play world and its ending are unchanged. [Backlog](backlog.md) links the staged quest framework, true hex movement, first western chapter and later frontier work. Earlier milestone tables and completed-increment counts above are historical records; the revised specification supersedes their campaign totals.
+
+- Remaining for MAP-01–05: a separate authored ~64×40-cell campaign, real terrain-cost pathfinding and river/bridge constraints, persistent fog of war and exploration, scouting, hazards/visibility, a larger atlas with twenty cities and objective sites, visual browser approval, and responsive pan/touch exploration.
+
+## Walkable hex map increment: the Western Realm (October 20, 2026)
+
+Second catalog campaign alongside the quick-play valley, which stays a regression fixture with unchanged movement, orc behaviour, atlas and route planner.
+
+| Requirement | This increment | Remaining work |
+| --- | --- | --- |
+| MAP-01 (partial) | `content/campaigns/westernRealm.ts`: an authored 40×28 hex map (ASCII rows, one land per hex) with the Aldwater river, Mirrormere lake, southern wetlands, a central mountain spine broken only at Grey Pass and the southern trail, and orc badlands. Eight towns (Aldenhold, Fenwick, Millbrook, Greenveil, Harrowgate, Westmere, Duskwater, Reedhaven), Gharzak Hold, and nine named landmarks. | Grow toward the planned ~64×40 map with twenty settlements. |
+| MAP-03 | Hex-by-hex movement with movement points per troop and month (infantry 12, knights 18, trolls 9, lord 14); the slowest chosen troop sets the pace. Roads cost 1; plains/farmland 2; forest, hills, badlands 3; deep woods, swamp 4. Rivers are crossed only at bridges and mountains only at the two gaps. A march stops at the first enemy or unowned town. Hovering a hex shows its cost, whether it is reachable this month, and roughly how many months away it is. | Known hazards on the route preview; forced march. |
+| MAP-05 (partial) | `validateContent` checks hex maps: row widths, known land, place positions and passability, that every road can be laid, and that every named place is reachable from the capital. Tests prove the river can only be crossed at a bridge. | Fog-aware reachability once fog exists. |
+| Battles | Battlefields take after the land they're fought on (forest fields wooded, hills rocky, swamp marshy). Open plains keep the old stream odds, so valley battles generate exactly as before. | |
+| ART-01 | Pixel-art overland tiles (`ui/pixelTiles.ts`): 24×20 interlocking hex tiles in an EGA-style palette, painted once into a bitmap and scaled up crisply, with roads and plank bridges. Pixel town, capital, orc fortress and landmark sprites with owner-coloured flags (`ui/hexMapView.ts`). | Pan and zoom on the hex map; art approval in the UI (ART-08). |
+| SAVE-01 | Schema v10 (after the mage-magic v9): each troop's `moved` flag becomes movement points (`mp`). v9 saves migrate: unmoved troops keep their single valley march, moved or refitting troops have none. Validation understands hex locations; ledger cities on a hex map are towns. | |
+| Quests | The Fenwick Charter runs in both campaigns (`campaignIds`); its envoy check and journal entries use the town's map location. | |
+
+`game/world.ts` is the single place that knows how a campaign's world is laid out (graph or hex): which town stands at a location, where a town is, neighbours, step costs, roads and pathfinding (binary-heap Dijkstra). Rules call it rather than assuming a location id is a town id.
+
+Validation: all 206 tests pass after rebasing onto the mage-magic increment (including a 36-month Western Realm soak over three seeds, river and bridge constraints, arrival estimates and the v9 → v10 migration); production build passes. Played in the browser: chooser, a march to Fenwick, a battle on farmland, capture, journal, five month-ends with orc raids over the mountains, and the valley still working on the atlas.

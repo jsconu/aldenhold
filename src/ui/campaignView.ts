@@ -1,10 +1,13 @@
+import { CATALOG } from '../content';
 import {
-  armyAt, canRecruitAt, dateLabel, monthlyIncome, monthlyUpkeep, neighborsOf, nodeName, townGrowth, townIncome,
+  armyAt, arrivalEstimates, campaignOf, canRecruitAt, dateLabel, monthlyIncome, monthlyUpkeep, neighborsOf, nodeName, playerMarchOptions, townGrowth, townIncome,
 } from '../game/campaign';
+import { hasRoad, hexLand, marchRate, placeAt, townAt, townLocation, worldOf, type MarchStep } from '../game/world';
+import { renderHexMap } from './hexMapView';
 import { SPELLS, UNIT_TYPES } from '../game/data';
 import { heroLevel, heroMaxHp, heroMaxMana, level } from '../game/units';
 import { EQUIPMENT, refitQuote, equipmentUpkeep } from '../game/equipment';
-import type { Army, FactionId, GameState } from '../game/types';
+import type { Army, CampaignId, FactionId, GameState } from '../game/types';
 import { renderJournal } from './journalView';
 import { renderTreasury } from './treasuryView';
 import { BUILDING_IDS, BUILDINGS, cityMaintenance, constructionQuote, developmentSites, endowment, totalCityMaintenance } from '../game/cities';
@@ -16,12 +19,13 @@ import { previewRoute, type RoutePreview } from '../game/overlandRoutes';
 
 const OWNER_LABEL: Record<FactionId, string> = { player: 'Yours', orcs: 'Orcs', neutral: 'Free town' };
 
-export function moveTargets(state: GameState, ui: UIState): string[] {
-  if (!ui.selected) return [];
-  const army = armyAt(state, ui.selected, 'player');
-  const ready = army?.troops.some((t) => ui.checked.has(t.id) && !t.moved);
-  return ready ? neighborsOf(state, ui.selected) : [];
+/** Where the ticked troops at the selected location can march this month, with the cheapest route to each. */
+export function moveTargets(state: GameState, ui: UIState): Map<string, MarchStep> {
+  if (!ui.selected || !armyAt(state, ui.selected, 'player')) return new Map();
+  return playerMarchOptions(state, ui.selected, [...ui.checked]);
 }
+
+const isHexCampaign = (state: GameState) => worldOf(state).kind === 'hex';
 
 export function renderCampaign(state: GameState, ui: UIState): string {
   const income = monthlyIncome(state);
@@ -30,7 +34,7 @@ export function renderCampaign(state: GameState, ui: UIState): string {
   const net = income - upkeep - operating;
   return `
   <header class="bar">
-    <h1>Aragon <small>working title</small></h1>
+    <h1>Aragon <small>${esc(campaignOf(state).name)}</small></h1>
     <span class="date">${dateLabel(state.turn)}</span>
     <span class="gold" title="Taxes ${income}, troop wages ${upkeep}, city maintenance ${operating}">Gold <b>${state.gold}</b>
       <em class="${net < 0 ? 'neg' : 'pos'}">${net >= 0 ? '+' : ''}${net}/month</em></span>
@@ -41,11 +45,12 @@ export function renderCampaign(state: GameState, ui: UIState): string {
     <button data-action="new-game" class="ghost">New game</button>
     <button data-action="end-turn" class="primary" ${state.status !== 'playing' ? 'disabled' : ''}>End month</button>
   </header>
-  ${state.status !== 'playing' ? `<div class="banner ${state.status}">${state.status === 'won' ? 'You have won. The valley is united.' : state.endingReason === 'lord-dead' ? 'You have lost. Your lord is dead.' : 'You have lost. Aldenhold has fallen.'} <button data-action="new-game">Play again</button></div>` : ''}
+  ${ui.choosing ? renderChooser(state) : ''}
+  ${state.status !== 'playing' ? `<div class="banner ${state.status}">${state.status === 'won' ? `You have won. ${isHexCampaign(state) ? 'The realm' : 'The valley'} is united.` : state.endingReason === 'lord-dead' ? 'You have lost. Your lord is dead.' : `You have lost. ${esc(nodeName(state, campaignOf(state).capital))} has fallen.`} <button data-action="new-game">Play again</button></div>` : ''}
   ${ui.view === 'treasury' ? renderTreasury(state) : ui.view === 'journal' ? renderJournal(state) : `<main class="campaign">
-    <section class="map-wrap">
+    ${isHexCampaign(state) ? renderHexSection(state, ui) : `<section class="map-wrap">
       ${renderMapToolbar(state, ui)}
-      ${renderOverland(state, ui, moveTargets(state, ui), plannedRoute(state, ui)?.stops.map((s) => s.id) ?? [])}
+      ${renderOverland(state, ui, [...moveTargets(state, ui).keys()], plannedRoute(state, ui)?.stops.map((s) => s.id) ?? [])}
       <div class="atlas-legend" aria-label="Map legend">
         <span><i class="swatch swatch-forest"></i> Forest</span>
         <span><i class="swatch swatch-hills"></i> Hills</span>
@@ -53,13 +58,13 @@ export function renderCampaign(state: GameState, ui: UIState): string {
         <span><i class="swatch swatch-marsh"></i> Wetland</span>
         <span><i class="swatch swatch-road"></i> Travel road</span>
       </div>
-      <p class="atlas-caption">The illustrated hex terrain shows the province. For now, armies march only between named places linked by a road. Hex-by-hex travel is planned for the larger campaign.</p>
-    </section>
+      <p class="atlas-caption">The illustrated hex terrain shows the province. In this quick-play valley, armies march only between named places linked by a road. For hex-by-hex travel, start the Western Realm.</p>
+    </section>`}
     <aside class="side">
       ${ui.message ? `<p class="msg">${esc(ui.message)}</p>` : ''}
       ${renderOfferNotice(state, ui)}
-      ${renderRoutePlanner(state, ui)}
-      ${ui.selected ? renderTravelGuide(state, ui) : ''}
+      ${isHexCampaign(state) ? '' : renderRoutePlanner(state, ui)}
+      ${ui.selected && !isHexCampaign(state) ? renderTravelGuide(state, ui) : ''}
       ${ui.selected ? renderNodePanel(state, ui, ui.selected) : '<p class="hint">Click a place on the map. Your troops show as blue shields.</p>'}
       <details class="log" open><summary>Chronicle</summary><ul>${state.log.slice(0, 14).map((l) => `<li>${esc(l)}</li>`).join('')}</ul></details>
     </aside>
@@ -110,7 +115,7 @@ function renderRoutePlanner(state: GameState, ui: UIState): string {
     `<li><strong>${esc(nodeName(state, s.id))}</strong>
        ${s.risk ? `<span class="route-warning">${esc(s.risk)}</span>` : ''}</li>`).join('')}</ol>` : '';
   const ready = route && route.stops.length > 1 && ui.selected === ui.routeOrigin &&
-    moveTargets(state, ui).includes(route.stops[1].id);
+    moveTargets(state, ui).has(route.stops[1].id);
   return `<section class="route-planner"><h3>Journey planner</h3>
     <p class="sub">Departure: <b>${esc(from)}</b>
     ${to ? ` · Destination: <b>${esc(to)}</b>` : ''}</p>
@@ -134,7 +139,7 @@ function renderTravelGuide(state: GameState, ui: UIState): string {
   const choices = adjacent.map((id) => {
     const owner = state.towns[id]?.owner;
     const garrison = state.armies.some((a) => a.at === id && a.owner !== 'player');
-    const buttonText = ready.includes(id) ? 'March' : 'Inspect';
+    const buttonText = ready.has(id) ? 'March' : 'Inspect';
     return `<button data-action="node" data-node="${esc(id)}" class="travel-destination">
       <span>${esc(nodeName(state, id))}</span>
       <small>${owner ? OWNER_LABEL[owner] : 'Landmark'}${garrison ? ' · Garrison' : ''}</small>
@@ -142,15 +147,18 @@ function renderTravelGuide(state: GameState, ui: UIState): string {
   }).join('');
   return `<details class="travel-guide" open>
     <summary>Roads from ${esc(nodeName(state, ui.selected))}</summary>
-    <p class="hint">${ready.length ? 'Checked troops will march when you select a connected destination.' :
+    <p class="hint">${ready.size ? 'Checked troops will march when you select a connected destination.' :
       'Check ready troops below to march, or inspect a neighboring place.'}</p>
     <div class="travel-options">${choices}</div></details>`;
 }
 
-function renderNodePanel(state: GameState, ui: UIState, id: string): string {
-  const town = state.towns[id];
-  const armies = state.armies.filter((a) => a.at === id);
-  let html = `<h2>${esc(nodeName(state, id))}</h2>`;
+/** Side panel for a location: its town (if any), the land on a hex map, and the armies there. */
+function renderNodePanel(state: GameState, ui: UIState, at: string): string {
+  const town = townAt(state, at);
+  const id = town?.id ?? at;
+  const armies = state.armies.filter((a) => a.at === at);
+  let html = `<h2>${esc(nodeName(state, at))}</h2>`;
+  const world = worldOf(state);
   if (town) {
     html += `<p class="sub">${town.kind === 'lair' ? 'Orc stronghold' : town.kind === 'capital' ? 'Your capital' : 'Town'} · ${OWNER_LABEL[town.owner]}</p>`;
     if (town.kind !== 'lair') html += `<p>Population <b>${town.pop.toLocaleString()}</b></p>`;
@@ -167,14 +175,18 @@ function renderNodePanel(state: GameState, ui: UIState, id: string): string {
               title="${t.men} men · attack ${t.attack} · defense ${t.defense} · move ${t.move}${t.range > 1 ? ` · range ${t.range}` : ''} · upkeep ${t.upkeep}/month">
               ${t.name} <span>${t.cost}g</span></button>`)
           .join('')}</div>`;
-      if (town.kind !== 'capital') html += `<p class="sub">Knights can only be raised in Aldenhold.</p>`;
+      if (town.kind !== 'capital') html += `<p class="sub">Knights can only be raised in ${esc(nodeName(state, campaignOf(state).capital))}.</p>`;
       html += renderCityDevelopment(state, id);
       html += renderOffers(state, id);
     }
+  } else if (world.kind === 'hex') {
+    const land = hexLand(world, at);
+    const landmark = placeAt(state, at);
+    html += `<p class="sub">${landmark ? `${land.name} · landmark` : land.name}${hasRoad(state, at) ? ' · on the road' : ''}</p><p class="sub">${esc(land.text)}</p>`;
   } else {
     html += `<p class="sub">Open country</p>`;
   }
-  if (id === 'fenwick') html += renderFenwickQuest(state);
+  if (town?.id === 'fenwick') html += renderFenwickQuest(state);
   for (const a of armies) html += renderArmy(state, ui, a);
   if (!armies.length) html += `<p class="sub">No troops here.</p>`;
   return html;
@@ -223,8 +235,9 @@ function renderFenwickQuest(state: GameState): string {
   if (!q) return '';
   if (q.status !== 'available') return `<div class="quest-card"><h3>${esc(FENWICK_CHARTER.name)}</h3><p>${esc(questSummary(state))}</p>
     ${q.status === 'succeeded' && state.treaties.fenwick?.passage ? '<p class="sub">Your armies may share this town with its neutral garrison. Fenwick remains independent and pays no tax.</p>' : ''}</div>`;
+  const fenwick = townLocation(state, 'fenwick');
   const near = state.armies.some((a) => a.owner === 'player' &&
-    (a.at === 'fenwick' || neighborsOf(state, 'fenwick').includes(a.at)));
+    (a.at === fenwick || neighborsOf(state, fenwick).includes(a.at)));
   return `<div class="quest-card"><h3>${esc(FENWICK_CHARTER.name)}</h3>
     <p>${esc(FENWICK_CHARTER.text)}</p>
     <p class="sub">Reward: Sealed Fenwick Charter. Sign to gain peaceful passage, or decline and keep the military option.</p>
@@ -237,31 +250,37 @@ function renderFenwickQuest(state: GameState): string {
 
 function renderArmy(state: GameState, ui: UIState, a: Army): string {
   const mine = a.owner === 'player';
+  const hexWorld = isHexCampaign(state);
   const rows = a.troops
     .map((t) => {
       const type = UNIT_TYPES[t.type];
+      const spent = t.mp <= 0;
       const box = mine
-        ? `<input type="checkbox" data-change="check" data-troop="${t.id}" ${ui.checked.has(t.id) ? 'checked' : ''} ${t.moved ? 'disabled' : ''}/>`
+        ? `<input type="checkbox" data-change="check" data-troop="${t.id}" ${ui.checked.has(t.id) ? 'checked' : ''} ${spent ? 'disabled' : ''}/>`
         : '';
-      const marched = t.moved && mine ? '<span class="tag">marched</span>' : '';
+      // On a hex map show movement left this month; on the valley a march takes the whole month.
+      const marched = !mine ? '' : hexWorld ? `<span class="tag" title="Movement left this month">${t.mp}/${marchRate(state, t)}</span>` : spent ? '<span class="tag">marched</span>' : '';
       if (type.hero) {
         const mana = type.hero.mana ? ` · ${t.mana ?? 0}/${heroMaxMana(t.type, t.xp)} mana` : '';
-        return `<li class="hero ${t.moved && mine ? 'done' : ''}"><label>${box}<span class="tname">★ ${esc(t.name ?? type.name)}
+        return `<li class="hero ${spent && mine ? 'done' : ''}"><label>${box}<span class="tname">★ ${esc(t.name ?? type.name)}
           <small>${type.name}</small></span><span class="men">${t.men}/${heroMaxHp(t.type, t.xp)} HP${mana}</span>
           <span class="lv">Lv ${heroLevel(t.xp)}</span>${marched}</label></li>`;
       }
       const lv = level(t.xp);
-      return `<li class="${t.moved && mine ? 'done' : ''}"><label>${box}<span class="tname">${type.name}</span>
+      return `<li class="${spent && mine ? 'done' : ''}"><label>${box}<span class="tname">${type.name}</span>
         <span class="men">${t.men} men</span><span class="lv">Lv ${lv}</span>
         <small class="gear-label">${t.gear.bow ? EQUIPMENT[t.gear.bow].name + ' · ' : ''}${EQUIPMENT[t.gear.armor].name}</small>
         ${t.refit ? '<span class="tag">refitting</span>' : ''}${marched}</label></li>`;
     })
     .join('');
-  const ready = mine && a.troops.some((t) => !t.moved);
+  const ready = mine && a.troops.some((t) => t.mp > 0);
+  const hint = hexWorld
+    ? 'Tick the troops to send, then click a lit hex. The slowest troop sets the pace. Roads cost 1; plains and farmland 2; forest, hills and badlands 3; deep woods and swamp 4.'
+    : 'Tick the troops to send, then click a glowing place on the map.';
   return `<div class="army-card own-${a.owner}"><h3>${mine ? 'Your troops' : a.owner === 'orcs' ? 'Orc host' : 'Town militia'}</h3>
     <ul class="troops">${rows}</ul>
-    ${mine && state.towns[a.at]?.owner === 'player' ? renderRefitChoices(state, a) : ''}
-    ${ready ? `<p class="hint">Tick the troops to send, then click a glowing place on the map.</p>` : ''}</div>`;
+    ${mine && townAt(state, a.at)?.owner === 'player' ? renderRefitChoices(state, a) : ''}
+    ${ready ? `<p class="hint">${hint}</p>` : ''}</div>`;
 }
 
 function renderRefitChoices(state: GameState, army: Army): string {
@@ -274,10 +293,11 @@ function renderRefitChoices(state: GameState, army: Army): string {
       return `<div class="refit-row"><b>${UNIT_TYPES[troop.type].name} #${troop.id}</b>
         <small>Lv ${level(troop.xp)} · upkeep +${equipmentUpkeep(troop)}g/month for gear</small>
         ${options.map((id) => {
-          const quote = refitQuote(state, army.at, troop.id, id);
+          const townId = townAt(state, army.at)!.id;
+          const quote = refitQuote(state, townId, troop.id, id);
           const gear = EQUIPMENT[id];
           const inputs = Object.entries(quote.materials).map(([g, qty]) => `${qty} ${g}`).join(' + ');
-          return `<div class="refit-option"><button data-action="refit" data-node="${army.at}"
+          return `<div class="refit-option"><button data-action="refit" data-node="${townId}"
             data-troop="${troop.id}" data-item="${id}" ${quote.reason ? 'disabled' : ''}
             title="${esc(quote.reason ?? 'Pay now; equipment arrives at month end')}">
             ${gear.name} · ${quote.gold}g${inputs ? ' + ' + inputs : ''}</button>
@@ -311,9 +331,34 @@ function renderOffers(state: GameState, townId: string): string {
 }
 
 function renderOfferNotice(state: GameState, ui: UIState): string {
-  const elsewhere = state.offers.filter((o) => o.town !== ui.selected);
+  const elsewhere = state.offers.filter((o) => townLocation(state, o.town) !== ui.selected);
   if (!elsewhere.length) return '';
   return `<p class="notice">${elsewhere
-    .map((o) => `<button class="link" data-action="goto" data-node="${o.town}">${esc(o.name)} waits in ${esc(nodeName(state, o.town))}</button>`)
+    .map((o) => `<button class="link" data-action="goto" data-node="${townLocation(state, o.town)}">${esc(o.name)} waits in ${esc(nodeName(state, o.town))}</button>`)
     .join(' · ')}</p>`;
+}
+
+/** The Western Realm's walkable pixel map, with a short key to movement costs. */
+function renderHexSection(state: GameState, ui: UIState): string {
+  const world = worldOf(state);
+  if (world.kind !== 'hex') return '';
+  return `<section class="map-wrap">
+    ${renderHexMap(state, ui, world, moveTargets(state, ui), ui.selected ? arrivalEstimates(state, ui.selected, [...ui.checked]) : new Map())}
+    <p class="atlas-caption">Every hex can be walked. Roads cost 1 movement; plains and farmland 2; forest, hills and badlands 3; deep woods and swamp 4. Rivers are crossed only at bridges and mountains only at Grey Pass or the southern trail. Hover a hex for its cost and how many months it takes to reach.</p>
+  </section>`;
+}
+
+/** Pick a campaign. Starting one replaces the current game, so the panel says so and offers Cancel. */
+function renderChooser(state: GameState): string {
+  const cards = (Object.keys(CATALOG.campaigns) as CampaignId[])
+    .map((id) => {
+      const c = CATALOG.campaigns[id];
+      return `<div class="campaign-card"><h3>${esc(c.name)}</h3><p>${esc(c.blurb)}</p>
+        <button class="primary" data-action="start-campaign" data-campaign="${id}">Start</button></div>`;
+    })
+    .join('');
+  const warning = state.status === 'playing' && state.turn > 1 ? '<p class="sub">Starting a new campaign replaces the game you are playing.</p>' : '';
+  return `<div class="chooser" role="dialog" aria-label="Choose a campaign"><div class="chooser-box">
+    <h2>Choose a campaign</h2>${warning}<div class="campaign-cards">${cards}</div>
+    <button class="ghost" data-action="cancel-choose">Cancel</button></div></div>`;
 }

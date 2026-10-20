@@ -18,6 +18,24 @@ export interface TerrainType {
   moraleDrain: number;
   text: string;
 }
+
+/** Overland terrain on hex campaigns. */
+export type Land = 'plains' | 'farmland' | 'forest' | 'deepwood' | 'hills' | 'mountains' | 'swamp' | 'water' | 'badlands';
+
+export interface LandType {
+  id: Land;
+  name: string;
+  /** Character used for this land in a campaign's ASCII map. */
+  char: string;
+  /** Movement points to enter off-road; Infinity = impassable. Roads always cost 1. */
+  move: number;
+  /** Battlefield features scattered over the middle of a field fought on this land. */
+  battleScatter: [Terrain, number][];
+  /** Chance that a battlefield here has a stream across it. */
+  battleStream: number;
+  text: string;
+}
+
 export type SpellId = 'fireball' | 'ward' | 'terror' | 'frost' | 'haste' | 'slow' | 'lightning' | 'dispel' | 'entangle' | 'teleport' | 'quake' | 'chain-lightning' | 'firestorm' | 'disintegrate' | 'heal' | 'rally';
 export type EffectId = 'ward' | 'frost' | 'haste' | 'slow' | 'entangle';
 export type DamageKind = 'fire' | 'cold' | 'lightning' | 'earth' | 'arcane';
@@ -60,6 +78,8 @@ export interface UnitType {
   /** Where the player can raise it: any owned town, the capital only, or never. */
   recruit: 'any' | 'capital' | null;
   resistances?: Partial<Record<DamageKind, number>>;
+  /** Overland movement points per month on hex campaigns. */
+  march: number;
   /** Present for heroes. For heroes, `men` is base hit points and `cost` the hiring fee. */
   hero?: HeroTraits;
 }
@@ -87,8 +107,11 @@ export interface Troop {
   name?: string;
   mana?: number;
   xp: number;
-  /** Already marched (or was raised) this month. */
-  moved: boolean;
+  /**
+   * Movement points left this month. On the nine-location valley a march costs the whole month (1 point); on a
+   * hex map each unit type has its own budget. Troops raised, hired or refitting this month have 0.
+   */
+  mp: number;
   gear: Loadout;
   refit: PendingRefit | null;
 }
@@ -180,25 +203,49 @@ export interface HeroOffer {
 
 export type EndingReason = 'lair-captured' | 'capital-lost' | 'lord-dead';
 
-export type CampaignId = 'valley-quickplay';
+export type CampaignId = 'valley-quickplay' | 'western-realm';
 
 /** A troop in a campaign's starting setup: a unit type id, or a named hero. */
 export type StartTroop = string | { type: string; name: string };
 
 /** Static definition of a campaign: its world and opening position. Never mutated at runtime. */
+/** A named hex on a hex campaign: a town (with an entry in `towns`) or a landmark. */
+export interface Place {
+  id: string;
+  name: string;
+  col: number;
+  row: number;
+  kind: 'town' | 'landmark';
+}
+
+/** A walkable hex overland map. Locations are hex keys "col,row"; towns and landmarks are named places. */
+export interface HexWorld {
+  /** One string per row, one character per hex; see LAND in content/rules.ts. */
+  rows: string[];
+  places: Place[];
+  /** Roads, each a chain of place ids; laid along the easiest ground, bridging water. */
+  routes: string[][];
+}
+
 export interface CampaignDefinition {
   id: CampaignId;
   revision: number;
   name: string;
+  /** One line for the campaign chooser. */
+  blurb: string;
   /** First journal entry of a new game. */
   intro: string;
   capital: string;
   lair: string;
   startingGold: number;
   lordName: string;
+  /** The quick-play valley's locations and roads. Empty on hex campaigns. */
   nodes: MapNode[];
   edges: [string, string][];
+  /** Present on hex campaigns: the walkable map. Town ids are then place ids, and locations are hex keys. */
+  hex?: HexWorld;
   towns: Town[];
+  /** Start locations are node ids on the valley and place ids on a hex map. */
   armies: { owner: FactionId; at: string; troops: StartTroop[] }[];
   offers: HeroOffer[];
 }
@@ -292,7 +339,7 @@ export interface CityEconomy {
 }
 
 export interface GameState {
-  version: 9;
+  version: 10;
   campaignId: CampaignId;
   campaignRevision: number;
   endingReason: EndingReason | null;

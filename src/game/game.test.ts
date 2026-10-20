@@ -38,7 +38,7 @@ describe('economy', () => {
     expect(s.towns.aldenhold.pop).toBe(pop - 20);
     const troops = armyAt(s, 'aldenhold', 'player')!.troops;
     expect(troops).toHaveLength(before + 1);
-    expect(troops.at(-1)!.moved).toBe(true);
+    expect(troops.at(-1)!.mp).toBe(0);
   });
 
   it('refuses knights outside the capital and recruits you cannot afford', () => {

@@ -145,7 +145,7 @@ describe('heroes on campaign', () => {
     expect(s.gold).toBe(0);
     expect(s.offers).toHaveLength(0);
     const priest = armyAt(s, 'aldenhold', 'player')!.troops.find((t) => t.type === 'priest')!;
-    expect(priest).toMatchObject({ name: 'Brother Osric', mana: 12, men: 18, moved: true });
+    expect(priest).toMatchObject({ name: 'Brother Osric', mana: 12, men: 18, mp: 0 });
   });
 
   it('offers lapse after their time is up', () => {
