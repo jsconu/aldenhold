@@ -81,6 +81,12 @@ function onAction(action: string, data: DOMStringMap) {
         selectNode('aldenhold');
       }
       break;
+    case 'map-layer':
+      if (data.layer === 'terrain' || data.layer === 'political') ui.mapLayer = data.layer;
+      break;
+    case 'map-zoom':
+      ui.mapZoom = Math.max(1, Math.min(2, (ui.mapZoom ?? 1) + (data.zoom === 'in' ? 0.5 : -0.5)));
+      break;
     case 'view-fenwick':
       ui.view = 'map';
       selectNode('fenwick');
@@ -196,6 +202,24 @@ app.addEventListener('click', (e) => {
   onAction(el.dataset.action!, el.dataset);
   save();
   render();
+});
+
+// SVG location groups are keyboard-operable, not mouse-only.
+app.addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  const target = e.target;
+  if (!(target instanceof Element)) return;
+  const site = target.closest<SVGElement>('.atlas-site[data-action="node"]');
+  if (!site) return;
+  e.preventDefault();
+  onAction('node', site.dataset);
+  save();
+  render();
+  // Keep keyboard focus on the selected location after replacing the SVG.
+  const id = site.dataset.node;
+  const replacement = [...app.querySelectorAll<SVGElement>('.atlas-site[data-node]')]
+    .find((candidate) => candidate.dataset.node === id);
+  replacement?.focus();
 });
 
 app.addEventListener('change', async (e) => {
