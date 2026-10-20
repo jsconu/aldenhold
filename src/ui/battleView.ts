@@ -7,7 +7,8 @@ import { SPELLS, TERRAIN, UNIT_TYPES } from '../game/data';
 import { heroLevel, level } from '../game/units';
 import { hexKey } from '../game/hex';
 import type { Battle, BattleUnit, GameState, Terrain } from '../game/types';
-import { spriteDefs, terrainArt, unitIcon } from './sprites';
+import { pixelSprite, pixelSpriteDefs } from './pixelSprites';
+import { spriteDefs, terrainArt } from './sprites';
 import { esc, type UIState } from './shared';
 
 const S = 30;
@@ -18,10 +19,10 @@ function center(col: number, row: number): [number, number] {
   return [PAD + S + col * 1.5 * S, PAD + H / 2 + H * (row + 0.5 * (col & 1))];
 }
 
-function hexPoints(cx: number, cy: number): string {
+function hexPoints(cx: number, cy: number, r = S): string {
   return Array.from({ length: 6 }, (_, i) => {
     const a = (Math.PI / 3) * i;
-    return `${(cx + S * Math.cos(a)).toFixed(1)},${(cy + S * Math.sin(a)).toFixed(1)}`;
+    return `${(cx + r * Math.cos(a)).toFixed(1)},${(cy + r * Math.sin(a)).toFixed(1)}`;
   }).join(' ');
 }
 
@@ -68,14 +69,15 @@ export function renderBattle(state: GameState, ui: UIState): string {
       const morale = hero ? 1 : u.morale / 100;
       return `<g class="${cls}" data-action="hex" data-col="${u.col}" data-row="${u.row}">
         <title>${esc(unitLabel(b, u))}: ${u.men} ${hero ? 'HP' : `men, morale ${u.morale}${u.routing ? ', running' : ''}`}</title>
-        <circle cx="${cx}" cy="${cy}" r="${S * 0.72}" class="body"/>
-        ${unitIcon(u.type, cx - 11, cy - 19, 22)}
-        ${hero ? `<path d="m${cx + 13} ${cy - 21} 1.5 3 3.3.5-2.4 2.3.6 3.3-3-1.6-3 1.6.6-3.3-2.4-2.3 3.3-.5z" class="star"/>` : ''}
-        <text x="${cx}" y="${cy + 12}" class="men">${u.routing ? 'RUN' : u.men}</text>
-        <rect x="${cx - 14}" y="${cy + 15}" width="28" height="3" class="hp-bg"/>
-        <rect x="${cx - 14}" y="${cy + 15}" width="${(28 * frac).toFixed(1)}" height="3" class="hp"/>
-        ${hero ? '' : `<rect x="${cx - 14}" y="${cy + 19}" width="28" height="2" class="hp-bg"/>
-        <rect x="${cx - 14}" y="${cy + 19}" width="${(28 * morale).toFixed(1)}" height="2" class="morale${u.morale < 40 ? ' low' : ''}"/>`}
+        <polygon points="${hexPoints(cx, cy, S - 3)}" class="mark"/>
+        <ellipse cx="${cx}" cy="${cy + 9}" rx="15" ry="5" class="base"/>
+        ${pixelSprite(u.type, mine ? 'mine' : 'foe', cx, cy + 10, 2.5, u.side === 'defender')}
+        ${hero ? `<path d="m${cx + 15} ${cy - 23} 1.5 3 3.3.5-2.4 2.3.6 3.3-3-1.6-3 1.6.6-3.3-2.4-2.3 3.3-.5z" class="star"/>` : ''}
+        <text x="${cx}" y="${cy + 17}" class="men">${u.routing ? 'RUN' : u.men}</text>
+        <rect x="${cx - 14}" y="${cy + 19}" width="28" height="3" class="hp-bg"/>
+        <rect x="${cx - 14}" y="${cy + 19}" width="${(28 * frac).toFixed(1)}" height="3" class="hp"/>
+        ${hero ? '' : `<rect x="${cx - 14}" y="${cy + 22}" width="28" height="2" class="hp-bg"/>
+        <rect x="${cx - 14}" y="${cy + 22}" width="${(28 * morale).toFixed(1)}" height="2" class="morale${u.morale < 40 ? ' low' : ''}"/>`}
       </g>`;
     })
     .join('');
@@ -99,7 +101,7 @@ export function renderBattle(state: GameState, ui: UIState): string {
          <button data-action="battle-end" class="primary">End turn</button>`}
   </header>
   <main class="battle">
-    <section class="field-wrap"><svg viewBox="0 0 ${w.toFixed(0)} ${h.toFixed(0)}" class="field">${spriteDefs()}${ground}${overlay}${units}</svg></section>
+    <section class="field-wrap"><svg viewBox="0 0 ${w.toFixed(0)} ${h.toFixed(0)}" class="field">${spriteDefs()}<defs>${pixelSpriteDefs()}</defs>${ground}${overlay}${units}</svg></section>
     <aside class="side">
       ${b.outcome ? renderOutcome(b) : sel ? renderUnit(b, sel, ui) : '<p class="hint">Click one of your units (blue), then a highlighted hex to move or a red-ringed enemy to attack. Each unit may move, then attack, once a turn. Heroes (★) can cast spells instead of attacking.</p>'}
       <p class="sub">The thin bar under each troop is its morale. Below ${ROUT_AT} it breaks and runs for its own edge of the field; at ${RALLY_AT} it may rally.</p>
