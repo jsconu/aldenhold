@@ -16,7 +16,10 @@ const OFFER_MONTHS = 3;
 
 export function newGame(seed = Math.floor(Math.random() * 2 ** 31)): GameState {
   const state: GameState = {
-    version: 2,
+    version: 3,
+    campaignId: 'valley-quickplay',
+    campaignRevision: 1,
+    endingReason: null,
     turn: 1,
     gold: STARTING_GOLD,
     nextId: 1,
@@ -240,13 +243,14 @@ export function startBattle(state: GameState, attackerId: number, defenderId: nu
 
 /** Write the battle's losses back to the armies, move the loser out, and hand over the town. */
 export function applyBattle(state: GameState, b: Battle) {
+  if (!b.outcome) return;
   const attacker = findArmy(state, b.attackerId);
   const defender = findArmy(state, b.defenderId);
   for (const army of [attacker, defender]) {
     if (!army) continue;
     for (const t of army.troops) {
       const u = b.units.find((x) => x.troopId === t.id);
-      if (!u) continue;
+      if (!u || u.reserve) continue;
       t.men = u.men;
       if (t.men <= 0) {
         if (t.name) log(state, `${t.name} died at ${nodeName(state, b.at)}.`);
@@ -317,18 +321,25 @@ function startNextPending(state: GameState) {
   }
 }
 
-function checkStatus(state: GameState) {
+/** Defeat takes precedence when the final victory also costs the capital or ruler. */
+export function endingReason(state: GameState): GameState['endingReason'] {
+  if (state.towns[CAPITAL].owner !== 'player') return 'capital-lost';
+  if (!lordOf(state)?.men) return 'lord-dead';
+  if (state.towns[LAIR].owner === 'player') return 'lair-captured';
+  return null;
+}
+
+export function checkStatus(state: GameState) {
   if (state.status !== 'playing') return;
-  if (state.towns[LAIR].owner === 'player') {
-    state.status = 'won';
-    log(state, 'Gharzak Hold is broken. The valley is yours.');
-  } else if (state.towns[CAPITAL].owner !== 'player') {
-    state.status = 'lost';
-    log(state, 'Aldenhold has fallen. Your house is ended.');
-  } else if (!lordOf(state)) {
-    state.status = 'lost';
-    log(state, 'Your lord is dead. With no heir, your house is ended.');
-  }
+  const reason = endingReason(state);
+  if (!reason) return;
+  state.endingReason = reason;
+  state.status = reason === 'lair-captured' ? 'won' : 'lost';
+  log(state, {
+    'capital-lost': 'Aldenhold has fallen. Your house is ended.',
+    'lord-dead': 'Your lord is dead. With no heir, your house is ended.',
+    'lair-captured': 'Gharzak Hold is broken. The valley is yours.',
+  }[reason]);
 }
 
 function payMonth(state: GameState) {

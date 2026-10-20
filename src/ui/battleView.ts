@@ -1,6 +1,6 @@
 import {
   attackOf, attackTargets, alive, defenseOf, isAI, knownSpells, playerSide, RALLY_AT, rangeOf, reachable, ROUT_AT, spellTargets,
-  terrainAt, unitLabel,
+  terrainAt, unitLabel, reserves, FIELD_LIMIT,
 } from '../game/battle';
 import { nodeName } from '../game/campaign';
 import { SPELLS, TERRAIN, UNIT_TYPES } from '../game/data';
@@ -26,7 +26,7 @@ function hexPoints(cx: number, cy: number): string {
 }
 
 export function selectedUnit(b: Battle, ui: UIState): BattleUnit | undefined {
-  return b.units.find((u) => u.id === ui.battleUnit && u.men > 0 && u.side === b.active);
+  return b.units.find((u) => u.id === ui.battleUnit && !u.reserve && !u.fled && u.men > 0 && u.side === b.active);
 }
 
 export function renderBattle(state: GameState, ui: UIState): string {
@@ -104,6 +104,7 @@ export function renderBattle(state: GameState, ui: UIState): string {
       ${b.outcome ? renderOutcome(b) : sel ? renderUnit(b, sel, ui) : '<p class="hint">Click one of your units (blue), then a highlighted hex to move or a red-ringed enemy to attack. Each unit may move, then attack, once a turn. Heroes (★) can cast spells instead of attacking.</p>'}
       <p class="sub">The thin bar under each troop is its morale. Below ${ROUT_AT} it breaks and runs for its own edge of the field; at ${RALLY_AT} it may rally.</p>
       ${b.walls ? `<p class="sub">${me === 'defender' ? 'You fight behind town walls: +1 defense.' : 'The enemy is behind walls: +1 defense.'}</p>` : ''}
+      ${renderReserves(b)}
       ${renderLegend(b)}
       <details class="log" open><summary>Battle report</summary><ul>${b.log.slice(-14).reverse().map((l) => `<li>${esc(l)}</li>`).join('')}</ul></details>
     </aside>
@@ -155,4 +156,12 @@ function renderOutcome(b: Battle): string {
   return `<h2>${won ? 'Victory' : 'Defeat'}</h2>
     <p>You lost ${lost(me)} men. The enemy lost ${lost(me === 'attacker' ? 'defender' : 'attacker')}.</p>
     ${b.retreated === me ? '<p class="sub">Your troops fall back to where they came from.</p>' : ''}`;
+}
+
+function renderReserves(b: Battle): string {
+  const held = reserves(b);
+  if (!held.length) return '';
+  return `<details class="log reserves" open><summary>Reserves (${held.length} formations)</summary>
+    <p class="sub">Only the first ${FIELD_LIMIT} formations in each army deploy. Reserves stay off-field for the entire battle: no attacks, spells, combat losses or experience. They retreat with the army and share pursuit losses; if cut off, they scatter with it.</p>
+    <ul>${held.map((u) => `<li>${esc(unitLabel(b, u))}: ${u.men} ${UNIT_TYPES[u.type].hero ? 'HP' : 'men'} — reserve (field full)</li>`).join('')}</ul></details>`;
 }

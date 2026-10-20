@@ -95,6 +95,8 @@ export interface Town {
 }
 
 export interface BattleUnit {
+  /** Overflow formations remain off-field for this battle; no combat or XP. */
+  reserve: boolean;
   id: number;
   side: Side;
   armyId: number;
@@ -149,8 +151,13 @@ export interface HeroOffer {
   expires: number;
 }
 
+export type EndingReason = 'lair-captured' | 'capital-lost' | 'lord-dead';
+
 export interface GameState {
-  version: 2;
+  version: 3;
+  campaignId: 'valley-quickplay';
+  campaignRevision: 1;
+  endingReason: EndingReason | null;
   turn: number;
   gold: number;
   nextId: number;

@@ -185,3 +185,6 @@ button.link { background: none; border: none; padding: 0; color: var(--gold); te
 .unit.routing .men { fill: #ffd27a; font-weight: bold; }
 .unit .morale { fill: #9fc3ff; }
 .unit .morale.low { fill: #ffb347; }
+
+.save-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 16px; }
+.save-bar .msg { flex: 1 1 300px; margin: 0; }
