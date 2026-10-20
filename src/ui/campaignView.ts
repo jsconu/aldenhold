@@ -29,6 +29,7 @@ export function renderCampaign(state: GameState, ui: UIState): string {
     <span class="gold" title="Income ${income}, upkeep ${upkeep}">Gold <b>${state.gold}</b>
       <em class="${net < 0 ? 'neg' : 'pos'}">${net >= 0 ? '+' : ''}${net}/month</em></span>
     <span class="spacer"></span>
+    ${state.quests.Q00?.status === 'available' ? '<button data-action="view-fenwick" class="ghost">Fenwick envoy</button>' : ''}
     <button data-action="journal" class="ghost">${ui.view === 'journal' ? 'Back to the map' : `Journal (${state.journal.length})`}</button>
     <button data-action="new-game" class="ghost">New game</button>
     <button data-action="end-turn" class="primary" ${state.status !== 'playing' ? 'disabled' : ''}>End month</button>
