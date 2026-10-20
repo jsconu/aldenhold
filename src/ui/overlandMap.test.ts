@@ -64,7 +64,7 @@ describe('overland atlas and navigation', () => {
     expect(html).toContain('data-action="node" data-node="bridge"');
     expect(html).toContain('Hex-by-hex travel is planned');
     expect(html).toContain('Travel road');
-    expect(html).toContain('March →');
+    expect(html).toContain('Inspect →');
   });
 
   it('switches political rendering without mutating the save or losing markers', () => {
