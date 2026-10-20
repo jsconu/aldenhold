@@ -5,6 +5,7 @@ import { hasPassage } from './diplomacy';
 import { newTreasury, recordPurchase, settleTreasury } from './economy';
 import { newQuestState, onTownOwnershipChange } from './quests';
 import { advanceCities, cityMaintenance, startingCities } from './cities';
+import { basicLoadout, finishRefits, troopUpkeep } from './equipment';
 import { HERO_NAMES, HIREABLE_HEROES, UNIT_TYPES } from './data';
 import { random } from './rng';
 import type { Army, Battle, CampaignDefinition, CampaignId, DeedKind, FactionId, GameState, HeroOffer, Town, Troop } from './types';
@@ -20,7 +21,7 @@ const OFFER_MONTHS = 3;
 export function newGame(seed = Math.floor(Math.random() * 2 ** 31), campaignId: CampaignId = 'valley-quickplay'): GameState {
   const def = getCampaign(campaignId);
   const state: GameState = {
-    version: 7,
+    version: 8,
     campaignId: def.id,
     campaignRevision: def.revision,
     endingReason: null,
@@ -59,7 +60,8 @@ export function campaignOf(state: GameState): CampaignDefinition {
 }
 
 export function makeTroop(state: GameState, type: string, name?: string): Troop {
-  const t: Troop = { id: state.nextId++, type, men: UNIT_TYPES[type].men, xp: 0, moved: false };
+  const t: Troop = { id: state.nextId++, type, men: UNIT_TYPES[type].men, xp: 0,
+    moved: false, gear: basicLoadout(type), refit: null };
   if (isHero(type)) {
     t.name = name ?? UNIT_TYPES[type].name;
     t.men = heroMaxHp(type, 0);
@@ -156,7 +158,7 @@ export function monthlyUpkeep(state: GameState): number {
   return state.armies
     .filter((a) => a.owner === 'player')
     .flatMap((a) => a.troops)
-    .reduce((sum, t) => sum + UNIT_TYPES[t.type].upkeep, 0);
+    .reduce((sum, t) => sum + troopUpkeep(t, UNIT_TYPES[t.type].upkeep), 0);
 }
 
 export function canRecruitAt(town: Town, typeId: string): boolean {
@@ -398,10 +400,11 @@ function payMonth(state: GameState) {
   const taxes = Object.values(state.towns).filter((t) => t.owner === 'player')
     .map((t) => ({ city: t.id, amount: townIncome(t), actionId: `tax:${state.turn}:${t.id}`, counterparty: nodeName(state, t.id) }));
   const payroll = state.armies.filter((a) => a.owner === 'player')
-    .map((a) => ({ city: a.at, amount: a.troops.reduce((sum, t) => sum + UNIT_TYPES[t.type].upkeep, 0),
+    .map((a) => ({ city: a.at, amount: a.troops.reduce((sum, t) => sum + troopUpkeep(t, UNIT_TYPES[t.type].upkeep), 0),
       actionId: `wages:${state.turn}:${a.id}`, counterparty: 'Army payroll' }));
   const ledger = settleTreasury(state, taxes, payroll, maintenance);
   for (const completed of phase.completed) log(state, `Construction completed at ${completed}.`);
+  for (const completed of finishRefits(state)) log(state, `Refit finished: ${completed}.`);
   for (const shortage of phase.shortages) {
     if (state.towns[shortage.city].owner === 'player') log(state, `${nodeName(state, shortage.city)} lacks ${shortage.missing} food units this month.`);
   }
