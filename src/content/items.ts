@@ -23,4 +23,15 @@ export const ITEMS: Record<string, ItemDefinition> = {
     transfer: 'campaign',
     questIds: ['Q00'],
   },
+  'woodland-charter': {
+    id: 'woodland-charter',
+    name: 'Woodland Charter',
+    kind: 'evidence',
+    description: 'Greenveil\'s grant of friendship, sealed with a green wax oak leaf.',
+    rules: 'While Greenveil remains free and allied, you may raise Woodland Archers there and your armies may pass through the town. No tax revenue is received.',
+    source: 'Q04',
+    value: 0,
+    transfer: 'campaign',
+    questIds: ['Q04'],
+  },
 };

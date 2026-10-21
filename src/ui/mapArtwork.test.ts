@@ -34,10 +34,12 @@ describe('continuous map artwork without exposed tile outlines', () => {
     const softened = softenHexSeams(terrain, realm);
     expect(softened).toBeGreaterThan(10000);
     let changed = 0;
+    let alphaChanged = 0;
     for (let p = 0; p < beforeAlpha.length; p++) {
-      expect(terrain.data[p * 4 + 3]).toBe(beforeAlpha[p]);
+      if (terrain.data[p * 4 + 3] !== beforeAlpha[p]) alphaChanged++;
       if (terrain.data[p * 4] !== pixelsBefore[p * 4]) changed++;
     }
+    expect(alphaChanged).toBe(0);
     expect(changed).toBeGreaterThan(1000);
   });
 

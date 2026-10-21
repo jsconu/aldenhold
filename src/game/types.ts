@@ -75,11 +75,16 @@ export interface UnitType {
   men: number;
   cost: number;
   upkeep: number;
-  /** Where the player can raise it: any owned town, the capital only, or never. */
-  recruit: 'any' | 'capital' | null;
+  /**
+   * Where the player can raise it: any owned town, the capital only, a free town allied by treaty
+   * (its own people, drawn from its population), or never.
+   */
+  recruit: 'any' | 'capital' | { ally: string } | null;
   resistances?: Partial<Record<DamageKind, number>>;
   /** Overland movement points per month on hex campaigns. */
   march: number;
+  /** Bow carried by a newly raised formation, if better than the short bow every missile troop starts with. */
+  startingBow?: 'long-bow';
   /** Present for heroes. For heroes, `men` is base hit points and `cost` the hiring fee. */
   hero?: HeroTraits;
 }

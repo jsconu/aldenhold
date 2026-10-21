@@ -8,6 +8,9 @@ export const GOODS: readonly GoodId[] = ['food', 'timber', 'ore', 'tools'];
 export const BUILDING_IDS: readonly BuildingId[] = ['farm', 'lumber', 'mine', 'forge'];
 export const MAX_DEVELOPMENT_SITES = 3;
 export const MAX_BUILDING_LEVEL = 2;
+/** Set by the Woodland Accord (Q04): lumber camps may not be upgraded past this level anywhere in the realm. */
+export const LOGGING_CAP_FLAG = 'logging-cap';
+export const LOGGING_CAP_LEVEL = 1;
 
 export interface BuildingDefinition {
   id: BuildingId;
@@ -92,6 +95,9 @@ export function constructionQuote(state: GameState, townId: string, kind: Buildi
   else if (next > MAX_BUILDING_LEVEL) reason = 'Already at the maximum tier.';
   else if (next === 1 && developmentSites(city) >= MAX_DEVELOPMENT_SITES) reason = 'No development sites remain.';
   else if (def.resource !== null && endowment(townId)[def.resource] === 0) reason = 'This region lacks the required resources.';
+  else if (kind === 'lumber' && next > LOGGING_CAP_LEVEL && state.flags.includes(LOGGING_CAP_FLAG)) {
+    reason = 'You promised Greenveil that no lumber camp would grow past its first tier.';
+  }
   else if (state.gold < gold) reason = 'Not enough gold.';
   else if (Object.entries(materials).some(([good, qty]) => city.goods[good as GoodId] < qty)) reason = 'Not enough local construction materials.';
   return { gold, materials, targetLevel: next, reason };

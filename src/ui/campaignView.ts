@@ -7,12 +7,12 @@ import { hasRoad, hexLand, marchRate, placeAt, townAt, townLocation, worldOf, ty
 import { renderHexMap } from './hexMapView';
 import { SPELLS, UNIT_TYPES } from '../game/data';
 import { heroLevel, heroMaxHp, heroMaxMana, level } from '../game/units';
-import { EQUIPMENT, refitQuote, equipmentUpkeep } from '../game/equipment';
-import type { Army, CampaignId, FactionId, GameState } from '../game/types';
+import { EQUIPMENT, refitQuote, equipmentUpkeep, usesBow } from '../game/equipment';
+import type { Army, CampaignId, FactionId, GameState, Town } from '../game/types';
 import { renderJournal } from './journalView';
 import { renderTreasury } from './treasuryView';
 import { BUILDING_IDS, BUILDINGS, cityMaintenance, constructionQuote, developmentSites, endowment, totalCityMaintenance } from '../game/cities';
-import { campaignQuests, isOpen, questQuote, questsAt, questSummary, stageOf } from '../game/quests';
+import { isOpen, questQuote, questsAt, questSummary, stageOf, trackedQuests } from '../game/quests';
 import { esc, type UIState } from './shared';
 import { renderOverland } from './overlandMap';
 import { previewRoute, type RoutePreview } from '../game/overlandRoutes';
@@ -39,7 +39,7 @@ export function renderCampaign(state: GameState, ui: UIState): string {
     <span class="gold" title="Taxes ${income}, troop wages ${upkeep}, city maintenance ${operating}">Gold <b>${state.gold}</b>
       <em class="${net < 0 ? 'neg' : 'pos'}">${net >= 0 ? '+' : ''}${net}/month</em></span>
     <span class="spacer"></span>
-    ${(() => { const q = nextOpenQuest(state); return q ? `<button data-action="view-quest" data-quest="${q.id}" class="ghost" title="Go to ${esc(nodeName(state, q.at))}">Quest: ${esc(q.name)}</button>` : ''; })()}
+    ${trackedQuests(state).map((q) => `<button data-action="view-quest" data-quest="${q.id}" class="ghost" title="Go to ${esc(nodeName(state, q.at))}">Quest: ${esc(q.name)}</button>`).join('')}
     <button data-action="treasury" class="ghost">${ui.view === 'treasury' ? 'Back to the map' : 'Treasury'}</button>
     <button data-action="journal" class="ghost">${ui.view === 'journal' ? 'Back to the map' : `Journal (${state.journal.length})`}</button>
     <button data-action="new-game" class="ghost">New game</button>
@@ -152,6 +152,19 @@ function renderTravelGuide(state: GameState, ui: UIState): string {
     <div class="travel-options">${choices}</div></details>`;
 }
 
+/** Recruit buttons for every troop type this town will raise for you, each from its quote. */
+function renderRecruit(state: GameState, town: Town, title = 'Raise troops'): string {
+  const types = Object.values(UNIT_TYPES).filter((t) => canRecruitAt(state, town, t.id));
+  if (!types.length) return '';
+  return `<h3>${title}</h3><div class="recruit">${types.map((t) => {
+    const quote = recruitQuote(state, town.id, t.id);
+    const stats = `${t.men} men · attack ${t.attack} · defense ${t.defense} · move ${t.move}${t.range > 1 ? ` · range ${t.range}` : ''} · upkeep ${t.upkeep}/month`;
+    return `<button data-action="recruit" data-node="${town.id}" data-type="${t.id}" ${quote.reason ? 'disabled' : ''}
+      title="${esc(quote.reason ? `${quote.reason} (${stats})` : stats)}">
+      ${t.name} <span>${quote.gold}g</span></button>`;
+  }).join('')}</div>`;
+}
+
 /** Side panel for a location: its town (if any), the land on a hex map, and the armies there. */
 function renderNodePanel(state: GameState, ui: UIState, at: string): string {
   const town = townAt(state, at);
@@ -169,19 +182,12 @@ function renderNodePanel(state: GameState, ui: UIState, at: string): string {
           ${Array.from({ length: 11 }, (_, i) => i * 5).map((v) => `<option value="${v}" ${v === town.tax ? 'selected' : ''}>${v}%</option>`).join('')}
         </select></label>
         <p class="sub">Brings in ${townIncome(town)} gold a month. Population ${growth >= 0 ? 'grows' : 'shrinks'} by about ${Math.abs(growth)}.</p>
-        <h3>Raise troops</h3><div class="recruit">${Object.values(UNIT_TYPES)
-          .filter((t) => canRecruitAt(town, t.id))
-          .map((t) => {
-            const quote = recruitQuote(state, id, t.id);
-            const stats = `${t.men} men · attack ${t.attack} · defense ${t.defense} · move ${t.move}${t.range > 1 ? ` · range ${t.range}` : ''} · upkeep ${t.upkeep}/month`;
-            return `<button data-action="recruit" data-node="${id}" data-type="${t.id}" ${quote.reason ? 'disabled' : ''}
-              title="${esc(quote.reason ? `${quote.reason} (${stats})` : stats)}">
-              ${t.name} <span>${quote.gold}g</span></button>`;
-          })
-          .join('')}</div>`;
+        ${renderRecruit(state, town)}`;
       if (town.kind !== 'capital') html += `<p class="sub">Knights can only be raised in ${esc(nodeName(state, campaignOf(state).capital))}.</p>`;
       html += renderCityDevelopment(state, id);
       html += renderOffers(state, id);
+    } else if (town.owner === 'neutral' && state.treaties[id]?.relation === 'ally') {
+      html += `<p class="sub">Allied free town: it keeps its own rule and taxes.</p>${renderRecruit(state, town, 'Allied troops')}`;
     }
   } else if (world.kind === 'hex') {
     const land = hexLand(world, at);
@@ -258,11 +264,6 @@ function renderQuests(state: GameState, townId: string): string {
   }).join('');
 }
 
-/** The first open quest of this campaign, for the header shortcut. */
-function nextOpenQuest(state: GameState) {
-  return campaignQuests(state).find((def) => isOpen(state.quests[def.id]));
-}
-
 function renderArmy(state: GameState, ui: UIState, a: Army): string {
   const mine = a.owner === 'player';
   const hexWorld = isHexCampaign(state);
@@ -299,12 +300,13 @@ function renderArmy(state: GameState, ui: UIState, a: Army): string {
 }
 
 function renderRefitChoices(state: GameState, army: Army): string {
-  const choices = army.troops.filter((t) => !UNIT_TYPES[t.type].hero && ['archers', 'militia', 'spearmen', 'knights'].includes(t.type));
+  // Formations the player can raise (orc troops captured in some future rule would not qualify).
+  const choices = army.troops.filter((t) => !UNIT_TYPES[t.type].hero && UNIT_TYPES[t.type].recruit !== null);
   if (!choices.length) return '';
   return `<details class="refit-panel"><summary>Equip veteran formations</summary>
     <p class="sub">Upgrades require experience, a friendly city, enough gold and local materials. Refitting takes the rest of this month; the previous equipment remains in use until completion.</p>
     ${choices.map((troop) => {
-      const options = troop.type === 'archers' ? ['long-bow', 'compound-bow', 'chain'] as const : ['chain', 'plate'] as const;
+      const options = usesBow(troop.type) ? ['long-bow', 'compound-bow', 'chain'] as const : ['chain', 'plate'] as const;
       return `<div class="refit-row"><b>${UNIT_TYPES[troop.type].name} #${troop.id}</b>
         <small>Lv ${level(troop.xp)} · upkeep +${equipmentUpkeep(troop)}g/month for gear</small>
         ${options.map((id) => {
