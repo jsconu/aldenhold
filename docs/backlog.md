@@ -37,6 +37,6 @@ These came out of a planning review with the owner. They govern order and releas
 | P2 after the story | [#10 Persistent frontier](https://github.com/jsconu/aragon/issues/10) | Same-save story-to-frontier handoff, deterministic new regions, bounded levels and remote simulation |
 | Ongoing | [#8 Mage magic](https://github.com/jsconu/aragon/issues/8) | Fourteen spells delivered; balance playtesting remains |
 
-Completed foundations include versioned saves, content validation, journal, the Q00 treaty/item fixture, a reconciled treasury ledger with category/location cash reports, local production/construction, paid veteran bow/armor refits, fourteen mage spells, original tactical pixel units and the visual overland atlas. These foundations do not yet implement the full economy, 48-city map or infinite world.
+Completed foundations include versioned saves with three manual slots and rolling recovery positions, content validation, journal, the Q00 treaty/item fixture, a reconciled treasury ledger with category/location cash reports, local production/construction, paid veteran bow/armor refits, fourteen mage spells, original tactical pixel units and the visual overland atlas. These foundations do not yet implement the full economy, 48-city map or infinite world.
 
 For each authored quest or surprise, require a stable content ID, eligibility, choices, success/failure consequences, one-time reward policy, save/reload tests and appropriate art. A title, map marker or random encounter alone does not meet completion criteria.

@@ -488,6 +488,20 @@ button.travel-destination b { color: var(--gold); font-size: 11px; }
 .finance-table tbody th { font-weight: 500; }
 .finance-reconciliation { font-variant-numeric: tabular-nums; }
 
+/* Save positions share the existing campaign state; this screen adds no second game model. */
+.save-manager { display: block; max-width: 950px; min-height: 0; padding: 18px 24px 42px; margin: 0 auto; }
+.save-manager h1 { margin: 0 0 8px; }
+.save-slots, .save-recovery { list-style: none; margin: 18px 0 28px; padding: 0; display: grid; gap: 10px; }
+.save-slots { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.save-slot, .save-recovery-row { border: 1px solid var(--line); background: var(--panel); border-radius: 7px; padding: 14px; min-width: 0; }
+.save-slot h2 { margin: 0 0 8px; font-size: 19px; }
+.save-slot label { display: block; margin: 12px 0 4px; font-size: 13px; }
+.save-slot input { font: inherit; color: var(--ink); background: var(--panel-2); border: 1px solid var(--line); border-radius: 5px; padding: 7px; width: 100%; }
+.save-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+.save-recovery-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.save-recovery-row span { min-width: 0; overflow-wrap: anywhere; }
+@media (max-width: 700px) { .save-slots { grid-template-columns: 1fr; } .save-manager { padding: 16px; } }
+
 /* A hero's carried equipment, under their row in the army list. */
 .kit { display: flex; flex-wrap: wrap; gap: 8px; margin: 2px 0 4px 24px; font-size: 12px; color: var(--muted, #b8ad94); }
 .kit-item button { margin-left: 4px; }

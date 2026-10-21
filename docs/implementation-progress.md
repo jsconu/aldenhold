@@ -439,6 +439,13 @@ The current-month section is now activity rather than “purchases,” so a rewa
 
 Validation: all 328 tests and the production build pass. Four new tests cover mixed receipts/adjustments, per-location/category conservation, real M01 reward timing, actual field payroll, unpaid bills and a legacy import without invented history. A compiled DOM check opens the report after a real month closure, verifies its cash equation and category/location tables, returns to the map and confirms the ledger is unchanged, with no runtime errors. Canvas was stubbed; visual browser review remains outstanding. No economic rules, transactions, private-goods conversion, commerce system or save schema changed.
 
+
+## Codex: manual positions and recovery (SAVE-02)
+
+The existing autosave key and version-12 game payload are unchanged. The Saved games screen manages three named manual browser slots and the three most recent distinct pre-action recovery positions. Recovery is captured before month advancement, valid quest choices, starting another campaign, JSON import and restoring a position. Every restore passes through the same strict save parser and migration as JSON import. Unreadable recovery history is preserved until the player explicitly clears it; failed or invalid manual writes preserve the previous slot. Replacing the current game requires confirmation; checkpoint failures warn and ask before proceeding without one. The existing JSON export remains the off-browser backup path.
+
+Validation: save-domain tests cover independent Western/quick-play slots, exact quest/treasury round-trip, ordered recovery rotation and deduplication, invalid saves, corrupt history and failed storage writes. A compiled DOM check covers naming a slot, ending a month, restoring that slot and restoring the prior position without runtime errors. Canvas was stubbed for this interaction check; visual browser review remains outstanding. The UI works with the normal autosave; there is no second campaign state or save-schema migration.
+
 ## Hero equipment and the chapter's item rewards (#9 follow-ups, ITEM-02 minimal)
 
 Heroes can now carry campaign equipment. This makes two promised rewards real: the class heirloom after M01, and Q03's unique shield.
