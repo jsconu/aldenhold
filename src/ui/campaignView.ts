@@ -273,7 +273,8 @@ function renderQuests(state: GameState, defs: QuestDefinition[]): string {
     return `${head}<p>${esc(def.summary)}</p><p class="sub">${esc(stage.text)}</p>${goals}${deadline}
       ${shared ? `<p class="hint">${esc(shared)}</p>` : ''}
       ${quotes.length ? `<div class="quest-actions">${quotes.map(({ c, quote }) => `<button data-action="quest-choice" data-quest="${def.id}" data-choice="${c.id}"
-        ${quote.reason ? `disabled title="${esc(quote.reason)}"` : ''}>${esc(c.label)}${quote.gold ? ` · ${quote.gold}g` : ''}${'encounter' in c.then ? ` · battle at ${esc(nodeName(state, startLocation(state, c.then.encounter.site)))}` : ''}</button>`).join('')}</div>` : ''}</div>`;
+        ${quote.reason ? `disabled title="${esc(quote.reason)}"` : ''}>${esc(c.label)}${quote.gold ? ` · ${quote.gold}g` : ''}${'encounter' in c.then ? ` · battle at ${esc(nodeName(state, startLocation(state, c.then.encounter.site)))}` : ''}</button>`).join('')}</div>` : ''}
+      ${shared ? '' : quotes.filter((x) => x.quote.reason).map(({ c, quote }) => `<p class="sub">${esc(c.label)}: ${esc(quote.reason!)}</p>`).join('')}</div>`;
   }).join('');
 }
 

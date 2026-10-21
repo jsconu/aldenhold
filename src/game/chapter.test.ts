@@ -8,7 +8,7 @@ import { advanceMonth, applyBattle, armyAt, checkStatus, makeTroop, neighborsOf,
 import { autoResolve } from './battle';
 import { advanceQuests, chooseQuest, conditionText, onTownOwnershipChange, questQuote } from './quests';
 import { parseSave } from './saves';
-import type { GameState } from './types';
+import type { GameState, QuestEvent } from './types';
 import { landAt, townLocation } from './world';
 import { LAND } from '../content/rules';
 import { settleTreasury } from './economy';
@@ -50,7 +50,7 @@ function atM03(): GameState {
   const s = newGame(1, 'western-realm');
   raise(s, 2);
   month(s); // M01 done; M02 offered the same month
-  s.cityEconomies.aldenhold.goods.food = 130;
+  s.cityEconomies.aldenhold.goods.food = 400; // still 160 after Q01's granary rot (keeps 40%)
   take(s, 'fenwick');
   month(s); // M02 done; M03 offered
   expect(s.quests.M03).toMatchObject({ status: 'available', stageTurn: s.turn });
@@ -93,7 +93,7 @@ describe('Act I: M02 Bread and Law', () => {
     month(s);
     month(s);
     expect(s.quests.M02.status).toBe('available');
-    s.cityEconomies.aldenhold.goods.food = 130;
+    s.cityEconomies.aldenhold.goods.food = 400; // still 160 after Q01's granary rot (keeps 40%)
     month(s);
     expect(s.quests.M02.status).toBe('available');
     // An alliance counts toward standing just as conquest does.
@@ -231,8 +231,9 @@ describe('chapter rules in saves and content', () => {
     };
     expect(validateContent(CATALOG)).toEqual([]);
     expect(check((c) => (c.quests.M04.stages[0].objectives![0].then = { stage: 'nowhere' }))).toMatch(/"millbrook-lost" leads to unknown stage "nowhere"/);
-    expect(check((c) => (c.quests.M04.stages[0].onStart![0].at = 'atlantis'))).toMatch(/spawns at unknown place "atlantis"/);
-    expect(check((c) => (c.quests.M04.stages[0].onStart![0].troops = ['dragon']))).toMatch(/spawns unknown unit/);
+    const spawn = (c: typeof CATALOG) => c.quests.M04.stages[0].onStart![0] as Extract<QuestEvent, { kind: 'spawn' }>;
+    expect(check((c) => (spawn(c).at = 'atlantis'))).toMatch(/spawns at unknown place "atlantis"/);
+    expect(check((c) => (spawn(c).troops = ['dragon']))).toMatch(/spawns unknown unit/);
     expect(check((c) => (c.quests.M04.prerequisites = [{ kind: 'any', of: [{ kind: 'quest', quest: 'M03', status: 'superseded' }, { kind: 'quest', quest: 'M01', status: 'failed' }] }])))
       .toMatch(/requires "M01" to end failed, which it never can/);
     expect(check((c) => (c.quests.M01.prerequisites = [{ kind: 'any', of: [{ kind: 'quest', quest: 'M04', status: 'succeeded' }] }])))

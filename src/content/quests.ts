@@ -310,6 +310,94 @@ export const Q05_MISSING_CARAVAN: QuestDefinition = {
   refusals: { envoy: 'Send an army to Fenwick or a neighbouring road to hear Merra out.', battle: 'Not during a battle.' },
 };
 
+/*
+ * Western chapter city quests (9d): decisions inside your own towns, paid for in gold, grain, recruits or people.
+ */
+export const Q01_EMPTY_GRANARY: QuestDefinition = {
+  id: 'Q01', campaignIds: WEST, kind: 'side', name: 'The Empty Granary', giver: 'The Aldenhold granary keeper', at: 'aldenhold',
+  summary: 'Rot got into the Aldenhold granary and most of the grain had to be burned. The stores will not last.',
+  prerequisites: [{ kind: 'quest', quest: 'M01', status: 'succeeded' }, { kind: 'month', atLeast: 3 }],
+  needsEnvoy: false,
+  stages: [
+    {
+      id: 'warning',
+      text: 'Buy grain from the river traders, escort a shipment from Millbrook (your army must be there), or ration: Aldenhold raises no troops for three months while the stores recover.',
+      onStart: [{ kind: 'spoil', town: 'aldenhold', good: 'food', keep: 0.4 }],
+      choices: [
+        { id: 'buy', label: 'Buy grain', gold: 150, then: {
+          status: 'succeeded', effects: [{ kind: 'goods', town: 'aldenhold', good: 'food', amount: 80 }],
+          journal: 'You bought 80 loads of grain from the river traders. Aldenhold\u2019s granary is filling again.',
+        } },
+        { id: 'escort', label: 'Escort grain from Millbrook',
+          needs: [{ kind: 'town-owner', town: 'millbrook', owner: 'player' }, { kind: 'army-at', place: 'millbrook' }, { kind: 'food', town: 'millbrook', atLeast: 60 }],
+          then: {
+            status: 'succeeded', effects: [
+              { kind: 'goods', town: 'millbrook', good: 'food', amount: -60 },
+              { kind: 'goods', town: 'aldenhold', good: 'food', amount: 60 },
+            ],
+            journal: 'Your soldiers brought 60 wagonloads of Millbrook grain safely to Aldenhold.',
+          } },
+        { id: 'ration', label: 'Ration the grain', then: { stage: 'rationing' } },
+      ],
+      deadline: { months: 2, outcome: {
+        status: 'failed', effects: [{ kind: 'population', town: 'aldenhold', amount: -200 }],
+        journal: 'No help came for the granary. Two hundred people left Aldenhold for towns with bread.',
+      } },
+    },
+    {
+      id: 'rationing', text: 'Aldenhold is on short rations and raises no troops until the stores recover.', choices: [],
+      recruitBan: ['aldenhold'],
+      deadline: { months: 3, outcome: {
+        status: 'succeeded', effects: [{ kind: 'goods', town: 'aldenhold', good: 'food', amount: 60 }],
+        journal: 'Three hard months of rationing are over. Aldenhold\u2019s stores have recovered and recruiting resumes.',
+      } },
+    },
+  ],
+  onLocationLost: CAPITAL_LOST,
+};
+
+export const Q06_MILLER_ON_TRIAL: QuestDefinition = {
+  id: 'Q06', campaignIds: WEST, kind: 'side', name: 'The Miller on Trial', giver: 'The people of Millbrook', at: 'millbrook',
+  summary: 'Millbrook accuses Hobb the miller of hoarding grain while the village went hungry, and asks for your judgment.',
+  prerequisites: [{ kind: 'month', atLeast: 6 }, { kind: 'town-owner', town: 'millbrook', owner: 'player' }],
+  needsEnvoy: false,
+  stages: [
+    {
+      id: 'charge',
+      text: 'Investigate (your army must be in Millbrook to question the witnesses), fine Hobb on the villagers\u2019 word, or dismiss the charge.',
+      choices: [
+        { id: 'investigate', label: 'Question the witnesses', needs: [{ kind: 'army-at', place: 'millbrook' }], then: { stage: 'evidence' } },
+        { id: 'fine', label: 'Fine him on their word', then: {
+          status: 'failed', effects: [{ kind: 'gold', amount: 100 }, { kind: 'population', town: 'millbrook', amount: -150 }, { kind: 'flag', flag: 'miller-judged-unheard' }],
+          journal: 'You fined Hobb 100 gold without hearing him. Half of Millbrook calls it justice; a hundred and fifty of the other half packed up and left.',
+        } },
+        { id: 'dismiss', label: 'Dismiss the charge', then: {
+          status: 'failed', effects: [{ kind: 'population', town: 'millbrook', amount: -100 }, { kind: 'flag', flag: 'miller-dismissed' }],
+          journal: 'You dismissed the charge against Hobb. His accusers say there is no justice in Millbrook, and a hundred of them left.',
+        } },
+      ],
+    },
+    {
+      id: 'evidence',
+      text: 'Hobb\u2019s own grain ledger shows he sold Millbrook\u2019s grain to Westmere at famine prices. Convict him, or pardon him if he gives the grain back.',
+      onStart: [{ kind: 'item', item: 'hobbs-ledger' }],
+      choices: [
+        { id: 'convict', label: 'Convict him', requires: ['hobbs-ledger'], then: {
+          status: 'succeeded',
+          effects: [{ kind: 'archive', item: 'hobbs-ledger' }, { kind: 'gold', amount: 150 }, { kind: 'population', town: 'millbrook', amount: 150 }, { kind: 'flag', flag: 'miller-convicted' }],
+          journal: 'With his own ledger before the court, Hobb was convicted and fined 150 gold. Families who had left Millbrook came home.',
+        } },
+        { id: 'pardon', label: 'Pardon him for the grain', requires: ['hobbs-ledger'], then: {
+          status: 'succeeded',
+          effects: [{ kind: 'archive', item: 'hobbs-ledger' }, { kind: 'goods', town: 'millbrook', good: 'food', amount: 80 }, { kind: 'flag', flag: 'miller-pardoned' }],
+          journal: 'Shown his own ledger, Hobb begged pardon and returned 80 loads of grain to Millbrook\u2019s stores.',
+        } },
+      ],
+    },
+  ],
+  onLocationLost: { status: 'superseded', effects: [], journal: 'Millbrook fell before Hobb could be judged.' },
+};
+
 export const QUESTS: Record<string, QuestDefinition> = {
   [FENWICK_CHARTER.id]: FENWICK_CHARTER,
   [WOODLAND_ACCORD.id]: WOODLAND_ACCORD,
@@ -317,7 +405,9 @@ export const QUESTS: Record<string, QuestDefinition> = {
   [M02_BREAD_AND_LAW.id]: M02_BREAD_AND_LAW,
   [M03_CROSSING.id]: M03_CROSSING,
   [M04_INCURSION.id]: M04_INCURSION,
+  [Q01_EMPTY_GRANARY.id]: Q01_EMPTY_GRANARY,
   [Q02_ONE_EYE.id]: Q02_ONE_EYE,
   [Q03_OLD_TOWER.id]: Q03_OLD_TOWER,
   [Q05_MISSING_CARAVAN.id]: Q05_MISSING_CARAVAN,
+  [Q06_MILLER_ON_TRIAL.id]: Q06_MILLER_ON_TRIAL,
 };

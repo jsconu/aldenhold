@@ -20,6 +20,8 @@ import { townLocation } from './world';
 
 /** History marker for a stage that ended because its deadline passed. */
 export const DEADLINE = '(deadline)';
+/** History marker for a stage that ended because the quest's town changed hands. */
+export const LOCATION_LOST = '(location-lost)';
 
 const RESOLVED = new Set(['succeeded', 'failed', 'superseded']);
 
@@ -48,11 +50,18 @@ export function campaignQuests(state: GameState): QuestDefinition[] {
 /** The journal tracks at most this many quests; the header shows them as shortcuts to their towns. */
 export const MAX_TRACKED = 3;
 
-/** Open quests to show first: main objectives before side quests, then the longest-waiting. */
+/** Open quests to show first: main objectives, then whatever runs out soonest, then the longest-waiting. */
 export function trackedQuests(state: GameState): QuestDefinition[] {
+  const due = (def: QuestDefinition) => {
+    const p = state.quests[def.id];
+    const months = stageOf(def, p.stage)?.deadline?.months;
+    return months === undefined || p.stageTurn === null ? Infinity : p.stageTurn + months;
+  };
   return campaignQuests(state)
     .filter((def) => isOpen(state.quests[def.id]))
-    .sort((a, b) => (a.kind === b.kind ? 0 : a.kind === 'main' ? -1 : 1) || (state.quests[a.id].stageTurn ?? 0) - (state.quests[b.id].stageTurn ?? 0))
+    .sort((a, b) => (a.kind === b.kind ? 0 : a.kind === 'main' ? -1 : 1) ||
+      (due(a) === due(b) ? 0 : due(a) < due(b) ? -1 : 1) ||
+      (state.quests[a.id].stageTurn ?? 0) - (state.quests[b.id].stageTurn ?? 0))
     .slice(0, MAX_TRACKED);
 }
 
@@ -63,6 +72,19 @@ export function questsAtSite(state: GameState, placeId: string): QuestDefinition
     return isOpen(progress) && def.at !== placeId && (stageOf(def, progress.stage)?.choices ?? [])
       .some((c) => 'encounter' in c.then && c.then.encounter.site === placeId);
   });
+}
+
+/** The open quest stage that forbids raising troops in this town (rationing), if any. */
+export function recruitBan(state: GameState, townId: string): QuestDefinition | undefined {
+  return campaignQuests(state).find((def) => isOpen(state.quests[def.id]) &&
+    stageOf(def, state.quests[def.id].stage)?.recruitBan?.includes(townId));
+}
+
+/** Stages this quest has begun (the current one and every one in its history): their entry events have run. */
+export function enteredStages(def: QuestDefinition, progress: QuestProgress): QuestStage[] {
+  const ids = new Set(progress.history.map((h) => h.stage));
+  if (isOpen(progress)) ids.add(progress.stage);
+  return def.stages.filter((st) => ids.has(st.id));
 }
 
 /** Quests offered at a town in this campaign. */
@@ -137,6 +159,15 @@ function enterStage(state: GameState, def: QuestDefinition, stageId: string) {
   progress.stage = stageId;
   progress.stageTurn = state.turn;
   for (const event of stageOf(def, stageId)?.onStart ?? []) {
+    if (event.kind === 'item') {
+      grantItem(state, event.item);
+      continue;
+    }
+    if (event.kind === 'spoil') {
+      const city = state.cityEconomies[event.town];
+      if (city && state.towns[event.town]?.owner === 'player') city.goods[event.good] = Math.floor(city.goods[event.good] * event.keep);
+      continue;
+    }
     const at = startLocation(state, event.at);
     const troops = event.troops.map((t) => (typeof t === 'string' ? makeTroop(state, t) : makeTroop(state, t.type, t.name)));
     const army = armyAt(state, at, event.owner);
@@ -199,6 +230,8 @@ export function questQuote(state: GameState, questId: string, choiceId: string):
   if (!choice) return refuse('That choice is not open now.');
   const missing = choice.requires?.find((item) => heldQty(state, item) < 1);
   if (missing) return refuse(`You need the ${ITEMS[missing]?.name ?? missing}.`);
+  const unmet = choice.needs?.find((c) => !conditionHolds(state, c));
+  if (unmet) return refuse(`First: ${conditionText(state, unmet)}.`);
   // Talking needs an envoy near the giver; an encounter instead needs your army at its site (checked below).
   if (def.needsEnvoy && !('encounter' in choice.then)) {
     const at = townLocation(state, def.at);
@@ -327,6 +360,16 @@ function resolveQuest(state: GameState, def: QuestDefinition, resolution: QuestR
       case 'flag':
         if (!state.flags.includes(effect.flag)) state.flags.push(effect.flag);
         break;
+      case 'goods': {
+        const city = state.cityEconomies[effect.town];
+        if (city && state.towns[effect.town]?.owner === 'player') city.goods[effect.good] = Math.max(0, city.goods[effect.good] + effect.amount);
+        break;
+      }
+      case 'population': {
+        const town = state.towns[effect.town];
+        if (town && town.kind !== 'lair') town.pop = Math.max(100, town.pop + effect.amount);
+        break;
+      }
     }
   }
   deed(state, 'story', resolution.journal, townLocation(state, def.at));
@@ -365,7 +408,10 @@ export function onTownOwnershipChange(state: GameState, townId: string, owner: F
     // Taking the town may be the quest's goal: that is checked first, so it isn't mistaken for losing it.
     checkObjectives(state, def);
     if (owner === 'player' && def.survivesConquest) continue;
-    if (isOpen(state.quests[def.id])) resolveQuest(state, def, def.onLocationLost, 'location-lost');
+    const progress = state.quests[def.id];
+    if (!isOpen(progress)) continue;
+    progress.history.push({ stage: progress.stage, choice: LOCATION_LOST, turn: state.turn });
+    resolveQuest(state, def, def.onLocationLost, 'location-lost');
   }
 }
 

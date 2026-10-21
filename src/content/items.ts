@@ -40,6 +40,18 @@ export const ITEMS: Record<string, ItemDefinition> = {
     questIds: ['Q04'],
     policy: { sell: false, discard: false },
   },
+  'hobbs-ledger': {
+    id: 'hobbs-ledger',
+    name: 'Hobb\'s Grain Ledger',
+    kind: 'evidence',
+    description: 'The Millbrook miller\'s own accounts, in a cramped and guilty hand.',
+    rules: 'Evidence in the trial of Hobb the miller (Q06). Kept on record once the court has seen it.',
+    source: 'Q06',
+    value: 0,
+    transfer: 'campaign',
+    questIds: ['Q06'],
+    policy: { sell: false, discard: false },
+  },
   'healing-draught': {
     id: 'healing-draught',
     name: 'Healing Draught',
