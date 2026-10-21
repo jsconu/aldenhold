@@ -454,7 +454,7 @@ export interface QuestDefinition {
 }
 
 /** Signed cash movements: positive receipts, negative actual payments. */
-export type LedgerCategory = 'tax' | 'wages' | 'recruitment' | 'hero-hire' | 'construction' | 'maintenance' | 'refit' | 'quest' | 'quest-reward' | 'item-sale' | 'balance-correction';
+export type LedgerCategory = 'tax' | 'wages' | 'recruitment' | 'hero-hire' | 'construction' | 'maintenance' | 'refit' | 'quest' | 'quest-reward' | 'item-sale' | 'item-purchase' | 'balance-correction';
 
 /** One kind of object in the campaign inventory. `qty` + `spent` always equals the number quests granted. */
 export interface ItemHolding {
@@ -463,6 +463,8 @@ export interface ItemHolding {
   spent: number;
   /** Evidence a quest took as proof: kept in the record, no longer presentable. */
   archived: boolean;
+  /** Bought from a merchant; absent means none. Counts alongside quest grants in the inventory's balance. */
+  bought?: number;
 }
 export interface LedgerEntry {
   turn: number;

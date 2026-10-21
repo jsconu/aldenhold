@@ -12,6 +12,7 @@ import { RELATION_LABEL, relationWith } from '../game/diplomacy';
 import { FACTIONS } from '../content/factions';
 import type { Army, CampaignId, FactionId, GameState, QuestDefinition, Town, Troop } from '../game/types';
 import { HERO_SLOTS, unequipQuote } from '../game/items';
+import { buyQuote, merchantsAt, merchantStatus } from '../game/merchants';
 import { ITEMS } from '../content/items';
 import { renderJournal } from './journalView';
 import { renderTreasury } from './treasuryView';
@@ -207,6 +208,7 @@ function renderNodePanel(state: GameState, ui: UIState, at: string): string {
     html += `<p class="sub">Open country</p>`;
   }
   const site = town?.id ?? placeAt(state, at)?.id;
+  if (town) html += renderMerchants(state, town.id);
   if (town) html += renderQuests(state, questsAt(state, town.id));
   if (site) html += renderQuests(state, questsAtSite(state, site));
   for (const a of armies) html += renderArmy(state, ui, a);
@@ -299,6 +301,19 @@ function renderEncounterParty(state: GameState, preview: EncounterPreview): stri
     ${preview.reserves.length ? `<p><b>Off-field reserves:</b> ${names(preview.reserves)}. They stay off the field and earn no combat experience.</p>` : ''}
     ${preview.waiting.length ? `<p><b>Waiting outside:</b> ${names(preview.waiting)}</p>` : ''}
   </details>`;
+}
+
+/** Stalls in this town opened (or closed) by a quest's outcome, with a buy button per stocked item. */
+function renderMerchants(state: GameState, townId: string): string {
+  return merchantsAt(state, townId).map((m) => {
+    const status = merchantStatus(state, m)!;
+    const rows = status.open ? `<div class="quest-actions">${m.stock.map((line) => {
+      const q = buyQuote(state, m.id, line.item);
+      return `<div class="quest-option"><button data-action="buy-item" data-merchant="${m.id}" data-item="${line.item}" ${q.reason ? `disabled title="${esc(q.reason)}"` : ''}>
+        Buy ${esc(ITEMS[line.item].name)} · ${q.gold}g</button><small class="hint">${q.left} left this month${q.reason && q.left > 0 ? ` · ${esc(q.reason)}` : ''}</small></div>`;
+    }).join('')}</div>` : '';
+    return `<div class="quest-card merchant"><h3>${esc(m.name)}</h3><p class="sub">${esc(status.note)}</p>${rows}</div>`;
+  }).join('');
 }
 
 /** What a hero carries, each with a button to take it off (into the inventory) where that's allowed. */

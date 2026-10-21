@@ -4,6 +4,7 @@ import { EFFECTS } from '../content/spells';
 import { BATTLE_H, BATTLE_W, createBattle, FIELD_LIMIT } from './battle';
 import { CATALOG, getCampaign } from '../content';
 import { ITEMS } from '../content/items';
+import { MERCHANTS } from '../content/merchants';
 import { QUESTS } from '../content/quests';
 import { DEADLINE, encounterMark, enteredStages, isOpen, isResolved, LOCATION_LOST, lockedProgress, resolutionOf, stageOf } from './quests';
 import { newTreasury } from './economy';
@@ -45,7 +46,7 @@ const factions = ['player', 'orcs', 'neutral'];
 const deedKinds: DeedKind[] = ['story', 'battle', 'capture', 'loss', 'hero', 'realm', 'ending', 'earlier'];
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const sides = ['attacker', 'defender'];
-const ledgerCategories: LedgerCategory[] = ['tax', 'wages', 'recruitment', 'hero-hire', 'construction', 'maintenance', 'refit', 'quest', 'quest-reward', 'item-sale', 'balance-correction'];
+const ledgerCategories: LedgerCategory[] = ['tax', 'wages', 'recruitment', 'hero-hire', 'construction', 'maintenance', 'refit', 'quest', 'quest-reward', 'item-sale', 'item-purchase', 'balance-correction'];
 
 /** Validate both shape and references before exposing a save to rules or rendering. */
 function validate(value: unknown, allowMissingBattleTroops = false): asserts value is GameState {
@@ -167,7 +168,7 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
       'treasury does not reconcile');
     requireValue(transactions.filter((e) => e.category === 'tax').reduce((sum, e) => sum + Number(e.amount), 0) === month.income,
       'treasury income total');
-    requireValue(-transactions.filter((e) => ['wages', 'recruitment', 'hero-hire', 'construction', 'maintenance', 'refit', 'quest'].includes(String(e.category)))
+    requireValue(-transactions.filter((e) => ['wages', 'recruitment', 'hero-hire', 'construction', 'maintenance', 'refit', 'quest', 'item-purchase'].includes(String(e.category)))
       .reduce((sum, e) => sum + Number(e.amount), 0) === month.expenses, 'treasury expense total');
   }
   const history = array(treasury.history);
@@ -250,6 +251,9 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
   for (const [id, entry] of Object.entries(inventory)) {
     const h = object(entry);
     requireValue(Object.hasOwn(ITEMS, id) && integer(h.qty, 0) && integer(h.spent, 0) && bool(h.archived), 'inventory objects');
+    // Only goods a merchant stocks can have been bought.
+    requireValue(h.bought === undefined || (integer(h.bought, 1) &&
+      Object.values(MERCHANTS).some((m) => m.stock.some((line) => line.item === id))), 'bought objects');
     // A holding can stand at zero held and zero spent while heroes carry every copy; conservation checks the total.
   }
   const treaties = object(s.treaties);
@@ -289,13 +293,15 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
   for (const a of (s.armies as GameState['armies'])) for (const t of a.troops) {
     for (const id of Object.values(t.kit ?? {})) if (id) carried.set(id, (carried.get(id) ?? 0) + 1);
   }
-  for (const [item, count] of granted.items) {
-    requireValue(Object.hasOwn(inventory, item), 'missing quest reward');
-    const h = inventory[item] as { qty: number; spent: number };
-    requireValue(h.qty + h.spent + (carried.get(item) ?? 0) === count, 'inventory count does not match what quests granted');
+  for (const item of granted.items.keys()) requireValue(Object.hasOwn(inventory, item), 'missing quest reward');
+  requireValue(Object.entries(inventory).every(([item, h]) => granted.items.has(item) || ((h as { bought?: number }).bought ?? 0) > 0),
+    'inventory object with no quest that granted it');
+  for (const [item, entry] of Object.entries(inventory)) {
+    const h = entry as { qty: number; spent: number; bought?: number };
+    requireValue(h.qty + h.spent + (carried.get(item) ?? 0) === (granted.items.get(item) ?? 0) + (h.bought ?? 0),
+      'inventory count does not match what quests granted and merchants sold');
   }
   requireValue([...carried.keys()].every((item) => granted.items.has(item)), 'carried equipment no quest granted');
-  requireValue(Object.keys(inventory).every((item) => granted.items.has(item)), 'inventory object with no quest that granted it');
   for (const [item, entry] of Object.entries(inventory)) {
     requireValue((entry as { archived: boolean }).archived === granted.archived.has(item), 'archived evidence');
     requireValue(ITEMS[item].policy.sell || ITEMS[item].policy.discard || ITEMS[item].use || (entry as { spent: number }).spent === 0, 'spent an object that cannot be spent');

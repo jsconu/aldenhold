@@ -6,7 +6,7 @@ import { esc } from './shared';
 const CATEGORY: Record<LedgerCategory, string> = {
   tax: 'Town taxes', wages: 'Army wages', recruitment: 'Recruitment', 'hero-hire': 'Hero hiring',
   construction: 'Construction', maintenance: 'City maintenance', refit: 'Formation refits',
-  quest: 'Quest payments', 'quest-reward': 'Quest rewards', 'item-sale': 'Item sales', 'balance-correction': 'Balance adjustment',
+  quest: 'Quest payments', 'quest-reward': 'Quest rewards', 'item-sale': 'Item sales', 'item-purchase': 'Merchant purchases', 'balance-correction': 'Balance adjustment',
 };
 
 function money(amount: number): string {

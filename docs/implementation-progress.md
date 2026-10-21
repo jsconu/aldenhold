@@ -478,3 +478,29 @@ Validation: 352 tests pass, including 11 new ones:
 - save rejections, the v12 → v13 backfill, and content checks
 
 The build passes. In the browser: winning M01 put the Oathlance in the inventory, "Give to Aldric" moved it onto the lord's row, and "take off" returned it. No console errors.
+
+## Q05 follow-up: Merra's stall (#9, QUEST-08)
+
+How the caravan quest ended now changes what Fenwick offers. A rescued trader reappears in her town (QUEST-08), and merchant support differs by outcome.
+
+- **Rescued:** Merra trades at cost (Healing Draught 40 g, Mana Draught 50 g).
+- **Ransomed:** she charges half again (60 g, 75 g) while she rebuilds.
+- **Lost:** Fenwick's panel shows her stall standing empty.
+- **Before Q05 ends:** nothing shows. If Fenwick falls to the orcs, the stall is boarded up.
+- **Buying:** you need an army at Fenwick or next to it. She stocks two Healing Draughts and one Mana Draught a month; the count comes from this month's ledger entries, so it needs no new state. Purchases go through the treasury as a new `item-purchase` expense, shown as "Merchant purchases".
+- **Content:** merchants are content (`content/merchants.ts`), with the opening outcome flags and their markups, the closing flags, and monthly stock. Content validation checks the quest, the town, tradable goods only, stock counts and markups of at least 1.
+- **Saves:** holdings record how many were `bought` (absent means none). Conservation is now held + carried + spent = granted + bought, and only goods some merchant stocks can have been bought. This is an optional field, so there's no schema bump.
+
+Also: building the Western Realm's roads now ends each search once the next stop is reached, instead of exploring the whole map for every segment. The roads come out byte-identical; building them went from about 507 ms to 53 ms. That speeds up content validation at startup and fixes two quest-validation tests that timed out under the full parallel run.
+
+Validation: 362 tests pass, including 7 new merchant tests:
+- hidden before the outcome
+- ransom pricing, monthly stock and restock
+- ledger reconciliation with no balance correction
+- rescue pricing and the panel
+- the empty stall
+- envoy range and orc capture
+- bought draughts sold on, with forged counts and unstocked purchases rejected
+- content checks
+
+The build passes. In the browser, after a ransom, Fenwick showed the stall at 60 g and 75 g, and buying one left one in stock, with the gold shortfall stated. No console errors.
