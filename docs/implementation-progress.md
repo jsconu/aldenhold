@@ -205,3 +205,20 @@ Quests are now data (`content/quests.ts`), run by one engine (`game/quests.ts`).
 - **UI:** the town panel shows a card for each quest offered there, the header button jumps to the next open quest, and the journal lists main objectives and side quests with their outcome and a link to the town.
 
 Validation: 228 tests pass, including 10 new engine tests on two-stage fixture quests (unlock, full success across reloads, refusal, deadline failure, location loss, forged and missing rewards, content validation and v10 → v11 migration). Build passes. In the browser I checked the charter card, signing it, the header shortcut and the journal ledger.
+
+
+## Seamless overland and battle artwork
+
+- Both playable map types hide permanent hex borders. The short valley atlas now blends the underlying land-colour polygons, while terrain motifs remain crisp; its watercourse is drawn as a continuous meandering river beneath roads and site art.
+- The Western Realm's real 40×28 hex map still uses its unchanged integer coordinates, map contents, movement costs, fog/hazard rules and click geometry. Its pixel-art painter now diffuses only a narrow band at neighboring terrain seams before overlaying sharp roads and bridges. Tactical reach and selection show soft circular highlights rather than hex-shaped outlines.
+- Battlefield painting is separated into soft-edged ground colours, deterministic connected forests/creeks/hill shading, crisp SVG vegetation/ruins and pixel-art formation tokens. Click hitboxes retain exact hex geometry invisibly; reachable and spell-affected cells use round glows. Unit selection/ring indicators are ellipses rather than permanent hex borders.
+- Artwork is generated deterministically from the existing world and battle state. No schema migration, world data changes, movement rebalancing, or added copyrighted assets.
+- Next art pass still needed: review actual screenshots in a browser; larger hand-authored settlement sprites, forests and mountain slope layering, more organic river/road junctions and tile transition quality at the Western Realm's current native pixel resolution.
+
+
+## Place art: distinctive Western Realm silhouettes
+
+- Original 34×24 native-pixel miniature illustrations now replace the generic town stamp at Aldenhold, Fenwick, Millbrook, Greenveil, Harrowgate, Westmere, Duskwater, Reedhaven and Gharzak Hold. Stone Bridge has an original arched crossing sprite.
+- Site silhouettes use composable hand-authored pixel primitives: keep walls and banners, village rooflines, a working mill's sails, woodland pines, merchant harbor, stilt houses, marsh reeds and the orc citadel's spikes and ember-lit windows.
+- Every existing town keeps its ID, ownership and campaign rules. Ownership flags recolor without duplicating entire art assets. Other landmarks and future towns still use the existing generic artwork.
+- Added pixel palette/uniqueness/ownership/renderer tests. Remaining: richer multi-tile city panoramas, transition-art blending, 20-city completed campaign art, sprite previews at phone scale and in-browser art direction approval.

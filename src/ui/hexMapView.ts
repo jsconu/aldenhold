@@ -2,6 +2,7 @@ import type { Army, FactionId, GameState, HexWorld } from '../game/types';
 import { arrivalOutcome } from '../game/campaign';
 import { hasRoad, hexLand, locationName, parseKey, type MarchStep } from '../game/world';
 import { pixelRects } from './pixelSprites';
+import { WESTERN_PLACE_ART } from './settlementSprites';
 import { mapPixelSize, paintTerrain, tileCenter, tilePolygon } from './pixelTiles';
 import { esc, type UIState } from './shared';
 
@@ -15,10 +16,12 @@ const OWNER_COLOUR: Record<FactionId, string> = { player: '#5555ff', orcs: '#ff3
 const MAP_PALETTE: Record<string, string> = {
   k: '#10100c', w: '#ffffff', g: '#c8c0a8', G: '#8a8270', s: '#b0a890', S: '#5a5048', b: '#6a4a20', B: '#2a1a10',
   y: '#ffff55', R: '#c83c28', r: '#ff7a3c', H: '#6a8a3a', c: '#55ffff',
+  L: '#718fa3', o: '#d9bc77', v: '#377b56',
 };
 
 /** Map sprites for towns and landmarks, same character scheme as the unit sprites. 'F' is the owner's colour. */
 export const PLACE_SPRITES: Record<string, string[]> = {
+  ...WESTERN_PLACE_ART,
   town: [
     '...k..........',
     '...kFF........',
@@ -72,6 +75,7 @@ export const PLACE_SPRITES: Record<string, string[]> = {
 
 /** Which map sprite a place uses: towns by kind, landmarks by id. */
 function spriteFor(state: GameState, placeId: string, kind: 'town' | 'landmark'): string | null {
+  if (PLACE_SPRITES[placeId]) return placeId;
   if (kind === 'town') {
     const t = state.towns[placeId];
     return t?.kind === 'capital' ? 'capital' : t?.kind === 'lair' ? 'lair' : 'town';
@@ -94,7 +98,7 @@ function use(name: string, owner: FactionId, cx: number, bottom: number): string
   const rows = PLACE_SPRITES[name];
   const w = rows[0].length;
   const h = rows.length;
-  return `<use href="#map-${name}-${owner}" x="${cx - w / 2}" y="${bottom - h}" width="${w}" height="${h}"/>`;
+  return `<use href="#map-${name}-${owner}" x="${cx - w / 2}" y="${bottom - h}" width="${w}" height="${h}" class="map-place-sprite"/>`;
 }
 
 const terrainCache = new WeakMap<HexWorld, string>();
@@ -130,15 +134,16 @@ export function renderHexMap(
     return { col, row, centre: tileCenter(col, row) };
   };
 
-  // Reachable hexes get a light wash; hexes where the march would end in a fight or capture get a red edge.
+  // Glowing positions indicate legal moves. The invisible hit polygons still use exact hex rules.
   let reach = '';
   for (const [key] of targets) {
     const { col, row } = cell(key);
     const ends = arrivalOutcome(state, key) !== null;
-    reach += `<polygon points="${tilePolygon(col, row)}" class="reach${ends ? ' ends' : ''}"/>`;
+    const [cx, cy] = tileCenter(col, row);
+    reach += `<ellipse cx="${cx}" cy="${cy}" rx="11" ry="9" class="reach${ends ? ' ends' : ''}"/>`;
   }
   const sel = ui.selected && /^\d+,\d+$/.test(ui.selected) ? cell(ui.selected) : null;
-  const selection = sel ? `<polygon points="${tilePolygon(sel.col, sel.row)}" class="selected"/>` : '';
+  const selection = sel ? `<ellipse cx="${sel.centre[0]}" cy="${sel.centre[1]}" rx="11" ry="9" class="selected"/>` : '';
 
   let places = '';
   let labels = '';

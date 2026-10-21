@@ -114,7 +114,7 @@ main { display: grid; grid-template-columns: minmax(0, 1fr) 340px; min-height: c
 .log li { padding: 3px 0; border-bottom: 1px solid #332f28; }
 
 /* Battle */
-.hex { stroke: #1f2a1a; stroke-width: 1.5; }
+.hex { stroke: none; stroke-width: 0; }
 .hex.plain { fill: #3d4d33; }
 .hex.forest { fill: #2c3d26; }
 .hex.hill { fill: #545637; }
@@ -287,7 +287,7 @@ button.link { background: none; border: none; padding: 0; color: var(--gold); te
   box-shadow: 0 5px 18px #0b100b88, 0 0 0 1px #7f724f inset;
   touch-action: manipulation;
 }
-.atlas-tile .atlas-ground { stroke: #26372b; stroke-width: .65; }
+.atlas-tile .atlas-ground { stroke: none; stroke-width: 0; }
 .biome-grass .atlas-ground { fill: #647751; }
 .biome-farmland .atlas-ground { fill: #82905c; }
 .biome-forest .atlas-ground { fill: #405c40; }
@@ -393,7 +393,7 @@ button.travel-destination b { color: var(--gold); font-size: 11px; }
 .plan-route-button { font: 600 12px/1.4 system-ui, sans-serif; }
 
 /* Spell targeting overlays appear only while aiming; terrain art stays untouched. */
-.hit.spell-area { fill: #ffb347; fill-opacity: 0.28; stroke: #ffb347; stroke-width: 2; }
+.hit.spell-area { fill: transparent; stroke: none; }
 .unit.spell-affected .body { stroke: #ffd27a; stroke-width: 3; }
 .effect-badge { fill: #fff078; font-size: 14px; paint-order: stroke; stroke: #171320; stroke-width: 2px; }
 .spell-preview { border: 1px solid var(--gold); padding: 10px; margin-top: 10px; }
@@ -405,9 +405,9 @@ button.travel-destination b { color: var(--gold); font-size: 11px; }
 .overland use, .overland .map-army, .overland .place-label, .overland .army-count { pointer-events: none; }
 .overland .cell { fill: transparent; cursor: pointer; }
 .overland .cell:hover { fill: rgba(255, 255, 255, 0.14); }
-.overland .reach { fill: rgba(255, 250, 200, 0.3); }
-.overland .reach.ends { fill: rgba(255, 90, 60, 0.32); stroke: #ff5a3c; stroke-width: 1; }
-.overland .selected { fill: rgba(255, 221, 85, 0.18); stroke: #ffdd55; stroke-width: 1.5; }
+.overland .reach { fill: #ffec99; opacity: .44; filter: drop-shadow(0 0 2px #fff1ab); }
+.overland .reach.ends { fill: #f18a6d; opacity: .7; stroke: none; }
+.overland .selected { fill: #ffdb78; opacity: .52; stroke: none; filter: drop-shadow(0 0 3px #ffdd55); }
 .overland .place-label { font: bold 7px ui-monospace, Consolas, monospace; fill: #ffffff; text-anchor: middle; paint-order: stroke; stroke: #10100c; stroke-width: 2.4px; }
 .overland .place-label.landmark { font-weight: normal; font-style: italic; fill: #ece0b4; }
 .overland .army-count { font: bold 7px ui-monospace, Consolas, monospace; fill: #ffffff; paint-order: stroke; stroke: #10100c; stroke-width: 2.4px; }
@@ -420,3 +420,53 @@ button.travel-destination b { color: var(--gold); font-size: 11px; }
 .campaign-card { border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px; background: var(--panel-2); }
 .campaign-card h3 { margin: 0 0 4px; color: var(--gold); }
 .campaign-card p { margin: 0 0 10px; font-size: 14px; }
+
+
+/* Seamless terrain: the simulation still uses precise hex coordinates, but no
+   permanent hex lattice or hex-shaped move markers is visible in either map. */
+.field .battle-earth { fill: #44543c; }
+.field .battle-terrain-wash { pointer-events: none; }
+.field .battle-terrain-wash .hex { stroke: none; stroke-width: 0; }
+.field .battle-surface-details { pointer-events: none; }
+.field .battle-move-highlights { pointer-events: none; }
+.field .battle-spot { pointer-events: none; stroke: none; }
+.field .battle-spot-reach { fill: url(#battle-selection-glow); }
+.field .battle-spot-spell { fill: url(#battle-spell-glow); }
+.field .hit { fill: transparent; stroke: none; }
+.field .hit:hover { fill: rgba(255, 255, 255, .09); stroke: none; }
+.field .unit .mark { fill: none; stroke: none; }
+.field .unit.sel .mark { stroke: #ffe394; stroke-width: 2.4; }
+.field .unit.target .mark { stroke: #f96a46; stroke-width: 2.4; stroke-dasharray: 4 4; }
+.field .unit.boon .mark { stroke: #77d79b; stroke-width: 2.4; stroke-dasharray: 4 4; }
+.field .unit.spell-affected .mark { stroke: #ffc976; stroke-width: 2; }
+.atlas-ground { stroke: none !important; }
+.atlas-watercourse { opacity: .88; }
+.atlas-river-bank { fill: none; stroke: #2d4d47; stroke-width: 26; stroke-linecap: round; stroke-linejoin: round; }
+.atlas-river-water { fill: none; stroke: #427d86; stroke-width: 19; stroke-linecap: round; stroke-linejoin: round; }
+.atlas-river-sheen { fill: none; stroke: #87afb0; stroke-opacity: .48; stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 19 12; }
+.atlas-terrain-details { pointer-events: none; }
+.atlas-terrain-details .atlas-feature { opacity: .8; }
+.overland .reach, .overland .selected { stroke: none !important; }
+.overland .cell { stroke: none !important; }
+
+
+/* Environmental ribbons connect adjacent patches across tactical cells. */
+.battle-woodland-shade { fill: none; stroke: #2d5031; stroke-width: 34; stroke-linecap: round; opacity: .28; }
+.battle-ridge-shade { fill: none; stroke: #a7a16a; stroke-width: 28; stroke-linecap: round; opacity: .16; }
+.battle-water-ribbon { fill: none; stroke: #367588; stroke-width: 20; stroke-linecap: round; stroke-linejoin: round; opacity: .7; }
+.battle-water-pool { fill: #407d8b; opacity: .55; }
+.battle-water-ripple { fill: none; stroke: #a8ced3; stroke-width: 1.8; stroke-linecap: round; opacity: .9; }
+.battle-wild-grass { fill: none; stroke: #668651; stroke-width: 1.4; stroke-linecap: round; opacity: .6; }
+.battle-wildflower { fill: #d7c781; opacity: .9; }
+.battle-forest-shadow { fill: #203e29; opacity: .35; }
+.battle-scree { fill: none; stroke: #8b8878; stroke-width: 2; stroke-linecap: round; }
+
+
+/* Western Realm settlements now have their own hand-composed 34×24 silhouettes.
+   A small cast shadow separates rooftops from detailed terrain without a hex base. */
+.overland .map-place-sprite {
+  image-rendering: pixelated;
+  shape-rendering: crispEdges;
+  filter: drop-shadow(0 2px 1px #111a14aa);
+  pointer-events: none;
+}
