@@ -12,6 +12,7 @@ import { esc, type UIState } from './ui/shared';
 import { loadGame, MAX_SAVE_BYTES, parseSave, saveGame } from './game/saves';
 import { CATALOG } from './content';
 import { chooseQuest } from './game/quests';
+import { discardItem, sellItem, useItem } from './game/items';
 import { QUESTS } from './content/quests';
 import { buildCity, BUILDINGS } from './game/cities';
 import { beginRefit, EQUIPMENT } from './game/equipment';
@@ -143,6 +144,15 @@ function onAction(action: string, data: DOMStringMap) {
     }
     case 'quest-choice':
       ui.message = chooseQuest(state, data.quest ?? '', data.choice ?? '') ?? '';
+      break;
+    case 'use-item':
+      ui.message = useItem(state, data.item ?? '', Number(data.troop)) ?? '';
+      break;
+    case 'sell-item':
+      ui.message = sellItem(state, data.item ?? '') ?? '';
+      break;
+    case 'discard-item':
+      ui.message = discardItem(state, data.item ?? '') ?? '';
       break;
     case 'refit': {
       const item = data.item as EquipmentId;

@@ -8,6 +8,8 @@ import { renderHexMap } from './hexMapView';
 import { SPELLS, UNIT_TYPES } from '../game/data';
 import { heroLevel, heroMaxHp, heroMaxMana, level } from '../game/units';
 import { EQUIPMENT, refitQuote, equipmentUpkeep, usesBow } from '../game/equipment';
+import { RELATION_LABEL, relationWith } from '../game/diplomacy';
+import { FACTIONS } from '../content/factions';
 import type { Army, CampaignId, FactionId, GameState, Town } from '../game/types';
 import { renderJournal } from './journalView';
 import { renderTreasury } from './treasuryView';
@@ -17,7 +19,7 @@ import { esc, type UIState } from './shared';
 import { renderOverland } from './overlandMap';
 import { previewRoute, type RoutePreview } from '../game/overlandRoutes';
 
-const OWNER_LABEL: Record<FactionId, string> = { player: 'Yours', orcs: 'Orcs', neutral: 'Free town' };
+const OWNER_LABEL = (owner: FactionId) => FACTIONS[owner].ownerLabel;
 
 /** Where the ticked troops at the selected location can march this month, with the cheapest route to each. */
 export function moveTargets(state: GameState, ui: UIState): Map<string, MarchStep> {
@@ -142,7 +144,7 @@ function renderTravelGuide(state: GameState, ui: UIState): string {
     const buttonText = ready.has(id) ? 'March' : 'Inspect';
     return `<button data-action="node" data-node="${esc(id)}" class="travel-destination">
       <span>${esc(nodeName(state, id))}</span>
-      <small>${owner ? OWNER_LABEL[owner] : 'Landmark'}${garrison ? ' · Garrison' : ''}</small>
+      <small>${owner ? OWNER_LABEL(owner) : 'Landmark'}${garrison ? ' · Garrison' : ''}</small>
       <b>${buttonText} →</b></button>`;
   }).join('');
   return `<details class="travel-guide" open>
@@ -173,7 +175,10 @@ function renderNodePanel(state: GameState, ui: UIState, at: string): string {
   let html = `<h2>${esc(nodeName(state, at))}</h2>`;
   const world = worldOf(state);
   if (town) {
-    html += `<p class="sub">${town.kind === 'lair' ? 'Orc stronghold' : town.kind === 'capital' ? 'Your capital' : 'Town'} · ${OWNER_LABEL[town.owner]}</p>`;
+    html += `<p class="sub">${town.kind === 'lair' ? 'Orc stronghold' : town.kind === 'capital' ? 'Your capital' : 'Town'} · ${OWNER_LABEL(town.owner)}${(() => {
+      const relation = relationWith(state, id);
+      return relation && relation !== 'self' && town.kind !== 'lair' ? ` · ${RELATION_LABEL[relation]}` : '';
+    })()}</p>`;
     if (town.kind !== 'lair') html += `<p>Population <b>${town.pop.toLocaleString()}</b></p>`;
     if (town.owner === 'player' && town.kind !== 'lair') {
       const growth = townGrowth(town);
@@ -186,7 +191,7 @@ function renderNodePanel(state: GameState, ui: UIState, at: string): string {
       if (town.kind !== 'capital') html += `<p class="sub">Knights can only be raised in ${esc(nodeName(state, campaignOf(state).capital))}.</p>`;
       html += renderCityDevelopment(state, id);
       html += renderOffers(state, id);
-    } else if (town.owner === 'neutral' && state.treaties[id]?.relation === 'ally') {
+    } else if (relationWith(state, id) === 'ally' || relationWith(state, id) === 'vassal') {
       html += `<p class="sub">Allied free town: it keeps its own rule and taxes.</p>${renderRecruit(state, town, 'Allied troops')}`;
     }
   } else if (world.kind === 'hex') {

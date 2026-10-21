@@ -30,10 +30,25 @@ export function validateContent(catalog: Catalog): string[] {
     if (!['friend', 'enemy', 'either'].includes(spell.target) || typeof spell.lineOfSight !== 'boolean') err(`spell ${key}: invalid targeting rules`);
   }
   for (const [key, terrain] of Object.entries(catalog.terrain)) if (terrain.id !== key) err(`terrain ${key}: id is "${terrain.id}"`);
+  for (const [id, f] of Object.entries(catalog.factions)) {
+    if (f.id !== id) err(`faction ${id}: mismatched id "${f.id}"`);
+    if (!/^#[0-9a-f]{6}$/i.test(f.colour)) err(`faction ${id}: invalid colour "${f.colour}"`);
+  }
+  if (Object.values(catalog.factions).filter((f) => f.kind === 'player').length !== 1) err('factions: there must be exactly one player faction');
+  for (const [cid, c] of Object.entries(catalog.campaigns)) {
+    for (const t of c.towns) if (!catalog.factions[t.owner]) err(`campaign ${cid}: town ${t.id} has unknown owner "${t.owner}"`);
+    for (const a of c.armies) if (!catalog.factions[a.owner]) err(`campaign ${cid}: army at ${a.at} has unknown owner "${a.owner}"`);
+  }
   for (const [id, item] of Object.entries(catalog.items)) {
     if (item.id !== id) err(`item ${id}: mismatched id "${item.id}"`);
     if (item.value < 0 || !Number.isFinite(item.value)) err(`item ${id}: invalid value`);
     for (const questId of item.questIds) if (!Object.hasOwn(catalog.quests, questId)) err(`item ${id}: unknown quest "${questId}"`);
+    // Policies (ITEM-01): relics and evidence are never sold; only consumables are used up.
+    if ((item.kind === 'relic' || item.kind === 'evidence') && item.policy.sell) err(`item ${id}: a ${item.kind} cannot be sellable`);
+    if (item.kind === 'relic' && item.policy.discard) err(`item ${id}: a relic cannot be thrown away`);
+    if (item.policy.sell && item.value <= 0) err(`item ${id}: sellable but has no value`);
+    if ((item.kind === 'consumable') !== (item.use !== undefined)) err(`item ${id}: only consumables have a use, and every consumable needs one`);
+    if (item.use && !(item.use.hp ?? 0) && !(item.use.mana ?? 0)) err(`item ${id}: its use restores nothing`);
   }
   validateQuests(catalog, err);
   for (const type of catalog.hireableHeroes) {
@@ -222,6 +237,7 @@ function validateQuests(catalog: Catalog, err: (msg: string) => void) {
         if (choiceIds.has(c.id)) err(`${where}: duplicate choice "${c.id}" in stage "${stage.id}"`);
         choiceIds.add(c.id);
         if (c.gold !== undefined && (!Number.isInteger(c.gold) || c.gold < 0)) err(`${where}: choice "${c.id}" has an invalid cost`);
+        for (const item of c.requires ?? []) if (!catalog.items[item]) err(`${where}: choice "${c.id}" requires unknown item "${item}"`);
       }
     }
     const resolutions = [
@@ -235,6 +251,9 @@ function validateQuests(catalog: Catalog, err: (msg: string) => void) {
     for (const r of resolutions) {
       for (const e of r.effects) {
         if (e.kind === 'item' && !catalog.items[e.item]) err(`${where}: rewards unknown item "${e.item}"`);
+        if (e.kind === 'item' && catalog.items[e.item] && (e.qty ?? 1) !== 1 && catalog.items[e.item].kind !== 'consumable') err(`${where}: only consumables can be granted more than one at a time`);
+        if (e.kind === 'item' && e.qty !== undefined && (!Number.isInteger(e.qty) || e.qty < 1)) err(`${where}: invalid item quantity`);
+        if (e.kind === 'archive' && catalog.items[e.item]?.kind !== 'evidence') err(`${where}: can only archive evidence, not "${e.item}"`);
         if (e.kind === 'treaty' && !q.campaignIds.every((cid) => catalog.campaigns[cid]?.towns.some((t) => t.id === e.town))) err(`${where}: treaty with unknown town "${e.town}"`);
       }
     }

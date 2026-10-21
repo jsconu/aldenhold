@@ -10,10 +10,11 @@ export function recordPurchase(state: GameState, city: string, category: 'recrui
   state.treasury.pending.push({ turn: state.turn, city, category, amount: -price, counterparty, actionId });
 }
 
-/** Records a one-time receipt (a quest reward) already added to gold by a rules action. Not tax income. */
-export function recordReceipt(state: GameState, city: string, amount: number, actionId: string, counterparty: string) {
+/** Records a one-time receipt (a quest reward or a sale) already added to gold by a rules action. Not tax income. */
+export function recordReceipt(state: GameState, city: string, amount: number, actionId: string, counterparty: string,
+  category: 'quest-reward' | 'item-sale' = 'quest-reward') {
   if (amount <= 0) return;
-  state.treasury.pending.push({ turn: state.turn, city, category: 'quest-reward', amount, counterparty, actionId });
+  state.treasury.pending.push({ turn: state.turn, city, category, amount, counterparty, actionId });
 }
 
 export interface CashFlow {

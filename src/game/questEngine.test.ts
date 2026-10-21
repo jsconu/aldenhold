@@ -180,11 +180,11 @@ describe('save migration v10 → v11', () => {
     delete v10.flags;
     v10.quests = { Q00: { status: 'succeeded', stage: 'resolved', choice: 'sign', resolvedTurn: 1 } };
     const restored = parseSave(JSON.stringify(v10));
-    expect(restored.version).toBe(11);
+    expect(restored.version).toBe(12);
     expect(restored.quests.Q00).toEqual({ status: 'succeeded', stage: 'resolved', choice: 'sign', resolvedTurn: 1,
       resolvedBy: 'choice', stageTurn: null, history: [{ stage: 'decision', choice: 'sign', turn: 1 }] });
     expect(restored.quests[TOLL.id].status).toBe('unavailable');
     expect(restored.flags).toEqual([]);
-    expect(restored.items).toEqual(['fenwick-charter']);
+    expect(restored.items).toEqual({ 'fenwick-charter': { qty: 1, spent: 0, archived: false } });
   });
 });

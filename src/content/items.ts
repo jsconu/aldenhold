@@ -8,6 +8,10 @@ export interface ItemDefinition {
   value: number;
   transfer: 'campaign' | 'hero' | 'tradable';
   questIds: string[];
+  /** What you may do with it. Relics and evidence can never be sold (content validation enforces it). */
+  policy: { sell: boolean; discard: boolean };
+  /** Consumables only: when it can be used, on whom, and what it restores. One is used per use. */
+  use?: { phase: 'campaign'; target: 'hero'; hp?: number; mana?: number };
 }
 
 /** Definitions are data, not hard-coded UI behavior; campaign state owns the actual inventory. */
@@ -22,6 +26,7 @@ export const ITEMS: Record<string, ItemDefinition> = {
     value: 0,
     transfer: 'campaign',
     questIds: ['Q00'],
+    policy: { sell: false, discard: false },
   },
   'woodland-charter': {
     id: 'woodland-charter',
@@ -33,5 +38,32 @@ export const ITEMS: Record<string, ItemDefinition> = {
     value: 0,
     transfer: 'campaign',
     questIds: ['Q04'],
+    policy: { sell: false, discard: false },
+  },
+  'healing-draught': {
+    id: 'healing-draught',
+    name: 'Healing Draught',
+    kind: 'consumable',
+    description: 'A stoppered flask of bitter green cordial from the Hillcrest brothers.',
+    rules: 'Between battles, a hero who drinks it recovers up to 12 HP, never above their maximum. One flask per use.',
+    source: 'Quest rewards (from the Western chapter quests)',
+    value: 40,
+    transfer: 'tradable',
+    questIds: [],
+    policy: { sell: true, discard: true },
+    use: { phase: 'campaign', target: 'hero', hp: 12 },
+  },
+  'mana-draught': {
+    id: 'mana-draught',
+    name: 'Mana Draught',
+    kind: 'consumable',
+    description: 'A faintly glowing blue tincture that tastes of cold iron.',
+    rules: 'Between battles, a spellcaster who drinks it recovers up to 6 mana, never above their maximum. One flask per use.',
+    source: 'Quest rewards (from the Western chapter quests)',
+    value: 50,
+    transfer: 'tradable',
+    questIds: [],
+    policy: { sell: true, discard: true },
+    use: { phase: 'campaign', target: 'hero', mana: 6 },
   },
 };

@@ -7,10 +7,10 @@ import { parseSave } from './saves';
 describe('Fenwick Charter quest foundation', () => {
   it('starts as one undecided quest and no free item or treaty', () => {
     const s = newGame(1);
-    expect(s.version).toBe(11);
+    expect(s.version).toBe(12);
     expect(s.quests.Q00).toEqual({ status: 'available', stage: 'decision', choice: null, resolvedTurn: null,
       resolvedBy: null, stageTurn: 1, history: [] });
-    expect(s.items).toEqual([]);
+    expect(s.items).toEqual({});
     expect(s.treaties).toEqual({});
   });
 
@@ -18,12 +18,12 @@ describe('Fenwick Charter quest foundation', () => {
     const s = newGame(1);
     expect(chooseQuest(s, 'Q00', 'sign')).toBeNull();
     expect(s.quests.Q00).toMatchObject({ status: 'succeeded', choice: 'sign', resolvedTurn: 1 });
-    expect(s.items).toEqual(['fenwick-charter']);
+    expect(s.items).toEqual({ 'fenwick-charter': { qty: 1, spent: 0, archived: false } });
     expect(s.treaties.fenwick).toEqual({ relation: 'ally', passage: true, signedTurn: 1 });
     expect(s.journal.at(-1)?.text).toContain('Signed the Fenwick Charter');
     expect(chooseQuest(s, 'Q00', 'sign')).toContain('already decided');
     expect(chooseQuest(s, 'Q00', 'decline')).toContain('already decided');
-    expect(s.items).toHaveLength(1);
+    expect(Object.keys(s.items)).toHaveLength(1);
     expect(s.journal.filter((j) => j.text.includes('Signed the Fenwick Charter'))).toHaveLength(1);
   });
 
@@ -45,7 +45,7 @@ describe('Fenwick Charter quest foundation', () => {
     const s = newGame(1);
     expect(chooseQuest(s, 'Q00', 'decline')).toBeNull();
     expect(s.quests.Q00).toMatchObject({ status: 'failed', choice: 'decline' });
-    expect(s.items).toEqual([]);
+    expect(s.items).toEqual({});
     expect(hasPassage(s, 'player', 'fenwick')).toBe(false);
     const a = armyAt(s, 'aldenhold', 'player')!;
     moveTroops(s, 'aldenhold', a.troops.map((t) => t.id), 'fenwick');
@@ -56,7 +56,7 @@ describe('Fenwick Charter quest foundation', () => {
     const s = newGame(1);
     s.armies.filter((a) => a.owner === 'player').forEach((a) => { a.at = 'millbrook'; });
     expect(chooseQuest(s, 'Q00', 'sign')).toContain('neighboring road');
-    expect(s.items).toHaveLength(0);
+    expect(Object.keys(s.items)).toHaveLength(0);
     expect(s.quests.Q00.status).toBe('available');
   });
 
@@ -67,7 +67,7 @@ describe('Fenwick Charter quest foundation', () => {
     const restored = parseSave(saved);
     expect(restored).toEqual(s);
     expect(chooseQuest(restored, 'Q00', 'sign')).toContain('already decided');
-    expect(restored.items).toEqual(['fenwick-charter']);
+    expect(restored.items).toEqual({ 'fenwick-charter': { qty: 1, spent: 0, archived: false } });
   });
 
   it('ends the passage on conquest without removing a previously earned item', () => {
@@ -77,9 +77,9 @@ describe('Fenwick Charter quest foundation', () => {
     onTownOwnershipChange(s, 'fenwick', 'orcs');
     expect(hasPassage(s, 'player', 'fenwick')).toBe(false);
     expect(s.treaties.fenwick).toBeUndefined();
-    expect(s.items).toEqual(['fenwick-charter']);
+    expect(s.items).toEqual({ 'fenwick-charter': { qty: 1, spent: 0, archived: false } });
     expect(s.quests.Q00.status).toBe('succeeded');
-    expect(parseSave(JSON.stringify(s)).items).toEqual(['fenwick-charter']);
+    expect(parseSave(JSON.stringify(s)).items).toEqual({ 'fenwick-charter': { qty: 1, spent: 0, archived: false } });
   });
 
   it('supersedes an undecided quest when Fenwick is taken', () => {
@@ -87,7 +87,7 @@ describe('Fenwick Charter quest foundation', () => {
     s.towns.fenwick.owner = 'player';
     onTownOwnershipChange(s, 'fenwick', 'player');
     expect(s.quests.Q00.status).toBe('superseded');
-    expect(s.items).toEqual([]);
+    expect(s.items).toEqual({});
     expect(chooseQuest(s, 'Q00', 'sign')).not.toBeNull();
   });
 
@@ -95,9 +95,9 @@ describe('Fenwick Charter quest foundation', () => {
     const s = newGame(7);
     const { quests: _quests, items: _items, treaties: _treaties, ...prior } = s;
     const migrated = parseSave(JSON.stringify({ ...prior, version: 4 }));
-    expect(migrated.version).toBe(11);
+    expect(migrated.version).toBe(12);
     expect(migrated.quests.Q00.status).toBe('available');
-    expect(migrated.items).toEqual([]);
+    expect(migrated.items).toEqual({});
     expect(migrated.treaties).toEqual({});
     const alreadyConquered = parseSave(JSON.stringify({ ...prior, version: 4,
       towns: { ...prior.towns, fenwick: { ...prior.towns.fenwick, owner: 'player' } } }));
@@ -108,13 +108,13 @@ describe('Fenwick Charter quest foundation', () => {
     const s = newGame(1);
     chooseQuest(s, 'Q00', 'sign');
     const corrupted = structuredClone(s);
-    corrupted.items.push('fenwick-charter');
+    corrupted.items['fenwick-charter'].qty = 2;
     expect(() => parseSave(JSON.stringify(corrupted))).toThrow(/inventory/);
-    corrupted.items = ['fake-object'];
+    corrupted.items = { 'fake-object': { qty: 1, spent: 0, archived: false } };
     expect(() => parseSave(JSON.stringify(corrupted))).toThrow(/inventory/);
-    corrupted.items = [];
+    corrupted.items = {};
     expect(() => parseSave(JSON.stringify(corrupted))).toThrow(/missing quest reward/);
-    corrupted.items = ['fenwick-charter'];
+    corrupted.items = { 'fenwick-charter': { qty: 1, spent: 0, archived: false } };
     corrupted.treaties.nowhere = { relation: 'ally', passage: true, signedTurn: 1 };
     expect(() => parseSave(JSON.stringify(corrupted))).toThrow(/treaty/);
   });

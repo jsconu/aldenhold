@@ -1,7 +1,7 @@
 import { orcTurn } from './ai';
 import { autoResolve, createBattle, isAI, runAI } from './battle';
 import { getCampaign } from '../content';
-import { hasPassage } from './diplomacy';
+import { hasPassage, relationWith } from './diplomacy';
 import { newTreasury, recordPurchase, settleTreasury, type CashFlow } from './economy';
 import { advanceQuests, newQuestState, onTownOwnershipChange, unlockQuests } from './quests';
 import { advanceCities, cityMaintenance, startingCities, type CityPhaseResult } from './cities';
@@ -24,7 +24,7 @@ const OFFER_MONTHS = 3;
 export function newGame(seed = Math.floor(Math.random() * 2 ** 31), campaignId: CampaignId = 'valley-quickplay'): GameState {
   const def = getCampaign(campaignId);
   const state: GameState = {
-    version: 11,
+    version: 12,
     campaignId: def.id,
     campaignRevision: def.revision,
     endingReason: null,
@@ -44,7 +44,7 @@ export function newGame(seed = Math.floor(Math.random() * 2 ** 31), campaignId: 
     log: [],
     journal: [],
     quests: newQuestState(),
-    items: [],
+    items: {},
     treaties: {},
     flags: [],
     status: 'playing',
@@ -197,8 +197,7 @@ export function canRecruitAt(state: GameState, town: Town, typeId: string): bool
   const r = UNIT_TYPES[typeId].recruit;
   if (r !== null && typeof r === 'object') {
     // Allied free towns raise their own troops for you while the alliance holds.
-    const treaty = state.treaties[town.id];
-    return r.ally === town.id && town.owner === 'neutral' && treaty?.relation === 'ally';
+    return r.ally === town.id && town.owner !== 'player' && relationWith(state, town.id) === 'ally';
   }
   return town.owner === 'player' && (r === 'any' ? town.kind !== 'lair' : r === 'capital' && town.kind === 'capital');
 }

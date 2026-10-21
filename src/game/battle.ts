@@ -2,7 +2,8 @@ import { EFFECTS } from '../content/spells';
 import { LAND, SPELLS, TERRAIN, UNIT_TYPES } from './data';
 import { hexDistance, hexKey, hexNeighbors, hexLine, type Hex } from './hex';
 import { random } from './rng';
-import type { Army, Battle, BattleUnit, FactionId, Land, Side, SpellId, Terrain, EffectId } from './types';
+import { FACTIONS } from '../content/factions';
+import type { Army, Battle, BattleUnit, Land, Side, SpellId, Terrain, EffectId } from './types';
 import { attackFor, heroLevel, heroMaxHp, isHero, level } from './units';
 import { EQUIPMENT } from './equipment';
 
@@ -252,12 +253,7 @@ export function moveUnit(b: Battle, unitId: number, to: Hex): boolean {
 
 export function unitLabel(b: Battle, u: BattleUnit): string {
   if (u.name) return u.name;
-  const owner = b.owners[u.side] === 'player' ? 'Your' : factionAdj(b.owners[u.side]);
-  return `${owner} ${UNIT_TYPES[u.type].name}`;
-}
-
-function factionAdj(f: FactionId): string {
-  return f === 'orcs' ? 'Enemy' : f === 'neutral' ? 'Town' : 'Your';
+  return `${FACTIONS[b.owners[u.side]].troopPrefix} ${UNIT_TYPES[u.type].name}`;
 }
 
 /** Lower a troop's morale; it breaks if morale falls below ROUT_AT. Heroes never break. */
