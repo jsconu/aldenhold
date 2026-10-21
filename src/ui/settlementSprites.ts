@@ -98,7 +98,7 @@ const ARTISTS: Record<string, Artist> = {
     c.line(17, 9, 17, 1, 'w'); c.line(17, 9, 17, 17, 'w');
     c.line(9, 9, 25, 9, 'w'); c.line(12, 4, 22, 14, 'w');
     c.line(12, 14, 22, 4, 'w');
-    c.pond(25, 21, 8); c.p(27, 18, 'y');
+    c.pond(25, 21, 8); c.p(27, 18, 'y'); c.flag(28, 4, true);
   },
   greenveil: (c) => {
     c.ground(); c.pine(5, 3, 19); c.pine(28, 1, 19); c.pine(18, 3, 17);
