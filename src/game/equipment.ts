@@ -1,6 +1,7 @@
 import { BUILDINGS } from './cities';
 import { townLocation } from './world';
 import { recordPurchase } from './economy';
+import { UNIT_TYPES } from './data';
 import { level, isHero } from './units';
 import type { EquipmentId, EquipmentSlot, GameState, GoodId, GoodsStock, Loadout, Troop } from './types';
 
@@ -39,8 +40,14 @@ export const EQUIPMENT: Record<EquipmentId, EquipmentDefinition> = {
     goodsPerFormation: (men) => ({ tools: Math.ceil(men / 3), ore: Math.ceil(men / 4) }), requiresForge: true },
 };
 
+/** Missile formations (archers of every kind) carry bows and cannot wear plate; heroes have no formation gear. */
+export function usesBow(type: string): boolean {
+  const t = UNIT_TYPES[type];
+  return !!t && !t.hero && t.range > 1;
+}
+
 export function basicLoadout(type: string): Loadout {
-  return { bow: type === 'archers' || type === 'orcArchers' ? 'short-bow' : null, armor: 'leather' };
+  return { bow: usesBow(type) ? UNIT_TYPES[type].startingBow ?? 'short-bow' : null, armor: 'leather' };
 }
 
 export function equipmentFor(gear: Loadout, slot: EquipmentSlot): EquipmentDefinition | null {
@@ -80,8 +87,8 @@ export function refitQuote(state: GameState, townId: string, troopId: number, it
   else if (state.battle || state.status !== 'playing') reason = 'Finish the current battle before refitting.';
   else if (town?.owner !== 'player' || town.kind === 'lair' || !city) reason = 'Refits require an owned town.';
   else if (isHero(troop.type)) reason = 'Hero equipment needs a separate system.';
-  else if (item.slot === 'bow' && troop.type !== 'archers') reason = 'Only archer formations can use bows.';
-  else if (item.slot === 'armor' && troop.type === 'archers' && itemId === 'plate') reason = 'Archers cannot wear plate.';
+  else if (item.slot === 'bow' && !usesBow(troop.type)) reason = 'Only archer formations can use bows.';
+  else if (item.slot === 'armor' && usesBow(troop.type) && itemId === 'plate') reason = 'Archers cannot wear plate.';
   else if (troop.refit) reason = 'This formation is already refitting.';
   else if (troop.mp <= 0) reason = 'This formation has already acted this month.';
   else if (level(troop.xp) < item.level) reason = `Requires level ${item.level}.`;

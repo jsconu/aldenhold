@@ -40,6 +40,17 @@ export function campaignQuests(state: GameState): QuestDefinition[] {
   return Object.values(QUESTS).filter((q) => q.campaignIds.includes(state.campaignId));
 }
 
+/** The journal tracks at most this many quests; the header shows them as shortcuts to their towns. */
+export const MAX_TRACKED = 3;
+
+/** Open quests to show first: main objectives before side quests, then the longest-waiting. */
+export function trackedQuests(state: GameState): QuestDefinition[] {
+  return campaignQuests(state)
+    .filter((def) => isOpen(state.quests[def.id]))
+    .sort((a, b) => (a.kind === b.kind ? 0 : a.kind === 'main' ? -1 : 1) || (state.quests[a.id].stageTurn ?? 0) - (state.quests[b.id].stageTurn ?? 0))
+    .slice(0, MAX_TRACKED);
+}
+
 /** Quests offered at a town in this campaign. */
 export function questsAt(state: GameState, townId: string): QuestDefinition[] {
   return campaignQuests(state).filter((q) => q.at === townId);

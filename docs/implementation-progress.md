@@ -63,7 +63,7 @@ The reserve policy is deliberately explicit for this first slice: there are no m
 - Q00 **The Fenwick Charter** is a separate **foundation fixture**, not one of the planned 72 side quests. A council decision can sign a peaceful-passage treaty and award a sealed charter, or reject the accord. Neither choice can be repeated.
 - Signing allows player armies to coexist with the neutral garrison in Fenwick without a battle or annexation. Other neutral settlements remain unaffected. The treaty ends if the settlement changes hands.
 - The journal displays quest outcome and campaign-held inventory. Rewards are state-based and are not created again on reload.
-- Q04 **The Woodland Accord** remains unfinished: it requires Greenveil, city logging actions and enforced logging caps in the western campaign. Do not represent Q00 as completion of Q04.
+- Q04 **The Woodland Accord** is implemented on the Western Realm (see the Q04 section below). Q00 remains a framework fixture, not one of the planned quests.
 - Still remaining for full milestone A: general quest prereqs/deadlines/event scheduling, broader faction registry, item ownership/equipment/consumption, validated content cross-references, and real-browser verification.
 
 
@@ -222,3 +222,22 @@ Validation: 228 tests pass, including 10 new engine tests on two-stage fixture q
 - Site silhouettes use composable hand-authored pixel primitives: keep walls and banners, village rooflines, a working mill's sails, woodland pines, merchant harbor, stilt houses, marsh reeds and the orc citadel's spikes and ember-lit windows.
 - Every existing town keeps its ID, ownership and campaign rules. Ownership flags recolor without duplicating entire art assets. Other landmarks and future towns still use the existing generic artwork.
 - Added pixel palette/uniqueness/ownership/renderer tests. Remaining: richer multi-tile city panoramas, transition-art blending, 20-city completed campaign art, sprite previews at phone scale and in-browser art direction approval.
+
+## Q04 The Woodland Accord (#17, part 2)
+
+The first planned side quest, built on the quest engine. It is Western Realm only.
+
+- **Offer:** from month 3, while Greenveil is free, Greenveil's warden sends an envoy about Aldenhold's logging. Answering needs an army at Greenveil or next to it. The envoy waits four months; silence counts as a refusal.
+- **Cap logging:** Greenveil becomes an ally (with passage) and grants the Woodland Charter. The `logging-cap` flag is enforced in `constructionQuote`: no lumber camp anywhere may be upgraded past its first tier, and the button gives the reason. New first-tier camps are still allowed.
+- **Pay for the groves (200 g):** the same alliance and charter, with no cap. The payment goes through the treasury ledger.
+- **Send the envoy away, or let it time out:** the quest fails and sets `greenveil-rejected` for later quests to use. No woodland archers.
+- **Woodland Archers:** a new unit (attack 3, range 5, move 4, 150 g, starts with a long bow) with its own pixel sprite and icon. Units can now name a free town that raises them while allied (`recruit: { ally }`). They're drawn from that town's population and join your army there; the allied town's panel shows an "Allied troops" section. If Greenveil changes hands, the alliance ends and woodland archers can no longer be raised; ordinary archers can.
+- **No dead end (QUEST-06):** ordinary archers are still raised in every town you own, so rejecting Greenveil never blocks the army needed for Harrowgate.
+- **Bow rules generalized:** `usesBow(type)` (any non-hero missile formation) replaces the hard-coded `archers`/`orcArchers` checks in starting gear, refits, the refit panel and save validation.
+- **Quest tracking:** the journal tracks at most three open quests (main objectives first, then the longest-waiting), marked "Tracked". The header shows each as a shortcut that focuses the map on the quest's town.
+- **Saves:** quests added to the catalog after a save was made load as locked and unlock the next month if due. This needs no version bump; unknown quest ids are still rejected.
+- Also fixed a load-sensitive test from #26 (`mapArtwork.test.ts` ran one `expect` per pixel and could exceed the 5 s timeout under the full parallel run); it now counts mismatches and asserts once.
+
+Not yet: a giver portrait for the quest card. The faction registry and item policies (equipment, consumables, evidence) are part 3.
+
+Validation: 247 tests pass, including 11 new Q04 and tracking tests. They cover the offer and envoy range, cap enforcement across reload, compensation through the ledger, rejection keeping ordinary archers, deadline failure, location loss and conquest, an older save without Q04, and header and panel rendering. Build passes. In the browser I signed the accord, raised Woodland Archers in Greenveil (long bow, joined your army there) and checked the journal's tracked marker.

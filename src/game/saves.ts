@@ -6,7 +6,7 @@ import { QUESTS } from '../content/quests';
 import { DEADLINE, isResolved, lockedProgress, resolutionOf } from './quests';
 import { newTreasury } from './economy';
 import { BUILDING_IDS, BUILDINGS, developmentSites, GOODS, MAX_BUILDING_LEVEL, MAX_DEVELOPMENT_SITES, startingCities } from './cities';
-import { basicLoadout, EQUIPMENT, equipmentQuoteGold } from './equipment';
+import { basicLoadout, EQUIPMENT, equipmentQuoteGold, usesBow } from './equipment';
 import { endingReason } from './campaign';
 import { TERRAIN, UNIT_TYPES } from './data';
 import { heroMaxHp, heroMaxMana, isHero } from './units';
@@ -97,8 +97,7 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
       const gear = object(t.gear);
       requireValue(Object.keys(gear).length === 2 && oneOf(gear.armor, ['leather', 'chain', 'plate']) &&
         oneOf(gear.bow, [null, 'short-bow', 'long-bow', 'compound-bow']), 'equipment loadout');
-      requireValue((t.type === 'archers' || t.type === 'orcArchers') ?
-        gear.armor !== 'plate' : gear.bow === null, 'equipment compatibility');
+      requireValue(usesBow(t.type as string) ? gear.armor !== 'plate' && gear.bow !== null : gear.bow === null, 'equipment compatibility');
       if (t.refit !== null) {
         const refit = object(t.refit);
         requireValue(text(refit.item) && Object.hasOwn(EQUIPMENT, refit.item), 'refit item');
@@ -106,7 +105,7 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
         requireValue(!isHero(t.type) && t.mp === 0 && refit.startedTurn === s.turn &&
           integer(refit.orderedMen, Number(t.men), UNIT_TYPES[t.type].men) &&
           refit.paidGold === equipmentQuoteGold(defn.id, refit.orderedMen as number) &&
-          (defn.slot === 'bow' ? t.type === 'archers' : !(t.type === 'archers' && defn.id === 'plate')),
+          (defn.slot === 'bow' ? usesBow(t.type as string) : !(usesBow(t.type as string) && defn.id === 'plate')),
           'refit order');
         const paid = object(refit.paidGoods);
         const quote = defn.goodsPerFormation(refit.orderedMen as number);
@@ -465,6 +464,17 @@ function upgradeToV11(value: Record<string, unknown>) {
   value.version = 11;
 }
 
+/**
+ * Quests added to the catalog after a save was made start locked in it, and unlock at the next month if their
+ * prerequisites hold. This is a content addition, not a schema change, so it needs no version bump. Unknown
+ * quest ids in the save are still rejected by validation.
+ */
+function addNewQuests(value: Record<string, unknown>) {
+  if (value.version !== 11 || typeof value.quests !== 'object' || value.quests === null) return;
+  const quests = value.quests as Record<string, unknown>;
+  for (const id of Object.keys(QUESTS)) if (!Object.hasOwn(quests, id)) quests[id] = lockedProgress();
+}
+
 /** Migration runs on parsed JSON only; it never edits the legacy storage entry. */
 export function parseSave(raw: string): GameState {
   requireValue(new TextEncoder().encode(raw).length <= MAX_SAVE_BYTES, 'file exceeds 5 MB');
@@ -513,6 +523,7 @@ export function parseSave(raw: string): GameState {
   if (value.version === 8) upgradeToV9(value);
   if (value.version === 9) upgradeToV10(value);
   if (value.version === 10) upgradeToV11(value);
+  addNewQuests(value);
   validate(value);
   return value;
 }

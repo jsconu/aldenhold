@@ -193,6 +193,12 @@ function validateHex(catalog: Catalog, world: HexWorld, err: (msg: string) => vo
  * outcome its quest can actually produce, so no quest is left that can never unlock.
  */
 function validateQuests(catalog: Catalog, err: (msg: string) => void) {
+  for (const [id, t] of Object.entries(catalog.units)) {
+    const r = t.recruit;
+    if (r !== null && typeof r === 'object' && !Object.values(catalog.campaigns).some((c) => c.towns.some((town) => town.id === r.ally))) {
+      err(`unit ${id}: recruited at unknown town "${r.ally}"`);
+    }
+  }
   const quests = catalog.quests;
   for (const [id, q] of Object.entries(quests)) {
     const where = `quest ${id}`;

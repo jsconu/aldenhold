@@ -193,8 +193,13 @@ export function monthlyUpkeep(state: GameState): number {
     .reduce((sum, t) => sum + troopUpkeep(t, UNIT_TYPES[t.type].upkeep), 0);
 }
 
-export function canRecruitAt(town: Town, typeId: string): boolean {
+export function canRecruitAt(state: GameState, town: Town, typeId: string): boolean {
   const r = UNIT_TYPES[typeId].recruit;
+  if (r !== null && typeof r === 'object') {
+    // Allied free towns raise their own troops for you while the alliance holds.
+    const treaty = state.treaties[town.id];
+    return r.ally === town.id && town.owner === 'neutral' && treaty?.relation === 'ally';
+  }
   return town.owner === 'player' && (r === 'any' ? town.kind !== 'lair' : r === 'capital' && town.kind === 'capital');
 }
 
@@ -206,7 +211,7 @@ export function recruitQuote(state: GameState, townId: string, typeId: string): 
   const men = type?.men ?? 0;
   let reason: string | null = null;
   if (state.battle || state.status !== 'playing') reason = 'Not now.';
-  else if (!town || !type || !canRecruitAt(town, typeId)) reason = `You can't raise ${type?.name ?? 'that'} here.`;
+  else if (!town || !type || !canRecruitAt(state, town, typeId)) reason = `You can't raise ${type?.name ?? 'that'} here.`;
   else if (state.gold < gold) reason = `You need ${gold} gold.`;
   else if (town.pop - men < MIN_POP_AFTER_RECRUIT) reason = `${nodeName(state, townId)} has no more men to spare.`;
   return { gold, men, reason };

@@ -21,6 +21,7 @@ export const PALETTE: Record<string, string> = {
   M: '#ff55ff', // mage robe light
   c: '#55ffff', // magic orb
   r: '#aa0000', // plume
+  f: '#00aa00', // woodland green: hoods and cloaks
 };
 
 export const TEAM_COLOURS: Record<'mine' | 'foe', { T: string; t: string }> = {
@@ -80,6 +81,24 @@ export const SPRITES: Record<string, string[]> = {
     '....GGGG...b....',
     '....GG.GG.bb....',
     '....GG.GG.......',
+    '....bb.bb.......',
+    '...bbb.bbb......',
+  ],
+  woodlandArchers: [
+    '..........b.....',
+    '.....fff...b....',
+    '....fffff...b...',
+    '....fsssf....b..',
+    '....fsss.....b..',
+    '.....ss......b..',
+    '....fTTf..wwwbw.',
+    '...ffTTffsss.b..',
+    '...fTTTTf....b..',
+    '...fTbbTf....b..',
+    '...ffTTff...b...',
+    '....bbbb...b....',
+    '....bb.bb.b.....',
+    '....bb.bb.......',
     '....bb.bb.......',
     '...bbb.bbb......',
   ],

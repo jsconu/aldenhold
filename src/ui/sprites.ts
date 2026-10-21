@@ -12,6 +12,8 @@ const ICONS: Record<string, string> = {
   spearmen: `<path d="M7 22V6"/><path d="M7 1.5 4.5 7h5z" class="fill"/><path d="M11 9h9v5c0 4.5-4.5 7.5-4.5 7.5S11 18.5 11 14z" class="fill soft"/>`,
   // Bow and arrow.
   archers: `<path d="M7 3c7 3 7 15 0 18"/><path d="M7 3v18" class="thin"/><path d="M3 12h15"/><path d="M21.5 12 17 9.5v5z" class="fill"/>`,
+  // Longbow with a leaf: woodland archers.
+  woodlandArchers: `<path d="M7 2c8 3.5 8 16.5 0 20"/><path d="M7 2v20" class="thin"/><path d="M3 12h15"/><path d="M21.5 12 17 9.5v5z" class="fill"/><path d="M15 3c3 0 5 2 5 5-3 0-5-2-5-5z" class="fill soft"/>`,
   // Knight's helm with plume.
   knights: `<path d="M6 21v-8a6 6 0 0 1 12 0v8z" class="fill soft"/><path d="M8 13.5h8M12 13.5V18"/><path d="M12 7c1-3 4-4.5 7-3.5-2 .5-3 1.5-3.5 3"/>`,
   // Crown.

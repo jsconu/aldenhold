@@ -2,7 +2,7 @@ import { dateLabel, nodeName } from '../game/campaign';
 import type { DeedKind, GameState, JournalEntry } from '../game/types';
 import { esc } from './shared';
 import { ITEMS } from '../content/items';
-import { campaignQuests, questSummary } from '../game/quests';
+import { campaignQuests, questSummary, trackedQuests } from '../game/quests';
 import { townLocation } from '../game/world';
 
 const KIND_LABEL: Record<DeedKind, string> = {
@@ -63,10 +63,11 @@ export function renderJournal(state: GameState): string {
 /** Quests grouped into main objectives and side quests, with what actually happened and a link to the place. */
 function renderQuestLedger(state: GameState): string {
   const quests = campaignQuests(state).filter((def) => state.quests[def.id].status !== 'unavailable');
+  const tracked = new Set(trackedQuests(state).map((d) => d.id));
   const group = (kind: 'main' | 'side', title: string) => {
     const list = quests.filter((d) => d.kind === kind);
     if (!list.length) return '';
-    return `<h3>${title}</h3><ul>${list.map((def) => `<li><b>${esc(def.name)}</b>: ${esc(questSummary(state, def.id))}.
+    return `<h3>${title}</h3><ul>${list.map((def) => `<li><b>${esc(def.name)}</b>${tracked.has(def.id) ? ' <small class="tag">Tracked</small>' : ''}: ${esc(questSummary(state, def.id))}.
       <button class="link" data-action="goto" data-node="${townLocation(state, def.at)}">View ${esc(nodeName(state, def.at))}</button></li>`).join('')}</ul>`;
   };
   return `<section class="quest-ledger"><h2>Quests</h2>
