@@ -13,6 +13,7 @@ import { loadGame, MAX_SAVE_BYTES, parseSave, saveGame } from './game/saves';
 import { CATALOG } from './content';
 import { chooseQuest } from './game/quests';
 import { discardItem, equipItem, sellItem, unequipItem, useItem } from './game/items';
+import { buyItem } from './game/merchants';
 import type { HeroSlot } from './game/types';
 import { questFocus } from './ui/questNavigation';
 import { buildCity, BUILDINGS } from './game/cities';
@@ -171,6 +172,9 @@ function onAction(action: string, data: DOMStringMap) {
     case 'quest-choice':
       if (!questQuote(state, data.quest ?? '', data.choice ?? '').reason && !checkpoint('Before quest choice')) break;
       ui.message = chooseQuest(state, data.quest ?? '', data.choice ?? '') ?? '';
+      break;
+    case 'buy-item':
+      ui.message = buyItem(state, data.merchant ?? '', data.item ?? '') ?? '';
       break;
     case 'use-item':
       ui.message = useItem(state, data.item ?? '', Number(data.troop)) ?? '';

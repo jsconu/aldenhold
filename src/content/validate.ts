@@ -59,6 +59,19 @@ export function validateContent(catalog: Catalog): string[] {
     }
   }
   validateQuests(catalog, err);
+  for (const [id, m] of Object.entries(catalog.merchants)) {
+    const quest = catalog.quests[m.quest];
+    if (m.id !== id) err(`merchant ${id}: mismatched id "${m.id}"`);
+    if (!quest) err(`merchant ${id}: unknown quest "${m.quest}"`);
+    else if (!quest.campaignIds.every((cid) => catalog.campaigns[cid]?.towns.some((t) => t.id === m.at))) err(`merchant ${id}: town "${m.at}" is not in the quest's campaigns`);
+    for (const line of m.stock) {
+      const item = catalog.items[line.item];
+      if (!item) err(`merchant ${id}: sells unknown item "${line.item}"`);
+      else if (!item.policy.sell || item.value <= 0) err(`merchant ${id}: "${line.item}" is not a tradable good`);
+      if (!Number.isInteger(line.perMonth) || line.perMonth < 1) err(`merchant ${id}: invalid monthly stock for "${line.item}"`);
+    }
+    if (!m.terms.length || m.terms.some((t) => !(t.markup >= 1))) err(`merchant ${id}: needs opening terms with a markup of at least 1`);
+  }
   for (const type of catalog.hireableHeroes) {
     if (!catalog.units[type]?.hero) err(`hireable hero "${type}" is not a hero unit`);
     if (!catalog.heroNames[type]?.length) err(`hireable hero "${type}" has no names`);

@@ -80,7 +80,7 @@ function buildRoads(world: HexWorld): string[][] {
   return world.routes.map((route) => {
     const road = [at(route[0])];
     for (let i = 1; i < route.length; i++) {
-      const steps = cheapest(world, at(route[i - 1]), (k) => cost[hexLand(world, k).id], Infinity, () => false);
+      const steps = cheapest(world, at(route[i - 1]), (k) => cost[hexLand(world, k).id], Infinity, () => false, undefined, at(route[i]));
       road.push(...pathTo(steps, at(route[i])));
     }
     return road;
@@ -166,7 +166,10 @@ export interface MarchStep {
   prev: string | null;
 }
 
-/** Dijkstra over a world. `stop(at)` marks locations that can be entered but not passed through. */
+/**
+ * Dijkstra over a world. `stop(at)` marks locations that can be entered but not passed through. With `target`, the
+ * search ends once the target's cost is settled: its route is then final, though other entries may be partial.
+ */
 function cheapest(
   world: WorldView | HexWorld,
   from: string,
@@ -174,6 +177,7 @@ function cheapest(
   budget: number,
   stop: (at: string) => boolean,
   graphNeighbors?: (at: string) => string[],
+  target?: string,
 ): Map<string, MarchStep> {
   const next = graphNeighbors ?? ((at: string) => hexNeighbors(parseKey(at)).filter((h) => inHexMap(world as HexWorld, h)).map(hexKey));
   const best = new Map<string, MarchStep>([[from, { cost: 0, prev: null }]]);
@@ -181,6 +185,7 @@ function cheapest(
   frontier.push(from, 0);
   for (let cur = frontier.pop(); cur; cur = frontier.pop()) {
     if (cur.cost > best.get(cur.at)!.cost) continue;
+    if (cur.at === target) break;
     if (cur.at !== from && stop(cur.at)) continue;
     for (const n of next(cur.at)) {
       const c = cur.cost + cost(n);
