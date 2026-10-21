@@ -5,7 +5,7 @@ import { BATTLE_H, BATTLE_W, createBattle, FIELD_LIMIT } from './battle';
 import { CATALOG, getCampaign } from '../content';
 import { ITEMS } from '../content/items';
 import { QUESTS } from '../content/quests';
-import { DEADLINE, encounterMark, isOpen, isResolved, lockedProgress, resolutionOf, stageOf } from './quests';
+import { DEADLINE, encounterMark, enteredStages, isOpen, isResolved, LOCATION_LOST, lockedProgress, resolutionOf, stageOf } from './quests';
 import { newTreasury } from './economy';
 import { BUILDING_IDS, BUILDINGS, developmentSites, GOODS, MAX_BUILDING_LEVEL, MAX_DEVELOPMENT_SITES, startingCities, initialCityEconomy } from './cities';
 import { basicLoadout, EQUIPMENT, equipmentQuoteGold, usesBow } from './equipment';
@@ -228,7 +228,7 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
       const h = object(raw);
       const stage = qdef.stages.find((st) => st.id === h.stage);
       requireValue(stage !== undefined && integer(h.turn, 1, turn) &&
-        (h.choice === DEADLINE || stage.choices.some((c) => c.id === h.choice) || (stage.objectives ?? []).some((o) => o.id === h.choice) ||
+        (h.choice === DEADLINE || h.choice === LOCATION_LOST || stage.choices.some((c) => c.id === h.choice) || (stage.objectives ?? []).some((o) => o.id === h.choice) ||
           stage.choices.some((c) => 'encounter' in c.then && (h.choice === encounterMark(c.id, true) || h.choice === encounterMark(c.id, false)))), 'quest history');
     }
     const choices = qdef.stages.flatMap((st) => st.choices.map((c) => c.id));
@@ -260,6 +260,12 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
   for (const [id, entry] of Object.entries(quests)) {
     const progress = entry as GameState['quests'][string];
     const resolution = isResolved(progress) ? resolutionOf(QUESTS[id], progress) : null;
+    // Items that came to light as a stage began count as granted by the quest.
+    for (const stage of progress.status === 'unavailable' ? [] : enteredStages(QUESTS[id], progress)) {
+      for (const event of stage.onStart ?? []) {
+        if (event.kind === 'item') granted.items.set(event.item, (granted.items.get(event.item) ?? 0) + 1);
+      }
+    }
     for (const effect of resolution?.effects ?? []) {
       if (effect.kind === 'item') granted.items.set(effect.item, (granted.items.get(effect.item) ?? 0) + (effect.qty ?? 1));
       if (effect.kind === 'archive') granted.archived.add(effect.item);

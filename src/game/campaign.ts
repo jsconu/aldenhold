@@ -3,7 +3,7 @@ import { autoResolve, createBattle, isAI, runAI } from './battle';
 import { getCampaign } from '../content';
 import { hasPassage, relationWith } from './diplomacy';
 import { newTreasury, recordPurchase, settleTreasury, type CashFlow } from './economy';
-import { settleHeldQuests, advanceQuests, endEncounter, newQuestState, onTownOwnershipChange, unlockQuests } from './quests';
+import { settleHeldQuests, advanceQuests, endEncounter, newQuestState, onTownOwnershipChange, recruitBan, unlockQuests } from './quests';
 import { advanceCities, cityMaintenance, startingCities, type CityPhaseResult } from './cities';
 import { basicLoadout, finishRefits, troopUpkeep } from './equipment';
 import { HERO_NAMES, HIREABLE_HEROES, UNIT_TYPES } from './data';
@@ -213,6 +213,7 @@ export function recruitQuote(state: GameState, townId: string, typeId: string): 
   let reason: string | null = null;
   if (state.battle || state.status !== 'playing') reason = 'Not now.';
   else if (!town || !type || !canRecruitAt(state, town, typeId)) reason = `You can't raise ${type?.name ?? 'that'} here.`;
+  else if (recruitBan(state, townId)) reason = `${nodeName(state, townId)} is rationing grain (${recruitBan(state, townId)!.name}): no new recruits for now.`;
   else if (state.gold < gold) reason = `You need ${gold} gold.`;
   else if (town.pop - men < MIN_POP_AFTER_RECRUIT) reason = `${nodeName(state, townId)} has no more men to spare.`;
   return { gold, men, reason };

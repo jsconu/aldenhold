@@ -393,3 +393,40 @@ Validation: 320 tests and production build pass. Four navigation tests cover sta
 Quest quotes now describe the exact party at an encounter site: deployed troops, off-field reserves and anyone waiting outside. The encounter card shows names, current health and levels before the fight. Hero-only previews exclude the ruler and formations; normal encounters use the full local army. The field limit comes from the battle rules, and quotes do not consume RNG, split parties or change saves. Individual disabled choices now show their refusal beside the button, including the regroup delay after a failed attempt.
 
 Validation: all 324 tests and the production build pass. Four new tests compare preview IDs with actual launched parties and reserves, including save/reload, no eligible hero, hidden/ordinary choices and escaped hero names. A compiled DOM check confirms the priest-only launch, retreat, waiting troops remaining unchanged and visible regroup refusal, with no runtime errors. Canvas was stubbed; visual review remains separate. No battle rule, encounter reward, artwork or save-schema change.
+## Western chapter, part 9d: city quests (#9)
+
+Two quests about decisions inside your own towns. With them, all six chapter side quests (Q01–Q06) and all four objectives (M01–M04) are implemented.
+
+**Quest engine additions.**
+- **Effects:** `goods` (add to or take from a city you rule) and `population` (people arrive or leave).
+- **Stage-entry events:** `spoil` (a city you rule keeps only a fraction of one good) and `item` (evidence that comes to light as a stage begins). A stage is entered once, so the item appears once. Saves count it as granted by any stage the quest has entered, and still reject evidence held before that stage.
+- **Choice requirements:** a choice can list `needs`, world conditions such as "your army in Millbrook". The first unmet one is the refusal ("First: Bring an army to Millbrook."). Each blocked choice's reason is now written under the buttons, not only in the tooltip.
+- **Rationing:** a stage can carry a `recruitBan` for towns; recruiting there is refused with the quest named while the stage is open.
+- **Location-lost marker:** losing a quest's town now records a `(location-lost)` marker in its history, so the stage it was in stays known.
+- **Tracking order:** main objectives first, then quests whose deadline is soonest, then the longest-waiting. A quest about to run out is no longer hidden behind open-ended ones.
+
+**The quests:**
+- **Q01 The Empty Granary.** Offered after M01, from month 3. Rot destroys 60% of Aldenhold's grain as the quest begins, which also makes M02's granary goal harder.
+  - Buy grain: 150 g for +80 food.
+  - Escort grain from Millbrook: needs Millbrook, an army there and 60 food; moves 60 food.
+  - Ration: no recruiting in Aldenhold for three months, then +60 food.
+  - Two months without a choice: 200 people leave Aldenhold.
+- **Q06 The Miller on Trial.** Month 6, while you rule Millbrook.
+  - Question the witnesses (your army in Millbrook): Hobb's Grain Ledger comes to light as evidence. Then convict (fine of 150 g, 150 people return, ledger archived) or pardon (80 food returned).
+  - Fine on hearsay: +100 g, 150 people leave.
+  - Dismiss the charge: 100 people leave.
+  - Each ending sets a flag for later quests.
+
+**Not yet:** a loyalty or legitimacy stat (CITY-01 is P1, deferred with the deep economy). For now, trust shows as people arriving or leaving.
+
+Validation: 300 tests pass, including 13 new city-quest tests:
+- every branch of both quests
+- the rot strikes exactly once, across reload
+- the rationing ban starts and lifts
+- the escort and questioning needs, with their reasons shown on the card
+- deadline tracking order
+- the evidence appears exactly once and is archived
+- loss mid-trial, with the evidence still accounted for in the save
+- a forged early ledger is rejected; content checks for spoilage, evidence events, goods towns, needs and bans
+
+The build passes. In the browser: the granary rotted on schedule, rationing blocked Aldenhold's recruit buttons with the reason, and the trial brought the ledger into the inventory, then archived it on conviction. No console errors.

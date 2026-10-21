@@ -358,7 +358,11 @@ export type QuestEvent = {
   troops: StartTroop[];
   /** Town the force marches on. */
   target?: string;
-};
+}
+  /** Spoilage or loss: a city you rule keeps only this fraction of one good. */
+  | { kind: 'spoil'; town: string; good: GoodId; keep: number }
+  /** Evidence or a find that comes to light as the stage begins. Granted once, since a stage is entered once. */
+  | { kind: 'item'; item: string };
 
 /**
  * A stage goal checked against the world at each month's end (and when the quest's town changes hands). The
@@ -379,6 +383,10 @@ export type QuestEffect =
   /** The quest takes this evidence as proof: it stays in the record, archived, and can't be presented again. */
   | { kind: 'archive'; item: string }
   | { kind: 'gold'; amount: number }
+  /** Goods added to (or taken from) one of your cities; nothing happens if you no longer rule it. */
+  | { kind: 'goods'; town: string; good: GoodId; amount: number }
+  /** People arriving in (or leaving) a town. */
+  | { kind: 'population'; town: string; amount: number }
   | { kind: 'flag'; flag: string };
 
 export interface QuestResolution {
@@ -395,6 +403,8 @@ export interface QuestChoice {
   gold?: number;
   /** Objects you must hold (not archived) to make this choice: evidence to present, a charter to show. */
   requires?: string[];
+  /** World conditions the choice needs (an army in place, a town held); the first unmet one is the refusal. */
+  needs?: QuestCondition[];
   /** Move to another stage, end the quest, or fight an encounter whose result decides. */
   then: QuestNext | { encounter: QuestEncounter };
 }
@@ -407,6 +417,8 @@ export interface QuestStage {
   objectives?: QuestObjective[];
   /** What happens in the world as the stage begins (applied once, on entering it). */
   onStart?: QuestEvent[];
+  /** Towns that raise no troops while this stage is open (rationing). */
+  recruitBan?: string[];
   /** Months after the stage begins before it ends this way (a failure, or for "hold out" goals a success). */
   deadline?: { months: number; outcome: QuestResolution; afterBattles?: boolean };
 }

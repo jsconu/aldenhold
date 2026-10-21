@@ -238,6 +238,7 @@ function validateQuests(catalog: Catalog, err: (msg: string) => void) {
       else if (!campaign.towns.some((t) => t.id === q.at)) err(`${where}: town "${q.at}" is not in campaign "${cid}"`);
     }
     if (!q.stages.length) err(`${where}: has no stages`);
+    const townInCampaigns = (town: string) => q.campaignIds.every((cid) => catalog.campaigns[cid]?.towns.some((t) => t.id === town));
     const stageIds = new Set<string>();
     for (const stage of q.stages) {
       if (stageIds.has(stage.id)) err(`${where}: duplicate stage "${stage.id}"`);
@@ -252,6 +253,7 @@ function validateQuests(catalog: Catalog, err: (msg: string) => void) {
         choiceIds.add(c.id);
         if (c.gold !== undefined && (!Number.isInteger(c.gold) || c.gold < 0)) err(`${where}: choice "${c.id}" has an invalid cost`);
         for (const item of c.requires ?? []) if (!catalog.items[item]) err(`${where}: choice "${c.id}" requires unknown item "${item}"`);
+        for (const cond of c.needs ?? []) checkCondition(cond, `${where}: choice "${c.id}"`);
         if ('encounter' in c.then) {
           const enc = c.then.encounter;
           if (!catalog.factions[enc.owner] || enc.owner === 'player') err(`${where}: choice "${c.id}" fights an invalid faction "${enc.owner}"`);
@@ -266,7 +268,17 @@ function validateQuests(catalog: Catalog, err: (msg: string) => void) {
         if (!o.when.length) err(`${where}: objective "${o.id}" has no conditions`);
         for (const c of o.when) checkCondition(c, `${where}: objective "${o.id}"`);
       }
+      for (const town of stage.recruitBan ?? []) if (!townInCampaigns(town)) err(`${where}: stage "${stage.id}" bans recruiting in unknown town "${town}"`);
       for (const e of stage.onStart ?? []) {
+        if (e.kind === 'item') {
+          if (catalog.items[e.item]?.kind !== 'evidence') err(`${where}: stage "${stage.id}" can only bring evidence to light, not "${e.item}"`);
+          continue;
+        }
+        if (e.kind === 'spoil') {
+          if (!townInCampaigns(e.town)) err(`${where}: stage "${stage.id}" spoils goods in unknown town "${e.town}"`);
+          if (!(e.keep >= 0 && e.keep < 1)) err(`${where}: stage "${stage.id}" has an invalid spoilage fraction`);
+          continue;
+        }
         if (!catalog.factions[e.owner]) err(`${where}: stage "${stage.id}" spawns for unknown faction "${e.owner}"`);
         for (const t of e.troops) if (!catalog.units[typeof t === 'string' ? t : t.type]) err(`${where}: stage "${stage.id}" spawns unknown unit`);
         if (!e.troops.length) err(`${where}: stage "${stage.id}" spawns an empty army`);
@@ -292,6 +304,8 @@ function validateQuests(catalog: Catalog, err: (msg: string) => void) {
         if (e.kind === 'item' && catalog.items[e.item] && (e.qty ?? 1) !== 1 && catalog.items[e.item].kind !== 'consumable') err(`${where}: only consumables can be granted more than one at a time`);
         if (e.kind === 'item' && e.qty !== undefined && (!Number.isInteger(e.qty) || e.qty < 1)) err(`${where}: invalid item quantity`);
         if (e.kind === 'archive' && catalog.items[e.item]?.kind !== 'evidence') err(`${where}: can only archive evidence, not "${e.item}"`);
+        if ((e.kind === 'goods' || e.kind === 'population') && !townInCampaigns(e.town)) err(`${where}: changes unknown town "${e.town}"`);
+        if ((e.kind === 'goods' || e.kind === 'population') && (!Number.isInteger(e.amount) || e.amount === 0)) err(`${where}: invalid amount for "${e.town}"`);
         if (e.kind === 'treaty' && !q.campaignIds.every((cid) => catalog.campaigns[cid]?.towns.some((t) => t.id === e.town))) err(`${where}: treaty with unknown town "${e.town}"`);
       }
     }
