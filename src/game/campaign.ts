@@ -93,12 +93,28 @@ export function lordOf(state: GameState): Troop | undefined {
   return state.armies.filter((a) => a.owner === 'player').flatMap((a) => a.troops).find((t) => t.type === 'lord');
 }
 
+/**
+ * The most formations (heroes included) one army can hold. Each side's deployment zone fits 27, so an army of 12
+ * always deploys whole with room to manoeuvre. Recruiting, hiring and marching into a full army are refused.
+ */
+export const ARMY_CAP = 12;
+
+/** Room left in the player's army at a location (the full cap if none is there). */
+export function armyRoom(state: GameState, at: string): number {
+  return ARMY_CAP - (armyAt(state, at, 'player')?.troops.length ?? 0);
+}
+
+function fullReason(state: GameState, at: string): string {
+  return `The army at ${nodeName(state, at)} is full: ${ARMY_CAP} formations is the most one army can hold.`;
+}
+
 /** What hiring this hero would cost, and why it can't happen now (`reason` null means it can). */
 export function hireQuote(state: GameState, offer: HeroOffer): { gold: number; reason: string | null } {
   const gold = UNIT_TYPES[offer.type]?.cost ?? 0;
   let reason: string | null = null;
   if (state.battle || state.status !== 'playing') reason = 'Not now.';
   else if (!state.offers.includes(offer) || state.towns[offer.town]?.owner !== 'player') reason = 'That offer is gone.';
+  else if (armyRoom(state, townLocation(state, offer.town)) < 1) reason = fullReason(state, townLocation(state, offer.town));
   else if (state.gold < gold) reason = `You need ${gold} gold.`;
   return { gold, reason };
 }
@@ -215,6 +231,7 @@ export function recruitQuote(state: GameState, townId: string, typeId: string): 
   if (state.battle || state.status !== 'playing') reason = 'Not now.';
   else if (!town || !type || !canRecruitAt(state, town, typeId)) reason = `You can't raise ${type?.name ?? 'that'} here.`;
   else if (recruitBan(state, townId)) reason = `${nodeName(state, townId)} is rationing grain (${recruitBan(state, townId)!.name}): no new recruits for now.`;
+  else if (armyRoom(state, townLocation(state, townId)) < 1) reason = fullReason(state, townLocation(state, townId));
   else if (state.gold < gold) reason = `You need ${gold} gold.`;
   else if (town.pop - men < MIN_POP_AFTER_RECRUIT) reason = `${nodeName(state, townId)} has no more men to spare.`;
   return { gold, men, reason };
@@ -280,7 +297,8 @@ export function moveTroops(state: GameState, from: string, troopIds: number[], t
   src.troops = src.troops.filter((t) => !moving.includes(t));
   if (!src.troops.length) removeArmy(state, src);
   for (const t of moving) t.mp -= quote.cost;
-  const army: Army = { id: state.nextId++, owner: 'player', at: from, from: null, troops: moving };
+  // The marching troops keep their army's battle plan; formations without a custom place set up automatically.
+  const army: Army = { id: state.nextId++, owner: 'player', at: from, from: null, troops: moving, ...(src.tactics ? { tactics: structuredClone(src.tactics) } : {}) };
   state.armies.push(army);
   marchAlong(state, army, quote.path);
   return null;
@@ -309,6 +327,10 @@ export function marchQuote(state: GameState, from: string, troopIds: number[], t
   const options = marchOptions(state, from, 'player', sharedMp(moving));
   const step = options.get(to);
   if (!step) return refuse(worldOf(state).kind === 'graph' ? 'That place is not next to this one.' : 'Those troops can’t reach there this month.');
+  if (to !== from && moving.length > armyRoom(state, to)) {
+    const room = Math.max(0, armyRoom(state, to));
+    return refuse(`${room ? `Only ${room} more formation${room === 1 ? ' fits' : 's fit'}` : 'No more formations fit'} in the army at ${nodeName(state, to)} (${ARMY_CAP} at most).`);
+  }
   return { cost: step.cost, path: pathTo(options, to), troopIds: moving.map((t) => t.id), ends: arrivalOutcome(state, to), reason: null };
 }
 
@@ -488,7 +510,9 @@ function fallBack(state: GameState, army: Army) {
   };
   const ownTown = (at: string) => Number(townAt(state, at)?.owner === army.owner);
   const options = army.from ? [army.from] : neighborsOf(state, army.at).sort((x, y) => ownTown(y) - ownTown(x));
-  const back = options.find(safe);
+  // Prefer somewhere the survivors fit without going over the army cap; overflowing beats being cut off.
+  const fits = (at: string) => (armyAt(state, at, army.owner)?.troops.length ?? 0) + army.troops.length <= ARMY_CAP;
+  const back = options.find((at) => safe(at) && fits(at)) ?? options.find(safe);
   if (back) {
     army.at = back;
     settle(state, army);

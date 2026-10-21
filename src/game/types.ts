@@ -148,6 +148,20 @@ export interface Army {
   troops: Troop[];
   /** Raiders only: the town this force marches on (a quest's incursion) instead of the nearest one. */
   target?: string;
+  /** How this army sets up and fights; absent means Offensive. */
+  tactics?: Tactics;
+}
+
+/** An army's battle plan: a preset stance, or Custom with your own placements (TAC-01). */
+export type Stance = 'offensive' | 'defensive' | 'skirmish' | 'custom';
+
+/** A place in a side's 3-column deployment zone: depth 0 is the front column, 2 the back; rows 0–8. */
+export interface DeployCell { depth: number; row: number }
+
+export interface Tactics {
+  stance: Stance;
+  /** Custom only: where each formation starts, by troop id. Formations without a place are set up as Offensive. */
+  layout?: Record<string, DeployCell>;
 }
 
 export interface MapNode {
@@ -216,6 +230,8 @@ export interface Battle {
   outcome: Side | null;
   retreated: Side | null;
   seed: number;
+  /** Each side's stance, fixed as the battle begins; absent sides fight Offensive. */
+  stances?: Partial<Record<Side, Stance>>;
   /** A quest encounter: which choice started it, the guardian army, and the hero party split off for it. */
   encounter?: { quest: string; choice: string; guardian: number; army: number; party?: number };
 }

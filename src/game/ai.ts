@@ -1,4 +1,4 @@
-import { armyAt, campaignOf, enterNode, log, makeTroop, marchAlong, neighborsOf, nodeName, sharedMp } from './campaign';
+import { ARMY_CAP, armyAt, campaignOf, enterNode, log, makeTroop, marchAlong, neighborsOf, nodeName, sharedMp } from './campaign';
 import type { Army, GameState } from './types';
 import { marchOptions, pathTo, stepCost, stopsMarch, townAt, townLocation, worldOf } from './world';
 import { isHero } from './units';
@@ -12,7 +12,8 @@ export function orcTurn(state: GameState) {
   const lairId = campaignOf(state).lair;
   const LAIR = townLocation(state, lairId);
   if (state.towns[lairId].owner === 'orcs') {
-    if (state.turn % SPAWN_EVERY === 0) {
+    // The Hold's garrison grows to a full army and no further.
+    if (state.turn % SPAWN_EVERY === 0 && (armyAt(state, LAIR, 'orcs')?.troops.length ?? 0) < ARMY_CAP) {
       const type = state.turn % (SPAWN_EVERY * 2) === 0 ? 'troll' : 'warband';
       const garrison = armyAt(state, LAIR, 'orcs');
       if (garrison) garrison.troops.push(makeTroop(state, type));

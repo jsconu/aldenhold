@@ -12,6 +12,8 @@ export interface UIState {
   /** Spell the selected hero is about to cast. */
   battleSpell: SpellId | null;
   battleTarget?: number | null;
+  /** Tactics screen: the formation picked up to move to another cell. */
+  tacticsTroop?: number | null;
   battleDestination?: { col: number; row: number } | null;
   message: string;
   /** Campaign screen: the province map or the full journal. */
