@@ -60,7 +60,7 @@ export function trackedQuests(state: GameState): QuestDefinition[] {
     return months === undefined || p.stageTurn === null ? Infinity : p.stageTurn + months;
   };
   return campaignQuests(state)
-    .filter((def) => isOpen(state.quests[def.id]))
+    .filter((def) => isOpen(state.quests[def.id]) && (!def.adventureSite || state.quests[def.id].history.length>0 || state.armies.some(a=>a.owner==='player' && a.at===startLocation(state,def.adventureSite!) && a.troops.some(t=>t.type==='lord'))))
     .sort((a, b) => (a.kind === b.kind ? 0 : a.kind === 'main' ? -1 : 1) ||
       (due(a) === due(b) ? 0 : due(a) < due(b) ? -1 : 1) ||
       (state.quests[a.id].stageTurn ?? 0) - (state.quests[b.id].stageTurn ?? 0))
@@ -71,8 +71,8 @@ export function trackedQuests(state: GameState): QuestDefinition[] {
 export function questsAtSite(state: GameState, placeId: string): QuestDefinition[] {
   return campaignQuests(state).filter((def) => {
     const progress = state.quests[def.id];
-    return isOpen(progress) && def.at !== placeId && (stageOf(def, progress.stage)?.choices ?? [])
-      .some((c) => 'encounter' in c.then && c.then.encounter.site === placeId);
+    return isOpen(progress) && (def.adventureSite === placeId || (def.at !== placeId && (stageOf(def, progress.stage)?.choices ?? [])
+      .some((c) => 'encounter' in c.then && c.then.encounter.site === placeId)));
   });
 }
 
@@ -261,6 +261,11 @@ export function questQuote(state: GameState, questId: string, choiceId: string):
   if (missing) return refuse(`You need the ${ITEMS[missing]?.name ?? missing}.`);
   const unmet = choice.needs?.find((c) => !conditionHolds(state, c));
   if (unmet) return refuse(`First: ${conditionText(state, unmet)}.`);
+  if(def.adventureSite){
+    const site=startLocation(state,def.adventureSite);
+    const present=state.armies.some(a=>a.owner==='player' && a.at===site && a.troops.some(t=>t.type==='lord' && t.men>0));
+    if(!present)return refuse('Bring your ruler to '+nodeName(state,site)+'. Only the ruler enters; the army waits outside.');
+  }
   // Talking needs an envoy near the giver; an encounter instead needs your army at its site (checked below).
   if (def.needsEnvoy && !('encounter' in choice.then)) {
     const at = townLocation(state, def.at);

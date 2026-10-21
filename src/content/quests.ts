@@ -401,6 +401,50 @@ export const Q06_MILLER_ON_TRIAL: QuestDefinition = {
   onLocationLost: { status: 'superseded', effects: [], journal: 'Millbrook fell before Hobb could be judged.' },
 };
 
+/** Original short ruler-only adventures: army strength cannot solve their clues. */
+export const ROYAL_BARROW: QuestDefinition = {
+  id:'H01',campaignIds:['western-realm'],kind:'side',name:'The Oath Beneath the Hill',giver:'The keeper of the royal tomb',at:'aldenhold',adventureSite:'barrow',
+  summary:'The Royal Barrow holds a signet once used to reconcile rival houses. Your ruler may enter alone; soldiers must wait outside.',
+  prerequisites:[{kind:'month',atLeast:1}],needsEnvoy:false,survivesConquest:true,
+  stages:[
+    {id:'threshold',text:'A sealed stone door bears three worn emblems: a sword, a crown and an open hand. A shallow offering bowl is empty. You can leave and return later without losing progress.',choices:[
+      {id:'examine',label:'Examine the carvings and inscription',then:{stage:'inscription'}},
+      {id:'force',label:'Break the funerary seal and plunder the tomb (forsake the oath)',then:{status:'failed',effects:[],journal:'Your ruler broke the Royal Barrow seal. The keeper concealed the signet; its oath can no longer be earned.'}},
+    ]},
+    {id:'inscription',text:'Beneath the dust you read: “Steel may win a border, and a crown may claim it. Only the hand that gives may bind a people.” The bowl fits a clasp from your cloak.',choices:[
+      {id:'offer',label:'Offer your cloak clasp, then press the open hand',then:{stage:'keeper'}},
+      {id:'crown',label:'Press the crown',then:{stage:'echo'}},
+      {id:'sword',label:'Press the sword',then:{stage:'echo'}},
+    ]},
+    {id:'echo',text:'The emblem sinks, but the door remains closed. A whisper repeats: “What does a ruler owe?” No harm is done; examine the oath again.',choices:[{id:'reconsider',label:'Read the inscription again',then:{stage:'inscription'}}]},
+    {id:'keeper',text:'The door opens. A shade offers the signet: “Will you bind the free courts by fear, or earn their trust?” This relic strengthens your command; it grants no automatic allegiance.',choices:[
+      {id:'oath',label:'Swear to protect those who place their trust in you',then:{status:'succeeded',effects:[{kind:'item',item:'keepers-signet'}],journal:'Alone in the Royal Barrow, your ruler solved the oath door and earned the Keeper’s Signet: +4 leadership when equipped.'}},
+      {id:'refuse',label:'Refuse the oath and leave the signet',then:{status:'failed',effects:[],journal:'Your ruler left the Keeper’s Signet in the Royal Barrow rather than swear its oath.'}},
+    ]},
+  ],onLocationLost:{status:'superseded',effects:[],journal:'The capital fell before the barrow oath could be completed.'},
+};
+export const MONASTERY_TRIAL: QuestDefinition = {
+  id:'H02',campaignIds:['western-realm'],kind:'side',name:'The Silent Infirmary',giver:'Sister Elwen',at:'aldenhold',adventureSite:'monastery',
+  summary:'Hillcrest’s infirmary has fallen quiet. Your ruler must enter alone, listen to the brothers and prepare a remedy before earning their blessing.',
+  prerequisites:[{kind:'month',atLeast:1}],needsEnvoy:false,survivesConquest:true,
+  stages:[
+    {id:'courtyard',text:'A novice guards the silent infirmary. Armed followers must remain at the gate. The sick need help, but the herb labels were washed away in a storm.',choices:[
+      {id:'listen',label:'Ask the novice about the symptoms',then:{stage:'library'}},
+      {id:'demand',label:'Demand a relic without helping',then:{stage:'rebuke'}},
+    ]},
+    {id:'rebuke',text:'“A crown cannot command compassion,” the novice answers. The gate remains open if you choose to listen.',choices:[{id:'apologize',label:'Put pride aside and ask how to help',then:{stage:'library'}}]},
+    {id:'library',text:'The patients have a fever. An old herbal reads: “For heat within, steep the silver leaf that grows in shade. The red sun-flower wakes the blood; the thorn berry brings sleep, not healing.” Three unlabelled baskets wait in the cloister.',choices:[
+      {id:'silver',label:'Take the pale leaves gathered beneath the cloister wall',then:{stage:'remedy'}},
+      {id:'red',label:'Take the red flowers from the sunny garden',then:{stage:'correction'}},
+      {id:'berries',label:'Take the dark thorn berries',then:{stage:'correction'}},
+    ]},
+    {id:'correction',text:'The novice stops your hand before anything is administered. “Read the herbal once more. We must ease the fever, not hide it.”',choices:[{id:'read',label:'Consult the herbal again',then:{stage:'library'}}]},
+    {id:'remedy',text:'You steep the silver leaves and carry bowls through the infirmary. By evening the fever has eased. Sister Elwen offers a protective medallion and a healing draught for your travels.',choices:[
+      {id:'accept',label:'Accept the blessing and promise protection for the infirmary',then:{status:'succeeded',effects:[{kind:'item',item:'hillcrest-medallion'},{kind:'item',item:'healing-draught'}],journal:'Your ruler prepared Hillcrest’s remedy and earned the Hillcrest Medallion (+1 defense, +2 leadership when equipped) and one Healing Draught.'}},
+    ]},
+  ],onLocationLost:{status:'superseded',effects:[],journal:'The capital fell before the monastery pilgrimage could be completed.'},
+};
+
 export const QUESTS: Record<string, QuestDefinition> = {
   [FENWICK_CHARTER.id]: FENWICK_CHARTER,
   [WOODLAND_ACCORD.id]: WOODLAND_ACCORD,
@@ -413,4 +457,6 @@ export const QUESTS: Record<string, QuestDefinition> = {
   [Q03_OLD_TOWER.id]: Q03_OLD_TOWER,
   [Q05_MISSING_CARAVAN.id]: Q05_MISSING_CARAVAN,
   [Q06_MILLER_ON_TRIAL.id]: Q06_MILLER_ON_TRIAL,
+  [ROYAL_BARROW.id]:ROYAL_BARROW,
+  [MONASTERY_TRIAL.id]:MONASTERY_TRIAL,
 };

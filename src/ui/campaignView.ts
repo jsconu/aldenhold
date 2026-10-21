@@ -303,12 +303,12 @@ function renderQuests(state: GameState, defs: QuestDefinition[]): string {
       ? `<p class="sub">Hold until ${esc(due)}.</p>`
       : `<p class="sub">${stage.choices.length ? 'Decide' : 'Finish'} by ${esc(due)}, or this ends on its own.</p>`;
     const destinations = questSites(state, def.id).filter((site) => site !== def.at);
-    const siteLinks = destinations.length ? `<p class="quest-sites">Encounter site${destinations.length > 1 ? 's' : ''}: ${destinations.map((site) => `<button class="link" data-action="goto" data-node="${startLocation(state, site)}">Show ${esc(nodeName(state, site))}</button>`).join(' · ')}</p>` : '';
+    const siteLinks = destinations.length ? `<p class="quest-sites">${def.adventureSite ? 'Adventure site' : 'Encounter site'}${destinations.length > 1 ? 's' : ''}: ${destinations.map((site) => `<button class="link" data-action="goto" data-node="${startLocation(state, site)}">Show ${esc(nodeName(state, site))}</button>`).join(' · ')}</p>` : '';
     const goals = stage.objectives?.length ? `<ul class="objectives">${stage.objectives.map((o) => {
       const met = o.when.every((c) => conditionHolds(state, c));
       return `<li class="${met ? 'met' : ''}">${met ? '✓' : '○'} ${o.when.map((c) => esc(conditionText(state, c))).join('; ')}</li>`;
     }).join('')}</ul><p class="sub">Goals are checked at the end of each month.</p>` : '';
-    return `${head}<p>${esc(def.summary)}</p><p class="sub">${esc(stage.text)}</p>${siteLinks}${goals}${deadline}
+    return `${head}${def.adventureSite ? '<p class="adventure-label">Ruler adventure · your army waits outside. Progress is saved after each choice.</p>' : ''}<p>${esc(def.summary)}</p><p class="sub">${esc(stage.text)}</p>${siteLinks}${goals}${deadline}
       ${shared ? `<p class="hint">${esc(shared)}</p>` : ''}
       ${quotes.length ? `<div class="quest-actions">${quotes.map(({ c, quote }) => `<div class="quest-option"><button data-action="quest-choice" data-quest="${def.id}" data-choice="${c.id}"
         ${quote.reason ? `disabled title="${esc(quote.reason)}"` : ''}>${esc(c.label)}${quote.gold ? ` · ${quote.gold}g` : ''}${'encounter' in c.then ? ` · battle at ${esc(nodeName(state, startLocation(state, c.then.encounter.site)))}` : ''}</button>${quote.reason && !shared ? `<small class="hint">${esc(quote.reason)}</small>` : ''}${quote.encounter ? renderEncounterParty(state, quote.encounter) : ''}</div>`).join('')}</div>` : ''}</div>`;

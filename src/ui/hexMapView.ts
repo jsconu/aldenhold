@@ -111,21 +111,15 @@ export const BANNER_LABEL: Record<BannerKind, string> = {
 };
 
 const BANNER_ART: Record<BannerKind, string> = {
-  player: `<rect x="2" y="0.5" width="9" height="7" fill="#2f4fc8" stroke="#ffd84a" stroke-width="1.3"/>
-    <path d="M3.8 5.6V2.6L5.3 4 6.5 2 7.7 4 9.2 2.6V5.6Z" fill="#ffd84a"/>`,
-  enemy: `<rect x="2" y="0.5" width="9" height="7" fill="#a51e1e" stroke="#1a0606" stroke-width="1"/>
-    <path d="M3.6 1.8 9.4 6.2M9.4 1.8 3.6 6.2" stroke="#f4ece0" stroke-width="1.2"/>`,
-  free: `<rect x="2" y="0.5" width="9" height="7" fill="#e9dfb8" stroke="#4a4535" stroke-width="0.8"/>`,
-  lair: `<rect x="2" y="0.5" width="9" height="7" fill="#262626" stroke="#0a0a0a" stroke-width="0.8"/>
-    <circle cx="6.5" cy="3.6" r="2.4" fill="#ece7d8"/><rect x="5.2" y="5.2" width="2.6" height="1.6" fill="#ece7d8"/>
-    <circle cx="5.6" cy="3.5" r="0.6" fill="#111"/><circle cx="7.4" cy="3.5" r="0.6" fill="#111"/>`,
-  cleared: `<rect x="2" y="0.5" width="9" height="7" fill="#7a7466" stroke="#2a2620" stroke-width="0.8"/>
-    <path d="M3.4 6.6 9.6 1.4" stroke="#e8e2d0" stroke-width="1.3"/>`,
+  player: '<path d="M4 6V3.4L5.5 4.7 6.8 2.8 8 4.7 9.4 3.4V6Z" fill="#ddbe75" stroke="#695735" stroke-width=".25"/>',
+  enemy: '<path d="M4 2.7 9 7M9 2.7 4 7M3.5 5.4 5.3 7.1M7.6 7.1 9.5 5.3" stroke="#e2d4b8" stroke-width=".65"/>',
+  free: '<path d="M6.7 2.4V7M6.7 4.4 4.8 3.1M6.7 5.4 4.6 4M6.7 4.4 8.6 3.1M6.7 5.4 8.7 4M5.4 6.8H8" fill="none" stroke="#d4bc78" stroke-width=".65"/>',
+  lair: '<path d="M4.6 5.8V4a2.1 2.1 0 0 1 4.2 0v1.8L7.8 6v1H5.6V6Z" fill="#d2c6a6"/><path d="M5.5 4h.5m1.3 0h.5M6.5 5.4h.4" stroke="#28261e" stroke-width=".75"/>',
+  cleared: '<path d="m4.6 5 1.5 1.5 3-3.4" fill="none" stroke="#d4ccb1" stroke-width=".85"/>',
 };
-
 function bannerDefs(): string {
-  return (Object.keys(BANNER_ART) as BannerKind[]).map((k) => `<symbol id="owner-banner-${k}" viewBox="0 0 12 13">
-    <path d="M1.4 0.2V12.8" stroke="#2a2217" stroke-width="1"/>${BANNER_ART[k]}</symbol>`).join('');
+  const colors: Record<BannerKind,[string,string]>={player:['#49647b','#263e52'],enemy:['#8d5041','#5a3029'],free:['#6b7656','#3e4e3c'],lair:['#4b473c','#28271f'],cleared:['#85816b','#55594b']};
+  return (Object.keys(BANNER_ART) as BannerKind[]).map(k=>'<linearGradient id="cloth-'+k+'"><stop stop-color="'+colors[k][1]+'"/><stop offset=".3" stop-color="'+colors[k][0]+'"/><stop offset=".65" stop-color="'+colors[k][1]+'"/><stop offset="1" stop-color="'+colors[k][0]+'"/></linearGradient><symbol id="owner-banner-'+k+'" viewBox="0 0 12 13"><path d="M1.6 1V12.5" stroke="#3c3024" stroke-width="1.1"/><path d="M1.4 1V12" stroke="#b09a6a" stroke-width=".35"/><path d="M1.5 0 2.4 1.4 1.5 2.2 .6 1.4Z" fill="#c2a56b"/><path d="M2.1 1.7Q5 .8 7 1.8T11.1 1.7L10.4 9 7.1 7.7 4.1 9 2.1 8Z" fill="url(#cloth-'+k+')" stroke="#b3a17a" stroke-width=".45"/><path d="M3 2.1V7.5M7.1 2.1V7" stroke="#e7d6a6" opacity=".12" stroke-width=".4"/>'+BANNER_ART[k]+'</symbol>').join('');
 }
 
 /** Which banner a settlement flies: a lair is always a lair; otherwise its owner decides. */
@@ -216,12 +210,13 @@ export function renderHexMap(
     const town = p.kind === 'town' ? state.towns[p.id] : undefined;
     const sprite = spriteFor(state, p.id, p.kind);
     if (town) places += richSettlement(town.kind, ['forest','deepwood'].includes(hexLand(world, p.col+','+p.row).id), cx, cy);
+    else if (p.id === 'bridge') places += '<image href="/assets/overland/stone-bridge-v1.png" x="'+(cx-23)+'" y="'+(cy-14)+'" width="46" height="31" pointer-events="none"/>';
     else if (sprite) places += use(sprite, 'neutral', cx, cy + 6);
     if (town) {
       const top = cy + 6 - (sprite ? PLACE_SPRITES[sprite].length : 12);
       const half = sprite ? PLACE_SPRITES[sprite][0].length / 2 : 6;
       const raid = state.raids.find((r) => r.target === p.id);
-      places += `<g class="settlement-owner"><title>${esc(settlementTitle(state, p.id, `${p.col},${p.row}`) + (raid ? ' Raid expected next month!' : ''))}</title>${bannerSvg(bannerFor(state, p.id), cx + half - 9, top - 18, 20)}${raid ? `<text x="${cx + half + 8}" y="${top - 6}" class="raid-alert">!</text>` : ''}</g>`;
+      places += `<g class="settlement-owner"><title>${esc(settlementTitle(state, p.id, `${p.col},${p.row}`) + (raid ? ' Raid expected next month!' : ''))}</title>${bannerSvg(bannerFor(state, p.id), cx + half - 9, top - 15, 16)}${raid ? `<text x="${cx + half + 8}" y="${top - 6}" class="raid-alert">!</text>` : ''}</g>`;
     }
     const lair = lairAt(state, `${p.col},${p.row}`);
     if (lair) {
@@ -249,7 +244,7 @@ export function renderHexMap(
       const hx = cx + (shared ? 5 : 0) - (list.length - 1) * 3.5 + i * 7;
       const hy = cy + (shared ? 3 : 0);
       armies += `<g class="map-army owner-${a.owner}"><title>${esc(armyTitle(a))}</title>
-        <ellipse cx="${hx}" cy="${hy}" rx="9" ry="7.5" class="army-halo"/>${use('banner', a.owner, hx - 3, hy + 4)}
+        <ellipse cx="${hx}" cy="${hy}" rx="9" ry="7.5" class="army-halo"/>${bannerSvg(a.owner === 'player' ? 'player' : a.owner === 'neutral' ? 'free' : 'enemy', hx - 13, hy - 22, 14)}
         <text x="${hx}" y="${hy + 2}" class="army-count">${a.troops.length}</text></g>`;
     });
   }

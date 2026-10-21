@@ -1,7 +1,7 @@
 import './style.css';
 import { HEX_ZOOMS, hexZoom } from './ui/hexMapView';
 import {
-  attack, attackTargets, autoResolve, castSpell, escapeQuote, moveUnit, planDeployment, playerEndTurn, playerSide, reachable, spellTargets, teleportDestinations, tryEscape, unitAt,
+  attackOrder, attackOrderQuote, autoResolve, castSpell, escapeQuote, moveUnit, planDeployment, playerEndTurn, playerSide, reachable, spellTargets, teleportDestinations, tryEscape, unitAt,
 } from './game/battle';
 import { applyBattle, armyAt, campaignOf, endTurn, hireHero, moveTroops, newGame, recruit, setTax } from './game/campaign';
 import { townLocation } from './game/world';
@@ -404,7 +404,11 @@ function onHex(col: number, row: number) {
   }
   ui.battleSpell = null;
   if (!sel) return;
-  if (clicked && attackTargets(b, sel).includes(clicked)) attack(b, sel.id, clicked.id);
+  if (clicked) {
+    const q=attackOrderQuote(b,sel.id,clicked.id);
+    if(q.reason) ui.message=q.reason;
+    else {attackOrder(b,sel.id,clicked.id);ui.message='';}
+  }
   else if (!clicked && reachable(b, sel).has(hexKey({ col, row }))) moveUnit(b, sel.id, { col, row });
 }
 

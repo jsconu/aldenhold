@@ -28,5 +28,15 @@
       "woodland village"
     ],
     "prompt": "Original richly detailed isometric medieval map sprite atlas, stone and russet timber architecture, transparent background, consistent lighting, no labels, banners or UI."
+  },
+  "bridge": {
+    "file": "stone-bridge-v1.png",
+    "source": "OpenAI built-in image_gen",
+    "prompt": "Isolated original weathered limestone three-arch bridge, wide gentle diagonal, cobbles, low parapets, subtle moss, detailed pixel art, transparent background, no cyan water, scenery, text or UI."
+  },
+  "woodBridge": {
+    "file": "wood-bridge-v1.png",
+    "source": "OpenAI built-in image_gen",
+    "prompt": "Original detailed pixel-art weathered oak bridge, low timber rails, posts, cross-braced trestles, iron fasteners, subtle moss, transparent background, no water, landscape, UI or text."
   }
 }

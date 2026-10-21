@@ -48,7 +48,7 @@ const factions = Object.keys(FACTIONS);
 const deedKinds: DeedKind[] = ['story', 'battle', 'capture', 'loss', 'hero', 'realm', 'ending', 'earlier'];
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const sides = ['attacker', 'defender'];
-const ledgerCategories: LedgerCategory[] = ['tax', 'wages', 'recruitment', 'hero-hire', 'construction', 'maintenance', 'refit', 'quest', 'quest-reward', 'item-sale', 'item-purchase', 'lair-plunder', 'raid-loss', 'balance-correction'];
+const ledgerCategories: LedgerCategory[] = ['tax', 'wages', 'recruitment', 'hero-hire', 'construction', 'maintenance', 'refit', 'quest', 'quest-reward', 'item-sale', 'item-purchase', 'lair-plunder', 'raid-loss', 'battle-spoils', 'balance-correction'];
 
 /** Validate both shape and references before exposing a save to rules or rendering. */
 function validate(value: unknown, allowMissingBattleTroops = false): asserts value is GameState {
@@ -162,7 +162,7 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
         text(e.counterparty) && text(e.actionId) && e.actionId.length > 0 &&
         !unique.has(e.actionId), 'treasury transaction');
       unique.add(e.actionId as string);
-      requireValue(e.category === 'tax' || e.category === 'quest-reward' || e.category === 'item-sale' || e.category === 'lair-plunder' ? Number(e.amount) > 0 :
+      requireValue(e.category === 'tax' || e.category === 'quest-reward' || e.category === 'item-sale' || e.category === 'lair-plunder' || e.category === 'battle-spoils' ? Number(e.amount) > 0 :
         e.category === 'balance-correction' ? Number(e.amount) !== 0 : Number(e.amount) < 0,
         'treasury transaction sign');
     }
@@ -363,6 +363,7 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
   });
   if (s.battle !== null) {
     const b = object(s.battle);
+    requireValue(b.settled === undefined || b.settled === false, 'already settled battle');
     requireValue(loc(b.at) && Object.values(BATTLE_SIZES).some((size) => size.width === b.width && size.height === b.height), 'battle map');
     const width = Number(b.width), height = Number(b.height);
     requireValue(integer(b.round, 1, maxRounds(b as { width: number }) + 1) && integer(b.seed, -2147483648, 2147483647) && bool(b.walls), 'battle numbers');

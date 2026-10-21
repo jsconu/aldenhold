@@ -221,6 +221,8 @@ export interface BattleUnit {
 }
 
 export interface Battle {
+  /** Set only when writing a completed result back; active saved battles must remain unsettled. */
+  settled?: boolean;
   at: string;
   attackerId: number;
   defenderId: number;
@@ -464,6 +466,8 @@ export interface QuestStage {
 }
 
 export interface QuestDefinition {
+  /** A narrative adventure entered by the ruler alone; their army waits at this site. */
+  adventureSite?: string;
   id: string;
   campaignIds: CampaignId[];
   kind: 'main' | 'side';
@@ -486,7 +490,7 @@ export interface QuestDefinition {
 }
 
 /** Signed cash movements: positive receipts, negative actual payments. */
-export type LedgerCategory = 'tax' | 'wages' | 'recruitment' | 'hero-hire' | 'construction' | 'maintenance' | 'refit' | 'quest' | 'quest-reward' | 'item-sale' | 'item-purchase' | 'lair-plunder' | 'raid-loss' | 'balance-correction';
+export type LedgerCategory = 'tax' | 'wages' | 'recruitment' | 'hero-hire' | 'construction' | 'maintenance' | 'refit' | 'quest' | 'quest-reward' | 'item-sale' | 'item-purchase' | 'lair-plunder' | 'raid-loss' | 'battle-spoils' | 'balance-correction';
 
 /** A monster lair's state: active until its garrison is destroyed; hidden until found. */
 export interface LairState {

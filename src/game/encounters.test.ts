@@ -85,7 +85,7 @@ describe('encounters: Q02 One Eye at the Quarry', () => {
     const gold = s.gold;
     expect(yieldFactor(s, 'aldenhold', 'mine')).toBe(1);
     fightUntilWon(s, 'Q02', 'hunt');
-    expect(s.gold).toBe(gold + 100);
+    expect(s.gold).toBe(gold + 100 + s.treasury.pending.filter(e=>e.category==='battle-spoils').reduce((sum,e)=>sum+e.amount,0));
     expect(s.flags).toContain('quarry-cleared');
     expect(yieldFactor(s, 'aldenhold', 'mine')).toBe(1.25);
     expect(yieldFactor(s, 'aldenhold', 'farm')).toBe(1);

@@ -42,7 +42,9 @@ describe('original Western Realm settlements', () => {
     for (const place of realm.places) {
       if (!WESTERN_PLACE_ART[place.id]) continue;
       const owner = place.kind === 'town' ? game.towns[place.id].owner : 'neutral';
-      expect(rendered, place.id).toContain(`href="#map-${place.id}-${owner}"`);
+      if (place.kind === 'town') expect(rendered).toContain('/assets/overland/settlements-atlas-v1.png');
+      else if (place.id === 'bridge') expect(rendered).toContain('/assets/overland/stone-bridge-v1.png');
+      else expect(rendered, place.id).toContain(`href="#map-${place.id}-${owner}"`);
       expect(rendered).toContain(`id="map-${place.id}-${owner}" viewBox="0 0 34 24"`);
     }
     expect(JSON.stringify(game)).toBe(before);

@@ -8,6 +8,13 @@ import { renderBattle } from './battleView';
 import type { UIState } from './shared';
 const ui: UIState = { selected:null, checked:new Set(), battleUnit:null, battleSpell:null, message:'', view:'map' };
 describe('reference-led presentation',()=> {
+  it('uses rich scene assets for every town in both campaigns',()=>{
+    for(const id of ['valley-quickplay','western-realm'] as const){
+      const s=newGame(1,id),saved=JSON.stringify(s);
+      for(const town of Object.values(s.towns))expect(placeScene(s,town.id)).toContain('<image href="/assets/scenes/');
+      expect(JSON.stringify(s)).toBe(saved);
+    }
+  });
   it('shows real buildings and construction without changing the save',()=> {
     const s=newGame(1,'western-realm');
     const before=placeScene(s,'aldenhold');

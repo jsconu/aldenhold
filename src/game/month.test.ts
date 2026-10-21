@@ -62,7 +62,9 @@ describe('month pipeline', () => {
     const ledgerEntries = s.treasury.pending.length;
     autoResolve(s.battle!);
     applyBattle(s, s.battle!);
-    expect([s.turn, s.gold, s.treasury.pending.length]).toEqual([turn, gold, ledgerEntries]);
+    const spoils=s.treasury.pending.slice(ledgerEntries).filter(e=>e.category==='battle-spoils').reduce((sum,e)=>sum+e.amount,0);
+    expect([s.turn, s.gold, s.treasury.pending.length]).toEqual([turn, gold+spoils, ledgerEntries+(spoils ? 1 : 0)]);
+    expect(s.treasury.pending.slice(ledgerEntries).every(e=>e.category==='battle-spoils')).toBe(true);
   });
 
   it('is deterministic: the same seed gives the same reports and the same world', () => {

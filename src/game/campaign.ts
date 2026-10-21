@@ -6,7 +6,8 @@ import { orcTurn } from './ai';
 import { autoResolve, createBattle, isAI, runAI } from './battle';
 import { getCampaign } from '../content';
 import { hasPassage, relationWith } from './diplomacy';
-import { newTreasury, recordPurchase, settleTreasury, type CashFlow } from './economy';
+import { battleSpoils } from './battleRewards';
+import { recordReceipt, newTreasury, recordPurchase, settleTreasury, type CashFlow } from './economy';
 import { settleHeldQuests, advanceQuests, endEncounter, newQuestState, onTownOwnershipChange, recruitBan, unlockQuests } from './quests';
 import { advanceCities, cityMaintenance, startingCities, type CityPhaseResult } from './cities';
 import { basicLoadout, finishRefits, troopUpkeep } from './equipment';
@@ -444,9 +445,18 @@ export function startBattle(state: GameState, attackerId: number, defenderId: nu
 
 /** Write the battle's losses back to the armies, move the loser out, and hand over the town. */
 export function applyBattle(state: GameState, b: Battle) {
-  if (!b.outcome) return;
+  if (!b.outcome || b.settled) return;
   // Optional encounters always belong to the active battle; settling a stale copy must not repeat XP.
   if (b.encounter && state.battle !== b) return;
+  const settlementId='battle:'+b.at+':'+b.attackerId+':'+b.defenderId+':'+b.seed;
+  if([...state.treasury.pending,...state.treasury.history.flatMap(month=>month.entries)].some(e=>e.actionId===settlementId))return;
+  b.settled=true;
+  const spoils=battleSpoils(b);
+  if(spoils){
+    state.gold+=spoils;
+    recordReceipt(state,townAt(state,b.at)?.id ?? campaignOf(state).capital,spoils,settlementId,'Battle at '+nodeName(state,b.at),'battle-spoils');
+    log(state,'Recovered '+spoils+' gold in battle spoils at '+nodeName(state,b.at)+'.');
+  }
   const attacker = findArmy(state, b.attackerId);
   const defender = findArmy(state, b.defenderId);
   for (const army of [attacker, defender]) {

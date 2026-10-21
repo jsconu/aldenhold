@@ -33,6 +33,36 @@
       "file": "titans-v1.png",
       "sourceFile": "exec-3c280dee-1b29-45cd-89be-373c22738cfa.png",
       "description": "Remote titan sanctuary: monumental temple carved into a colossal seated stone figure, terraces, waterfalls, mist and faint golden glow."
+    },
+    {
+      "id": "town-plains",
+      "file": "town-plains-v1.png",
+      "sourceFile": "exec-b40d630c-7118-4e6f-9011-3b8d51db8b3d.png",
+      "description": "Original detailed pixel-art medieval plains settlement panorama, wide 16:9 elevated isometric composition, matching capital style, open foreground development plots, no UI, labels or watermark."
+    },
+    {
+      "id": "town-forest",
+      "file": "town-forest-v1.png",
+      "sourceFile": "exec-7c777d79-b950-4353-b1a1-ff1535bfd32a.png",
+      "description": "Original detailed pixel-art medieval forest settlement panorama, wide 16:9 elevated isometric composition, matching capital style, open foreground development plots, no UI, labels or watermark."
+    },
+    {
+      "id": "town-marsh",
+      "file": "town-marsh-v1.png",
+      "sourceFile": "exec-1e95263d-62db-4f8f-ae3b-e92e8f7a5d0d.png",
+      "description": "Original detailed pixel-art medieval marsh settlement panorama, wide 16:9 elevated isometric composition, matching capital style, open foreground development plots, no UI, labels or watermark."
+    },
+    {
+      "id": "town-mountains",
+      "file": "town-mountains-v1.png",
+      "sourceFile": "exec-e7b94c4f-4559-4582-9bce-b780c9a7eb88.png",
+      "description": "Original detailed pixel-art medieval mountains settlement panorama, wide 16:9 elevated isometric composition, matching capital style, open foreground development plots, no UI, labels or watermark."
+    },
+    {
+      "id": "town-badlands",
+      "file": "town-badlands-v1.png",
+      "sourceFile": "exec-6bc643c2-04ed-4210-98cd-36413fad5dc6.png",
+      "description": "Original detailed pixel-art medieval badlands settlement panorama, wide 16:9 elevated isometric composition, matching capital style, open foreground development plots, no UI, labels or watermark."
     }
   ]
 }

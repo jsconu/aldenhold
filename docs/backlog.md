@@ -45,3 +45,7 @@ These came out of a planning review with the owner. They govern order and releas
 Completed foundations include versioned saves with three manual slots and rolling recovery positions, content validation, journal, the Q00 treaty/item fixture, a reconciled treasury ledger with category/location cash reports, local production/construction, paid veteran bow/armor refits, fourteen mage spells, original tactical pixel units and the visual overland atlas. These foundations do not yet implement the full economy, 48-city map or infinite world.
 
 For each authored quest or surprise, require a stable content ID, eligibility, choices, success/failure consequences, one-time reward policy, save/reload tests and appropriate art. A title, map marker or random encounter alone does not meet completion criteria.
+
+## Browser playtest additions, October 21, 2026
+
+Implemented on `codex/reference-presentation`: rich town and lair panoramas, detailed overland and battle terrain, illustrated units, heraldic cloth banners, stone/timber bridges, battle results, victory gold, one-click movement/attack, and the first two ruler-only narrative landmark adventures (Royal Barrow and Hillcrest Monastery). Remaining: owner visual and balance review, matching rich development overlays, smoother terrain edges, animated combat, and more authored landmark adventures using the same ruler-only framework. The adventures are staged narrative puzzles; free-roaming point-and-click rooms are not implemented.

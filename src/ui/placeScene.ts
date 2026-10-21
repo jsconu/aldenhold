@@ -28,7 +28,8 @@ export function placeScene(state: GameState, townId: string, species?: MonsterSp
     if(species === 'titans') art += '<path d="M222 145V51H266V145M214 54V38H275V54" fill="#8b9278" stroke="#46584e" stroke-width="4"/><path d="M232 81V62H241V81M250 81V62H259V81" stroke="#243c37" stroke-width="5"/>';
     if(!species) for(let i=0;i<5;i++) art += house(72+i*67,174+(i%2)*21,.7);
   }
-  const scene = species ?? (townId === 'aldenhold' ? 'capital' : null);
+  const setting=woods?'forest':wet?'marsh':land==='badlands'?'badlands':rocky?'mountains':'plains';
+  const scene = species ?? (state.towns[townId]?.kind === 'capital' ? 'capital' : state.towns[townId]?.kind==='lair' ? 'town-badlands' : 'town-'+setting);
   if (scene) art = '<image href="/assets/scenes/'+scene+'-v1.png" x="0" y="0" width="480" height="260" preserveAspectRatio="xMidYMid slice"/>';
   if(city && !species) {
     if(city.buildings.farm) for(let i=0;i<city.buildings.farm*4;i++) art += '<path d="M'+(15+i*15)+' 238l37 -17 9 5 -37 17Z" fill="#ccad59" stroke="#727244"/>';
