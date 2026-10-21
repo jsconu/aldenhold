@@ -31,3 +31,16 @@ CI checks three seeds under both policies, a deterministic replay, and an intent
 The current chapter has at least two viable economic and diplomatic policies under automated combat. Both produce meaningful attacks and losses and resume through valid saves. The fixture-free runs guard against impossible quest prerequisites, broken routes, timing regressions and hidden resource grants.
 
 These results do not establish that all strategies work, that tactical battles or optional monsters are balanced, or that the chapter satisfies the much longer full-story target. The seven-month route is a short Act I baseline. Before accepting chapter balance, the owner still needs to play it, assess pacing and tactical difficulty, and agree to a target window. Optional quest balance, human battle tactics, the art pass and the final title remain separate work.
+
+
+## Paid optional-quest expeditions
+
+`npm run simulate:quests -- 1 42 2026` hires the starting priest for 300 gold, sends that priest with an existing militia, spearmen and archers on a real march, develops the capital and recruits a home garrison. It hears the caravan plea at Fenwick, rescues the caravan at the mine, clears the quarry, and enters the tower with the hired priest alone. The lord stays home. It deliberately withholds Fenwick's optional signature to keep M02 open while exploring; it never edits a quest or pauses the calendar.
+
+Twenty diagnostic seeds (the list above) complete all three optional quests in 13–14 months. The caravan is rescued in month 7, the quarry in month 10, and the tower in month 13 or 14. All rulers and priests survive, with three earned Healing Draughts, +25% mine yield, 4–6 priest XP, no unpaid bills, no food shortages and no treasury corrections. The paid hire legitimately empties the initial treasury; later settlement remains solvent. Formation casualties range from 0 to 30. Seed 9 needs a second tower attempt in the following campaign month, after the priest recovers.
+
+Set `CHAPTER_FINISH=1 npm run simulate:quests -- 1 42 2026` to return the party to Fenwick, sign the charter and finish Act I too. These three longer runs finish in 21–27 months with all optional encounters complete, a living ruler/priest and no economic shortfalls. The 24-month bound for the shorter main-story policies does not apply to this optional tour; its guard is 36 months. CI covers three expeditions, the seed-9 retry, and the full seed-1 chapter return.
+
+The longer tour exposed a quest-ownership defect: Westmere may fall to the orcs before M03 unlocks. New offers now check their giver's current ownership against the authored starting ruler. A fallen guild resolves through its loss branch, with no stage-start spawns or treaty purchase; a previously player-conquered Westmere completes its conquest objective without charging a charter fee. Quotes block a stale open offer immediately, and the next quest phase settles such an offer imported from an older save. Merchant quests explicitly marked to survive player conquest remain available. Existing completed rewards and save schema v12 remain intact.
+
+These are feasibility and persistence checks using automated tactics; optional encounter difficulty still needs a human assessment.

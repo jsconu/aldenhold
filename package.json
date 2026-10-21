@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "simulate:chapter": "node scripts/run-chapter-playthroughs.mjs"
+    "simulate:chapter": "node scripts/run-chapter-playthroughs.mjs",
+    "simulate:quests": "node scripts/run-quest-expeditions.mjs"
   },
   "devDependencies": {
     "typescript": "^7.0.2",

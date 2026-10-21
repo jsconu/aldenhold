@@ -368,3 +368,14 @@ Added a controller using actual player commands and quotes: paid recruitment, fa
 Forty seeded runs across two policies finish Act I with a living ruler and solvent realm. Charter runs take seven months; ignoring the dispute takes 11–12. The minimum cash is 27 gold; final gold is 400 or 1083–1205. CI adds eight tests covering both policies, repeatability and an honest unfinished result. All 306 tests and the production build pass. See [commands, seed list, results and limits](chapter-playthroughs.md).
 
 No game rules were changed to make the controller succeed. This delivers the automated baseline, not owner balance acceptance: human playthrough, pacing agreement, optional encounters and art remain.
+
+
+## Codex: paid optional expeditions and fallen quest givers (9e)
+
+The second real-command controller hires the starting priest, funds home defenses and a farm upgrade, and marches three existing formations plus the priest to Fenwick, the mine, quarry and tower. All three optional encounters can be completed without granting troops, XP, gold or ownership. The tower separates the priest from the formations and leaves the lord at home. Shared march/battle helpers keep both controllers on quoted commands and strict save checkpoints.
+
+Twenty seeds complete the tour in 13–14 months. All return the three Healing Draughts and quarry yield bonus with a living priest/ruler and no economic shortfalls. Seed 9 needs a next-month tower retry. A longer mode returns to Fenwick and then finishes the chapter; three checks finish in 21–27 months.
+
+This exposed and fixed an actual quest timing defect: Westmere could fall before M03 unlocked, then its dead guild would still offer a paid charter. Newly unlocked quests now respect prior conquest/loss, suppress stage-start events for a lost giver, prioritize already-met conquest goals, and preserve merchants that survive our conquest. An owned Westmere satisfies M03 without a toll payment. Stale imported offers refuse purchases immediately and settle next quest phase. No save schema change or retroactive removal of completed rewards.
+
+Validation: 316 tests and the production build pass. New coverage includes real expeditions, hero-only participants, actual rewards/XP, next-month recovery, completing the chapter after a late offer, pre-offer enemy/player conquest, stale-save quotes and merchant survival. Human difficulty/pacing assessment remains open.

@@ -7,6 +7,7 @@ npm install
 npm run dev     # play at http://localhost:5173
 npm test        # rules tests, including seeded chapter playthroughs
 npm run simulate:chapter -- 1 42 2026 # chapter economy/combat report
+npm run simulate:quests -- 1 42 2026  # paid optional-quest expedition
 npm run build   # type-check and build to dist/
 ```
 
