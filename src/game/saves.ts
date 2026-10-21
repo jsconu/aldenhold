@@ -50,7 +50,7 @@ const ledgerCategories: LedgerCategory[] = ['tax', 'wages', 'recruitment', 'hero
 /** Validate both shape and references before exposing a save to rules or rendering. */
 function validate(value: unknown, allowMissingBattleTroops = false): asserts value is GameState {
   const s = object(value);
-  requireValue(s.version === 12, 'unsupported schema version');
+  requireValue(s.version === 13, 'unsupported schema version');
   requireValue(text(s.campaignId) && Object.hasOwn(CATALOG.campaigns, s.campaignId), 'unknown campaign');
   const def = getCampaign(s.campaignId as CampaignId);
   requireValue(s.campaignRevision === def.revision, 'unsupported campaign revision');
@@ -101,6 +101,13 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
       requireValue(Object.keys(gear).length === 2 && oneOf(gear.armor, ['leather', 'chain', 'plate']) &&
         oneOf(gear.bow, [null, 'short-bow', 'long-bow', 'compound-bow']), 'equipment loadout');
       requireValue(usesBow(t.type as string) ? gear.armor !== 'plate' && gear.bow !== null : gear.bow === null, 'equipment compatibility');
+      if (t.kit !== undefined) {
+        // Hero equipment: your heroes only, each item in its own slot and allowed for that hero.
+        const kit = object(t.kit);
+        requireValue(isHero(t.type as string) && a.owner === 'player' && Object.keys(kit).length > 0 &&
+          Object.entries(kit).every(([slot, id]) => oneOf(slot, ['weapon', 'armor', 'accessory']) && text(id) &&
+            ITEMS[id]?.equip?.slot === slot && (!ITEMS[id].equip!.heroes || ITEMS[id].equip!.heroes!.includes(t.type as string))), 'hero equipment');
+      }
       if (t.refit !== null) {
         const refit = object(t.refit);
         requireValue(text(refit.item) && Object.hasOwn(EQUIPMENT, refit.item), 'refit item');
@@ -242,8 +249,8 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
   const inventory = object(s.items);
   for (const [id, entry] of Object.entries(inventory)) {
     const h = object(entry);
-    requireValue(Object.hasOwn(ITEMS, id) && integer(h.qty, 0) && integer(h.spent, 0) && bool(h.archived) &&
-      Number(h.qty) + Number(h.spent) > 0, 'inventory objects');
+    requireValue(Object.hasOwn(ITEMS, id) && integer(h.qty, 0) && integer(h.spent, 0) && bool(h.archived), 'inventory objects');
+    // A holding can stand at zero held and zero spent while heroes carry every copy; conservation checks the total.
   }
   const treaties = object(s.treaties);
   for (const [id, entry] of Object.entries(treaties)) {
@@ -276,12 +283,18 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
       }
     }
   }
-  // Objects are conserved: held plus spent equals what quests granted, and only a quest can archive evidence.
+  // Objects are conserved: held plus carried by heroes plus spent equals what quests granted, and only a quest
+  // can archive evidence.
+  const carried = new Map<string, number>();
+  for (const a of (s.armies as GameState['armies'])) for (const t of a.troops) {
+    for (const id of Object.values(t.kit ?? {})) if (id) carried.set(id, (carried.get(id) ?? 0) + 1);
+  }
   for (const [item, count] of granted.items) {
     requireValue(Object.hasOwn(inventory, item), 'missing quest reward');
     const h = inventory[item] as { qty: number; spent: number };
-    requireValue(h.qty + h.spent === count, 'inventory count does not match what quests granted');
+    requireValue(h.qty + h.spent + (carried.get(item) ?? 0) === count, 'inventory count does not match what quests granted');
   }
+  requireValue([...carried.keys()].every((item) => granted.items.has(item)), 'carried equipment no quest granted');
   requireValue(Object.keys(inventory).every((item) => granted.items.has(item)), 'inventory object with no quest that granted it');
   for (const [item, entry] of Object.entries(inventory)) {
     requireValue((entry as { archived: boolean }).archived === granted.archived.has(item), 'archived evidence');
@@ -318,7 +331,7 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
       const army = u.side === 'attacker' ? a : d;
       const troop = army.troops.find((t) => t.id === u.troopId);
       requireValue(troop && u.armyId === army.id && u.type === troop.type && u.xp === troop.xp && u.startMen === troop.men, 'battle troop references');
-      requireValue(JSON.stringify(u.gear) === JSON.stringify(troop.gear), 'battle equipment snapshot');
+      requireValue(JSON.stringify(u.gear) === JSON.stringify(troop.gear) && JSON.stringify(u.kit ?? null) === JSON.stringify(troop.kit ?? null), 'battle equipment snapshot');
       requireValue(integer(u.maxMen, 1) && u.maxMen === (isHero(troop.type) ? heroMaxHp(troop.type, troop.xp) : troop.men) && integer(u.men, 0, u.maxMen), 'battle strength');
       requireValue(integer(u.mana, 0, heroMaxMana(troop.type, troop.xp)) && integer(u.morale, 0, 100) && integer(u.deeds), 'battle resources');
       requireValue([u.reserve, u.routing, u.fled, u.moved, u.acted].every(bool) && (u.name === undefined || text(u.name)), 'battle flags');
@@ -506,12 +519,35 @@ function upgradeToV12(value: Record<string, unknown>) {
 }
 
 /**
- * Quests added to the catalog after a save was made start locked in it, and unlock at the next month if their
+ * v12 → v13: heroes can carry equipment. Quest rewards added to content since a save was made (the Oathlance
+ * for M01, the Shield of the Old Watch for Q03) are granted to saves whose quest already ended that way, once,
+ * so a finished quest's reward is never missing. Nothing else in the inventory changes.
+ */
+function upgradeToV13(value: Record<string, unknown>) {
+  const items = object(value.items) as Record<string, { qty: number; spent: number; archived: boolean }>;
+  const quests = object(value.quests) as GameState['quests'];
+  for (const [id, progress] of Object.entries(quests)) {
+    const def = QUESTS[id];
+    if (!def || !progress || !isResolved(progress)) continue;
+    const owed = new Map<string, number>();
+    for (const e of resolutionOf(def, progress)?.effects ?? []) {
+      if (e.kind === 'item') owed.set(e.item, (owed.get(e.item) ?? 0) + (e.qty ?? 1));
+    }
+    for (const [item, count] of owed) {
+      const h = items[item] ?? (items[item] = { qty: 0, spent: 0, archived: false });
+      if (integer(h.qty, 0) && integer(h.spent, 0) && h.qty + h.spent < count) h.qty = count - h.spent;
+    }
+  }
+  value.version = 13;
+}
+
+/**
+ * Quests added to the catalog after a save was made, and unlock at the next month if their
  * prerequisites hold. This is a content addition, not a schema change, so it needs no version bump. Unknown
  * quest ids in the save are still rejected by validation.
  */
 function addNewQuests(value: Record<string, unknown>) {
-  if (value.version !== 12 || typeof value.quests !== 'object' || value.quests === null) return;
+  if (value.version !== 13 || typeof value.quests !== 'object' || value.quests === null) return;
   const quests = value.quests as Record<string, unknown>;
   for (const id of Object.keys(QUESTS)) if (!Object.hasOwn(quests, id)) quests[id] = lockedProgress();
 }
@@ -581,6 +617,7 @@ export function parseSave(raw: string): GameState {
     upgradeToV10(value);
     upgradeToV11(value);
     upgradeToV12(value);
+    upgradeToV13(value);
     validate(value, true);
     if (value.battle) {
       const b = value.battle;
@@ -602,6 +639,7 @@ export function parseSave(raw: string): GameState {
   if (value.version === 9) upgradeToV10(value);
   if (value.version === 10) upgradeToV11(value);
   if (value.version === 11) upgradeToV12(value);
+  if (value.version === 12) upgradeToV13(value);
   addNewQuests(value);
   upgradeWesternMap(value);
   validate(value);

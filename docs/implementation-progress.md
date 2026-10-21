@@ -438,3 +438,29 @@ The treasury's old “Revenue” summary counted taxes but omitted quest rewards
 The current-month section is now activity rather than “purchases,” so a reward posted after month-end is correctly shown as a receipt. It distinguishes unsettled payroll/taxes from posted cash. Unpaid wages/maintenance remain reported shortfalls and are not counted as money paid. Tables scroll on narrow screens. Months without payments show 0g rather than negative zero.
 
 Validation: all 328 tests and the production build pass. Four new tests cover mixed receipts/adjustments, per-location/category conservation, real M01 reward timing, actual field payroll, unpaid bills and a legacy import without invented history. A compiled DOM check opens the report after a real month closure, verifies its cash equation and category/location tables, returns to the map and confirms the ledger is unchanged, with no runtime errors. Canvas was stubbed; visual browser review remains outstanding. No economic rules, transactions, private-goods conversion, commerce system or save schema changed.
+
+## Hero equipment and the chapter's item rewards (#9 follow-ups, ITEM-02 minimal)
+
+Heroes can now carry campaign equipment. This makes two promised rewards real: the class heirloom after M01, and Q03's unique shield.
+
+**Rules.**
+- **Slots and bonuses:** heroes have weapon, armor and accessory slots. Equipment items say which slot they fill, what they add (attack, defense, leadership) and, optionally, which hero types may carry them. Content validation requires all of that, and that the bonuses add something.
+- **Changing equipment:** only in a town you rule or one allied with you, never during a battle. An item put into a full slot sends the old one back to the inventory, and taking an item off returns it too. The journal's inventory offers "Give to <hero>" per eligible hero, and each hero's row in the army panel lists what they carry with a "take off" button.
+- **In battle:** a hero's attack and defense include their equipment, and an army's leadership counts its best hero's leadership plus their equipment. Battles keep a snapshot, and saves check it against the hero.
+- **Fallen heroes:** if any of the army survives (held the field or got away), the survivors carry the hero's equipment home. Otherwise ordinary items are lost on the field. An heirloom (which can't be thrown away) is always recovered. The journal says which happened.
+- **Conservation:** held + carried + spent = what quests granted. Saves reject equipment on ordinary troops or the wrong hero, and carried items no quest granted.
+
+**Items.**
+- **Oathlance** (M01 reward): weapon, lord only, +2 attack and +5 leadership. It can't be sold, thrown away or lost.
+- **Shield of the Old Watch** (Q03 victory): armor, any hero, +2 defense. It can be sold for 120 g.
+
+**Save v13.** v12 saves are upgraded, and finished quests are granted rewards added to their content since, once (an M01 already won gets its Oathlance). Nothing else in the inventory changes.
+
+Validation: 352 tests pass, including 11 new ones:
+- the heirloom granted exactly once and limited to the lord
+- equipping only in friendly towns, and taking items off
+- the battle bonuses
+- fallen-hero recovery, including the journal line from a real battle
+- save rejections, the v12 → v13 backfill, and content checks
+
+The build passes. In the browser: winning M01 put the Oathlance in the inventory, "Give to Aldric" moved it onto the lord's row, and "take off" returned it. No console errors.

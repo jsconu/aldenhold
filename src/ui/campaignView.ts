@@ -10,7 +10,9 @@ import { heroLevel, heroMaxHp, heroMaxMana, level } from '../game/units';
 import { EQUIPMENT, refitQuote, equipmentUpkeep, usesBow } from '../game/equipment';
 import { RELATION_LABEL, relationWith } from '../game/diplomacy';
 import { FACTIONS } from '../content/factions';
-import type { Army, CampaignId, FactionId, GameState, QuestDefinition, Town } from '../game/types';
+import type { Army, CampaignId, FactionId, GameState, QuestDefinition, Town, Troop } from '../game/types';
+import { HERO_SLOTS, unequipQuote } from '../game/items';
+import { ITEMS } from '../content/items';
 import { renderJournal } from './journalView';
 import { renderTreasury } from './treasuryView';
 import { questFocus, questSites } from './questNavigation';
@@ -299,6 +301,18 @@ function renderEncounterParty(state: GameState, preview: EncounterPreview): stri
   </details>`;
 }
 
+/** What a hero carries, each with a button to take it off (into the inventory) where that's allowed. */
+function renderKit(state: GameState, hero: Troop): string {
+  const slots = HERO_SLOTS.filter((slot) => hero.kit?.[slot]);
+  if (!slots.length) return '';
+  return `<div class="kit">${slots.map((slot) => {
+    const item = ITEMS[hero.kit![slot]!];
+    const quote = unequipQuote(state, hero.id, slot);
+    return `<span class="kit-item" title="${esc(item.rules)}">${esc(item.name)}
+      <button class="link" data-action="unequip-item" data-troop="${hero.id}" data-slot="${slot}" ${quote.reason ? `disabled title="${esc(quote.reason)}"` : ''}>take off</button></span>`;
+  }).join('')}</div>`;
+}
+
 function renderArmy(state: GameState, ui: UIState, a: Army): string {
   const mine = a.owner === 'player';
   const hexWorld = isHexCampaign(state);
@@ -315,7 +329,7 @@ function renderArmy(state: GameState, ui: UIState, a: Army): string {
         const mana = type.hero.mana ? ` · ${t.mana ?? 0}/${heroMaxMana(t.type, t.xp)} mana` : '';
         return `<li class="hero ${spent && mine ? 'done' : ''}"><label>${box}<span class="tname">★ ${esc(t.name ?? type.name)}
           <small>${type.name}</small></span><span class="men">${t.men}/${heroMaxHp(t.type, t.xp)} HP${mana}</span>
-          <span class="lv">Lv ${heroLevel(t.xp)}</span>${marched}</label></li>`;
+          <span class="lv">Lv ${heroLevel(t.xp)}</span>${marched}</label>${mine ? renderKit(state, t) : ''}</li>`;
       }
       const lv = level(t.xp);
       return `<li class="${spent && mine ? 'done' : ''}"><label>${box}<span class="tname">${type.name}</span>

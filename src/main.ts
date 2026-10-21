@@ -12,7 +12,8 @@ import { esc, type UIState } from './ui/shared';
 import { loadGame, MAX_SAVE_BYTES, parseSave, saveGame } from './game/saves';
 import { CATALOG } from './content';
 import { chooseQuest } from './game/quests';
-import { discardItem, sellItem, useItem } from './game/items';
+import { discardItem, equipItem, sellItem, unequipItem, useItem } from './game/items';
+import type { HeroSlot } from './game/types';
 import { questFocus } from './ui/questNavigation';
 import { buildCity, BUILDINGS } from './game/cities';
 import { beginRefit, EQUIPMENT } from './game/equipment';
@@ -147,6 +148,12 @@ function onAction(action: string, data: DOMStringMap) {
       break;
     case 'use-item':
       ui.message = useItem(state, data.item ?? '', Number(data.troop)) ?? '';
+      break;
+    case 'equip-item':
+      ui.message = equipItem(state, data.item ?? '', Number(data.troop)) ?? '';
+      break;
+    case 'unequip-item':
+      ui.message = unequipItem(state, Number(data.troop), (data.slot ?? '') as HeroSlot) ?? '';
       break;
     case 'sell-item':
       ui.message = sellItem(state, data.item ?? '') ?? '';

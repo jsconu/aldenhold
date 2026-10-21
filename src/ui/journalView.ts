@@ -4,7 +4,7 @@ import { esc } from './shared';
 import { ITEMS } from '../content/items';
 import { campaignQuests, questSummary, trackedQuests } from '../game/quests';
 import { townLocation } from '../game/world';
-import { discardQuote, heldQty, sellQuote, useQuote } from '../game/items';
+import { discardQuote, equipQuote, heldQty, sellQuote, useQuote } from '../game/items';
 import { isHero } from '../game/units';
 import { questSites } from './questNavigation';
 
@@ -87,6 +87,14 @@ function renderInventory(state: GameState): string {
     const item = ITEMS[id];
     const qty = heldQty(state, id);
     const actions: string[] = [];
+    if (item.equip) {
+      for (const hero of heroes) {
+        const q = equipQuote(state, id, hero.id);
+        if (item.equip.heroes && !item.equip.heroes.includes(hero.type)) continue;
+        const swap = q.replaces ? ` (swaps out the ${ITEMS[q.replaces].name})` : '';
+        actions.push(button('equip-item', id, `Give to ${hero.name ?? 'hero'}${swap}`, q.reason, ` data-troop="${hero.id}"`));
+      }
+    }
     if (item.use) {
       for (const hero of heroes) {
         const q = useQuote(state, id, hero.id);

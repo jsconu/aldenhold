@@ -50,6 +50,13 @@ export function validateContent(catalog: Catalog): string[] {
     if (item.policy.sell && item.value <= 0) err(`item ${id}: sellable but has no value`);
     if ((item.kind === 'consumable') !== (item.use !== undefined)) err(`item ${id}: only consumables have a use, and every consumable needs one`);
     if (item.use && !(item.use.hp ?? 0) && !(item.use.mana ?? 0)) err(`item ${id}: its use restores nothing`);
+    // Equipment (ITEM-02): only equipment fills a hero slot, adds something, and names real hero types.
+    if ((item.kind === 'equipment') !== (item.equip !== undefined)) err(`item ${id}: only equipment has a hero slot, and all equipment needs one`);
+    if (item.equip) {
+      const bonuses = [item.equip.attack ?? 0, item.equip.defense ?? 0, item.equip.leadership ?? 0];
+      if (!bonuses.every((n) => Number.isInteger(n) && n >= 0) || bonuses.every((n) => n === 0)) err(`item ${id}: equipment must add something`);
+      for (const type of item.equip.heroes ?? []) if (!catalog.units[type]?.hero) err(`item ${id}: "${type}" is not a hero type`);
+    }
   }
   validateQuests(catalog, err);
   for (const type of catalog.hireableHeroes) {

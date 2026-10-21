@@ -10,6 +10,11 @@ export interface ItemDefinition {
   questIds: string[];
   /** What you may do with it. Relics and evidence can never be sold (content validation enforces it). */
   policy: { sell: boolean; discard: boolean };
+  /**
+   * Equipment only: the hero slot it fills and what it adds while carried. `heroes` limits it to some hero types
+   * (a class heirloom); otherwise any hero may carry it.
+   */
+  equip?: { slot: 'weapon' | 'armor' | 'accessory'; attack?: number; defense?: number; leadership?: number; heroes?: string[] };
   /** Consumables only: when it can be used, on whom, and what it restores. One is used per use. */
   use?: { phase: 'campaign'; target: 'hero'; hp?: number; mana?: number };
 }
@@ -39,6 +44,32 @@ export const ITEMS: Record<string, ItemDefinition> = {
     transfer: 'campaign',
     questIds: ['Q04'],
     policy: { sell: false, discard: false },
+  },
+  oathlance: {
+    id: 'oathlance',
+    name: 'Oathlance',
+    kind: 'equipment',
+    description: 'The lance your father carried when Aldenhold first swore to your house. The council returns it when they swear to you.',
+    rules: 'Your lord only: +2 attack and +5 leadership. A family heirloom: it cannot be sold, thrown away or lost on the field.',
+    source: 'M01 The Inheritance',
+    value: 0,
+    transfer: 'hero',
+    questIds: ['M01'],
+    policy: { sell: false, discard: false },
+    equip: { slot: 'weapon', attack: 2, leadership: 5, heroes: ['lord'] },
+  },
+  'old-watch-shield': {
+    id: 'old-watch-shield',
+    name: 'Shield of the Old Watch',
+    kind: 'equipment',
+    description: 'A tall iron-rimmed shield from the vault beneath the Old Watchtower, still bearing the watch\'s eye.',
+    rules: 'Any hero: +2 defense.',
+    source: 'Q03 Beneath the Old Tower',
+    value: 120,
+    transfer: 'hero',
+    questIds: ['Q03'],
+    policy: { sell: true, discard: true },
+    equip: { slot: 'armor', defense: 2 },
   },
   'hobbs-ledger': {
     id: 'hobbs-ledger',
