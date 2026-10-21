@@ -15,7 +15,7 @@ import { renderJournal } from './journalView';
 import { renderTreasury } from './treasuryView';
 import { questFocus, questSites } from './questNavigation';
 import { BUILDING_IDS, BUILDINGS, cityMaintenance, constructionQuote, developmentSites, endowment, totalCityMaintenance } from '../game/cities';
-import { conditionHolds, conditionText, isOpen, questQuote, questsAt, questsAtSite, questSummary, stageOf, trackedQuests } from '../game/quests';
+import { conditionHolds, conditionText, isOpen, questQuote, questsAt, questsAtSite, questSummary, stageOf, trackedQuests, type EncounterPreview } from '../game/quests';
 import { esc, type UIState } from './shared';
 import { renderOverland } from './overlandMap';
 import { previewRoute, type RoutePreview } from '../game/overlandRoutes';
@@ -277,9 +277,26 @@ function renderQuests(state: GameState, defs: QuestDefinition[]): string {
     }).join('')}</ul><p class="sub">Goals are checked at the end of each month.</p>` : '';
     return `${head}<p>${esc(def.summary)}</p><p class="sub">${esc(stage.text)}</p>${siteLinks}${goals}${deadline}
       ${shared ? `<p class="hint">${esc(shared)}</p>` : ''}
-      ${quotes.length ? `<div class="quest-actions">${quotes.map(({ c, quote }) => `<button data-action="quest-choice" data-quest="${def.id}" data-choice="${c.id}"
-        ${quote.reason ? `disabled title="${esc(quote.reason)}"` : ''}>${esc(c.label)}${quote.gold ? ` · ${quote.gold}g` : ''}${'encounter' in c.then ? ` · battle at ${esc(nodeName(state, startLocation(state, c.then.encounter.site)))}` : ''}</button>`).join('')}</div>` : ''}</div>`;
+      ${quotes.length ? `<div class="quest-actions">${quotes.map(({ c, quote }) => `<div class="quest-option"><button data-action="quest-choice" data-quest="${def.id}" data-choice="${c.id}"
+        ${quote.reason ? `disabled title="${esc(quote.reason)}"` : ''}>${esc(c.label)}${quote.gold ? ` · ${quote.gold}g` : ''}${'encounter' in c.then ? ` · battle at ${esc(nodeName(state, startLocation(state, c.then.encounter.site)))}` : ''}</button>${quote.reason && !shared ? `<small class="hint">${esc(quote.reason)}</small>` : ''}${quote.encounter ? renderEncounterParty(state, quote.encounter) : ''}</div>`).join('')}</div>` : ''}</div>`;
   }).join('');
+}
+
+/** Show the real quote's participants, without predicting combat odds or selecting troops for the player. */
+function renderEncounterParty(state: GameState, preview: EncounterPreview): string {
+  if (preview.armyId === null) return '';
+  const troops = state.armies.find((army) => army.id === preview.armyId)!.troops;
+  const names = (ids: number[]) => ids.map((id) => {
+    const troop = troops.find((t) => t.id === id)!;
+    const type = UNIT_TYPES[troop.type];
+    return esc(`${troop.name ?? type.name} (Lv ${type.hero ? heroLevel(troop.xp) : level(troop.xp)}, ${troop.men} ${type.hero ? 'HP' : 'men'})`);
+  }).join(', ');
+  return `<details class="encounter-party"><summary>Expedition: ${preview.deployed.length} deployed${preview.reserves.length ? ` · ${preview.reserves.length} in reserve` : ''}${preview.waiting.length ? ` · ${preview.waiting.length} stay outside` : ''}</summary>
+    <p>${preview.heroesOnly ? 'Only hired heroes enter; your lord and formations stay outside.' : 'The whole army at this site joins the expedition.'}</p>
+    <p><b>Deployed:</b> ${preview.deployed.length ? names(preview.deployed) : 'No eligible troops at this site.'}</p>
+    ${preview.reserves.length ? `<p><b>Off-field reserves:</b> ${names(preview.reserves)}. They stay off the field and earn no combat experience.</p>` : ''}
+    ${preview.waiting.length ? `<p><b>Waiting outside:</b> ${names(preview.waiting)}</p>` : ''}
+  </details>`;
 }
 
 function renderArmy(state: GameState, ui: UIState, a: Army): string {

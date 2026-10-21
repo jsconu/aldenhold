@@ -386,3 +386,10 @@ Validation: 316 tests and the production build pass. New coverage includes real 
 The header's quest shortcut now opens an active encounter's map site, while ordinary diplomacy still opens the giver. Current encounter sites also have explicit “Show” links on quest cards and in the journal: a tracked caravan leads to the mine, the cyclops to the quarry, and the discovered tower to its vault. These are map selections, not automatic marches or battle commands. Locked quests, future stage branches and resolved encounters do not expose destination links. The quick-play graph keeps its original location IDs.
 
 Validation: 320 tests and production build pass. Four navigation tests cover stage transitions, ordinary conversation, undiscovered/resolved quests, graph compatibility and rendering without campaign mutation. A smoke check of the compiled UI exercised the quarry shortcut, journal navigation, caravan tracking and mine card without moving troops, spending gold or starting a battle; no runtime errors. Canvas was stubbed for that DOM check, so visual browser review remains outstanding.
+
+
+## Codex: encounter party previews
+
+Quest quotes now describe the exact party at an encounter site: deployed troops, off-field reserves and anyone waiting outside. The encounter card shows names, current health and levels before the fight. Hero-only previews exclude the ruler and formations; normal encounters use the full local army. The field limit comes from the battle rules, and quotes do not consume RNG, split parties or change saves. Individual disabled choices now show their refusal beside the button, including the regroup delay after a failed attempt.
+
+Validation: all 324 tests and the production build pass. Four new tests compare preview IDs with actual launched parties and reserves, including save/reload, no eligible hero, hidden/ordinary choices and escaped hero names. A compiled DOM check confirms the priest-only launch, retreat, waiting troops remaining unchanged and visible regroup refusal, with no runtime errors. Canvas was stubbed; visual review remains separate. No battle rule, encounter reward, artwork or save-schema change.

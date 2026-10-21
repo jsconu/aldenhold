@@ -1,3 +1,4 @@
+import { FIELD_LIMIT } from './battle';
 import { getCampaign } from '../content';
 import { QUESTS } from '../content/quests';
 import { armyAt, deed, findArmy, makeTroop, nodeName, neighborsOf, startBattle, startLocation } from './campaign';
@@ -196,8 +197,18 @@ export function unlockQuests(state: GameState): string[] {
   return news;
 }
 
+export interface EncounterPreview {
+  site: string;
+  heroesOnly: boolean;
+  armyId: number | null;
+  deployed: number[];
+  reserves: number[];
+  waiting: number[];
+}
+
 export interface QuestQuote {
   gold: number;
+  encounter?: EncounterPreview;
   /** Why the choice can't be made now; null means it can. */
   reason: string | null;
 }
@@ -208,7 +219,8 @@ export function questQuote(state: GameState, questId: string, choiceId: string):
   const progress = state.quests[questId];
   const choice = def && progress ? stageOf(def, progress.stage)?.choices.find((c) => c.id === choiceId) : undefined;
   const gold = choice?.gold ?? 0;
-  const refuse = (reason: string): QuestQuote => ({ gold, reason });
+  let encounter: EncounterPreview | undefined;
+  const refuse = (reason: string | null): QuestQuote => ({ gold, reason, ...(encounter ? { encounter } : {}) });
   if (!def || !progress || !def.campaignIds.includes(state.campaignId)) return refuse('No such quest here.');
   if (state.status !== 'playing' || state.battle) return refuse(def.refusals?.battle ?? 'Not during a battle.');
   if (!isOpen(progress)) return refuse(isResolved(progress) ? def.refusals?.resolved ?? 'This matter is settled.' : 'This quest is not open yet.');
@@ -224,18 +236,32 @@ export function questQuote(state: GameState, questId: string, choiceId: string):
   }
   if ('encounter' in choice.then) {
     const enc = choice.then.encounter;
+    encounter = previewEncounter(state, enc);
     if (progress.history.some((h) => h.choice === encounterMark(choice.id, false) && h.turn === state.turn)) return refuse('The expedition must regroup. Try again next campaign month.');
     const army = armyAt(state, startLocation(state, enc.site), 'player');
     if (!army) return refuse(`Bring an army to ${nodeName(state, startLocation(state, enc.site))} first.`);
     if (enc.heroesOnly && !partyOf(army.troops).length) return refuse('Only heroes may enter, and the council will not risk your lord. Bring a hired hero.');
   }
   if (state.gold < gold) return refuse(`You need ${gold} gold.`);
-  return { gold, reason: null };
+  return refuse(null);
 }
 
 /** The heroes who may enter a heroes-only encounter: everyone but the lord. */
 function partyOf(troops: GameState['armies'][number]['troops']) {
   return troops.filter((t) => isHero(t.type) && t.type !== 'lord');
+}
+
+/** Read only: matches the party split and first-in-army deployment used by the actual encounter. */
+function previewEncounter(state: GameState, encounter: QuestEncounter): EncounterPreview {
+  const army = armyAt(state, startLocation(state, encounter.site), 'player');
+  const troops = army?.troops ?? [];
+  const eligible = encounter.heroesOnly ? partyOf(troops) : troops;
+  const ids = eligible.map((t) => t.id);
+  return {
+    site: encounter.site, heroesOnly: !!encounter.heroesOnly, armyId: army?.id ?? null,
+    deployed: ids.slice(0, FIELD_LIMIT), reserves: ids.slice(FIELD_LIMIT),
+    waiting: troops.filter((t) => !eligible.includes(t)).map((t) => t.id),
+  };
 }
 
 /** Move a quest on: to another stage, or to its end. */
