@@ -448,3 +448,15 @@ button.travel-destination b { color: var(--gold); font-size: 11px; }
 .atlas-terrain-details .atlas-feature { opacity: .8; }
 .overland .reach, .overland .selected { stroke: none !important; }
 .overland .cell { stroke: none !important; }
+
+
+/* Environmental ribbons connect adjacent patches across tactical cells. */
+.battle-woodland-shade { fill: none; stroke: #2d5031; stroke-width: 34; stroke-linecap: round; opacity: .28; }
+.battle-ridge-shade { fill: none; stroke: #a7a16a; stroke-width: 28; stroke-linecap: round; opacity: .16; }
+.battle-water-ribbon { fill: none; stroke: #367588; stroke-width: 20; stroke-linecap: round; stroke-linejoin: round; opacity: .7; }
+.battle-water-pool { fill: #407d8b; opacity: .55; }
+.battle-water-ripple { fill: none; stroke: #a8ced3; stroke-width: 1.8; stroke-linecap: round; opacity: .9; }
+.battle-wild-grass { fill: none; stroke: #668651; stroke-width: 1.4; stroke-linecap: round; opacity: .6; }
+.battle-wildflower { fill: #d7c781; opacity: .9; }
+.battle-forest-shadow { fill: #203e29; opacity: .35; }
+.battle-scree { fill: none; stroke: #8b8878; stroke-width: 2; stroke-linecap: round; }
