@@ -1,4 +1,4 @@
-import { lairsOf } from '../content/lairs';
+import { LAIRS as LAIRS_BY_ID, lairsOf } from '../content/lairs';
 import { FACTIONS } from '../content/factions';
 import { WESTERN_ADDED_ARMIES, WESTERN_ADDED_TOWNS } from '../content/campaigns/westernExpansion';
 import { WESTERN_REVISION_1_TOWNS } from '../content/campaigns/westernRevision1';
@@ -48,12 +48,12 @@ const factions = Object.keys(FACTIONS);
 const deedKinds: DeedKind[] = ['story', 'battle', 'capture', 'loss', 'hero', 'realm', 'ending', 'earlier'];
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const sides = ['attacker', 'defender'];
-const ledgerCategories: LedgerCategory[] = ['tax', 'wages', 'recruitment', 'hero-hire', 'construction', 'maintenance', 'refit', 'quest', 'quest-reward', 'item-sale', 'item-purchase', 'lair-plunder', 'balance-correction'];
+const ledgerCategories: LedgerCategory[] = ['tax', 'wages', 'recruitment', 'hero-hire', 'construction', 'maintenance', 'refit', 'quest', 'quest-reward', 'item-sale', 'item-purchase', 'lair-plunder', 'raid-loss', 'balance-correction'];
 
 /** Validate both shape and references before exposing a save to rules or rendering. */
 function validate(value: unknown, allowMissingBattleTroops = false): asserts value is GameState {
   const s = object(value);
-  requireValue(s.version === 14, 'unsupported schema version');
+  requireValue(s.version === 15, 'unsupported schema version');
   requireValue(text(s.campaignId) && Object.hasOwn(CATALOG.campaigns, s.campaignId), 'unknown campaign');
   const def = getCampaign(s.campaignId as CampaignId);
   requireValue(s.campaignRevision === def.revision, 'unsupported campaign revision');
@@ -182,7 +182,7 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
       'treasury does not reconcile');
     requireValue(transactions.filter((e) => e.category === 'tax').reduce((sum, e) => sum + Number(e.amount), 0) === month.income,
       'treasury income total');
-    requireValue(-transactions.filter((e) => ['wages', 'recruitment', 'hero-hire', 'construction', 'maintenance', 'refit', 'quest', 'item-purchase'].includes(String(e.category)))
+    requireValue(-transactions.filter((e) => ['wages', 'recruitment', 'hero-hire', 'construction', 'maintenance', 'refit', 'quest', 'item-purchase', 'raid-loss'].includes(String(e.category)))
       .reduce((sum, e) => sum + Number(e.amount), 0) === month.expenses, 'treasury expense total');
   }
   const history = array(treasury.history);
@@ -284,9 +284,21 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
   requireValue(Object.keys(lairs).length === expected.length && expected.every((l) => Object.hasOwn(lairs, l.id)), 'lair registry');
   for (const l of expected) {
     const st = object(lairs[l.id]);
-    requireValue(oneOf(st.status, ['active', 'cleared']) && bool(st.discovered), 'lair state');
+    requireValue(oneOf(st.status, ['active', 'cleared']) && bool(st.discovered) && (st.lastRaid === null || integer(st.lastRaid, 1, Number(s.turn))), 'lair state');
     if (st.status === 'cleared') requireValue(st.discovered === true && integer(st.clearedTurn, 1, Number(s.turn)), 'cleared lair');
     else requireValue(st.clearedTurn === null && (s.armies as GameState['armies']).some((a) => a.owner === l.species && a.at === hexPlace(l.place)), 'lair garrison');
+  }
+  // Pending raids: from an active lair of this campaign, against a town, announced last month at the latest.
+  const pending = array(s.raids);
+  const raidTargets = new Set<string>();
+  for (const raw of pending) {
+    const r = object(raw);
+    requireValue(text(r.lair) && Object.hasOwn(lairs, r.lair) && text(r.target) && Object.hasOwn(towns, r.target) && !raidTargets.has(r.target) &&
+      integer(r.announced, 1, Number(s.turn)) && r.arrives === Number(r.announced) + 1 && Number(r.arrives) >= Number(s.turn), 'pending raid');
+    raidTargets.add(r.target as string);
+  }
+  for (const a of s.armies as GameState['armies']) {
+    if (a.raid !== undefined) requireValue(text(a.raid.lair) && LAIRS_BY_ID[a.raid.lair]?.species === a.owner && Object.hasOwn(lairs, a.raid.lair), 'raiding party');
   }
   const flags = array(s.flags);
   requireValue(flags.every(text) && new Set(flags).size === flags.length, 'campaign flags');
@@ -601,10 +613,17 @@ function addLairGarrisons(value: Record<string, unknown>) {
     const at = place ? `${place.col},${place.row}` : l.place;
     const occupied = state.armies.some((a) => a.at === at);
     lairs[l.id] = occupied
-      ? { status: 'cleared', discovered: true, clearedTurn: integer(value.turn, 1) ? value.turn : 1 }
-      : { status: 'active', discovered: false, clearedTurn: null };
+      ? { status: 'cleared', discovered: true, clearedTurn: integer(value.turn, 1) ? value.turn : 1, lastRaid: null }
+      : { status: 'active', discovered: false, clearedTurn: null, lastRaid: null };
     if (!occupied) state.armies.push({ id: state.nextId++, owner: l.species, at, from: null, troops: l.garrison.map((t) => (typeof t === 'string' ? makeTroop(state, t) : makeTroop(state, t.type, t.name))) });
   }
+}
+
+/** v14 → v15: monster raids. No raid is pending, and no lair has raided yet. */
+function upgradeToV15(value: Record<string, unknown>) {
+  value.raids = [];
+  for (const st of Object.values(object(value.lairs))) object(st).lastRaid = null;
+  value.version = 15;
 }
 
 /**
@@ -613,7 +632,7 @@ function addLairGarrisons(value: Record<string, unknown>) {
  * quest ids in the save are still rejected by validation.
  */
 function addNewQuests(value: Record<string, unknown>) {
-  if (value.version !== 14 || typeof value.quests !== 'object' || value.quests === null) return;
+  if (value.version !== 15 || typeof value.quests !== 'object' || value.quests === null) return;
   const quests = value.quests as Record<string, unknown>;
   for (const id of Object.keys(QUESTS)) if (!Object.hasOwn(quests, id)) quests[id] = lockedProgress();
 }
@@ -685,6 +704,7 @@ export function parseSave(raw: string): GameState {
     upgradeToV12(value);
     upgradeToV13(value);
     upgradeToV14(value);
+    upgradeToV15(value);
     validate(value, true);
     if (value.battle) {
       const b = value.battle;
@@ -708,6 +728,7 @@ export function parseSave(raw: string): GameState {
   if (value.version === 11) upgradeToV12(value);
   if (value.version === 12) upgradeToV13(value);
   if (value.version === 13) upgradeToV14(value);
+  if (value.version === 14) upgradeToV15(value);
   addNewQuests(value);
   upgradeWesternMap(value);
   addLairGarrisons(value);

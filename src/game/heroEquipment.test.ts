@@ -155,7 +155,7 @@ describe('hero equipment in saves and content', () => {
     v12.version = 12;
     delete v12.items.oathlance;
     const restored = parseSave(JSON.stringify(v12));
-    expect(restored.version).toBe(14);
+    expect(restored.version).toBe(15);
     expect(restored.items.oathlance).toEqual({ qty: 1, spent: 0, archived: false });
     // A quest that hasn't ended owes nothing.
     const fresh = JSON.parse(JSON.stringify(newGame(1, 'western-realm')));

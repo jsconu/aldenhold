@@ -14,7 +14,7 @@ import { parseKey, worldOf } from './world';
 export const DISCOVERY_RANGE = 3;
 
 export function newLairState(campaignId: CampaignId): GameState['lairs'] {
-  return Object.fromEntries(lairsOf(campaignId).map((l) => [l.id, { status: 'active' as const, discovered: false, clearedTurn: null }]));
+  return Object.fromEntries(lairsOf(campaignId).map((l) => [l.id, { status: 'active' as const, discovered: false, clearedTurn: null, lastRaid: null }]));
 }
 
 /** Where a lair stands on the map. */

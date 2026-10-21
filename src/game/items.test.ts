@@ -221,7 +221,7 @@ describe('save migration v11 → v12', () => {
     v11.version = 11;
     v11.items = ['fenwick-charter'];
     const restored = parseSave(JSON.stringify(v11));
-    expect(restored.version).toBe(14);
+    expect(restored.version).toBe(15);
     expect(restored.items).toEqual({ 'fenwick-charter': { qty: 1, spent: 0, archived: false } });
     expect(townLocation(restored, 'fenwick')).toBe('fenwick');
   });
