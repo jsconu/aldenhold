@@ -200,3 +200,11 @@ Validation: 218 tests pass, including 5 new month tests (documented order, notes
 - Battlefield painting is separated into soft-edged ground colours, deterministic connected forests/creeks/hill shading, crisp SVG vegetation/ruins and pixel-art formation tokens. Click hitboxes retain exact hex geometry invisibly; reachable and spell-affected cells use round glows. Unit selection/ring indicators are ellipses rather than permanent hex borders.
 - Artwork is generated deterministically from the existing world and battle state. No schema migration, world data changes, movement rebalancing, or added copyrighted assets.
 - Next art pass still needed: review actual screenshots in a browser; larger hand-authored settlement sprites, forests and mountain slope layering, more organic river/road junctions and tile transition quality at the Western Realm's current native pixel resolution.
+
+
+## Place art: distinctive Western Realm silhouettes
+
+- Original 34×24 native-pixel miniature illustrations now replace the generic town stamp at Aldenhold, Fenwick, Millbrook, Greenveil, Harrowgate, Westmere, Duskwater, Reedhaven and Gharzak Hold. Stone Bridge has an original arched crossing sprite.
+- Site silhouettes use composable hand-authored pixel primitives: keep walls and banners, village rooflines, a working mill's sails, woodland pines, merchant harbor, stilt houses, marsh reeds and the orc citadel's spikes and ember-lit windows.
+- Every existing town keeps its ID, ownership and campaign rules. Ownership flags recolor without duplicating entire art assets. Other landmarks and future towns still use the existing generic artwork.
+- Added pixel palette/uniqueness/ownership/renderer tests. Remaining: richer multi-tile city panoramas, transition-art blending, 20-city completed campaign art, sprite previews at phone scale and in-browser art direction approval.
