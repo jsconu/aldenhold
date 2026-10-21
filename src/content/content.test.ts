@@ -96,21 +96,21 @@ describe('Western Realm hex map', () => {
     return validateContent(copy).join('\n');
   };
 
-  it('is a 40×28 hex map with eight towns and a lair, and no graph locations', () => {
+  it('is a 52×38 hex map with twelve core settlements and three border towns/strongholds', () => {
     const c = getCampaign('western-realm');
-    expect([c.hex!.rows[0].length, c.hex!.rows.length]).toEqual([40, 28]);
-    expect(c.hex!.places.filter((p) => p.kind === 'town')).toHaveLength(9);
+    expect([c.hex!.rows[0].length, c.hex!.rows.length]).toEqual([52, 38]);
+    expect(c.hex!.places.filter((p) => p.kind === 'town')).toHaveLength(15);
     expect([c.nodes, c.edges]).toEqual([[], []]);
   });
 
   it('catches ragged rows, unknown land and places on impassable ground', () => {
-    expect(realm((w) => (w.rows[3] = w.rows[3].slice(1)))).toMatch(/row 3 is 39 wide/);
+    expect(realm((w) => (w.rows[3] = w.rows[3].slice(1)))).toMatch(/row 3 is 51 wide/);
     expect(realm((w) => (w.rows[0] = 'X' + w.rows[0].slice(1)))).toMatch(/unknown land "X"/);
     expect(realm((w) => Object.assign(w.places.find((p) => p.id === 'barrow')!, { col: 29, row: 0 }))).toMatch(/"barrow" stands on impassable mountains/);
   });
 
   it('catches towns walled off by the river when the bridges are gone', () => {
-    expect(realm((w) => (w.routes = w.routes.filter((r) => !r.includes('bridge') && !r.includes('harrowgate') && !(r.includes('millbrook') && r.includes('duskwater')))))).toMatch(/"westmere" cannot be reached/);
+    expect(realm((w) => (w.routes = w.routes.filter((r) => !r.includes('bridge') && !r.includes('southford') && !r.includes('harrowgate') && !(r.includes('millbrook') && r.includes('duskwater')))))).toMatch(/"westmere" cannot be reached/);
   });
 
   it('runs the Fenwick charter in both campaigns', () => {

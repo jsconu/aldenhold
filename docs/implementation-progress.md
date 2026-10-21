@@ -348,6 +348,51 @@ Validation: 287 tests pass, including 15 new encounter tests:
 
 The build passes. In the browser I chose "Hunt the cyclops", watched it take aim (marker shown) and throw, auto-resolved to victory, and continued: Q02 succeeded, the quarry flag was set, the guardian was gone, and a save made mid-fight loaded. No console errors.
 
+
+## Codex: Western map growth (9b) and settlement timing
+
+- Adopted and merged Claude's more complete encounter PR #32 after checks passed; closed the overlapping Codex prototype PR #33. The owner authorized subsequent merges after CI. Codex continued the map-growth area left open in the queue.
+- Expanded fixed geography from 40×28 to 52×38 (about 76% more cells), keeping every original terrain cell and named coordinate. Added Oakcross, Bellwater, Thornwatch, Redford, Saltwick and Ironbridge, plus three route landmarks. The Western map now has 12 core regional settlements and three border towns/strongholds.
+- New towns have real neutral garrisons, populations and resource endowments. Farms, timber and ore outputs use those endowments; all six have map-panel descriptions. Added roads and a southern river crossing; content validation checks every objective remains reachable.
+- Western revision 1 migrates additively to revision 2 with all old assets, treasury/history, investments, equipment, quests, IDs, seed and active battles retained. The six towns/garrisons are outside old bounds. No duplicate additions or historical income are created; schema remains v12.
+- Fixed a discovered same-month hold-out bug: M04 no longer declares the west safe immediately before that month's attackers take Millbrook. Hold-out success and campaign victory now wait for monthly AI and pending battles; defeat still has priority.
+- Encounter settlement ignores stale completion callbacks, and failed expeditions cannot farm retries/XP repeatedly during the same campaign month.
+- 298 tests and production build pass, including preserved terrain/coordinates, bridge connectivity, new-town conquest and tax, paid-refit/construction migration, active cyclops targeting/hero parties, idempotent imports, duplicate battle settlement and deadline-month battle save/resume.
+- Remaining: distinct artwork for the new towns, local city quests, visual browser review and chapter balance. See [map growth](western-map-growth.md).
+
+
+## Codex: seeded chapter playthroughs (9e foundation)
+
+Added a controller using actual player commands and quotes: paid recruitment, farm construction, envoy routing, Fenwick diplomacy, Westmere charter or timeout, full monthly simulation and auto-resolved battles. No resources, ownership or quest outcomes are injected. Monthly and battle checkpoints reload through the strict save importer. Reports include elapsed months, objective completion, cash minimum, bills, food shortages, treasury corrections, battles and casualties.
+
+Forty seeded runs across two policies finish Act I with a living ruler and solvent realm. Charter runs take seven months; ignoring the dispute takes 11–12. The minimum cash is 27 gold; final gold is 400 or 1083–1205. CI adds eight tests covering both policies, repeatability and an honest unfinished result. All 306 tests and the production build pass. See [commands, seed list, results and limits](chapter-playthroughs.md).
+
+No game rules were changed to make the controller succeed. This delivers the automated baseline, not owner balance acceptance: human playthrough, pacing agreement, optional encounters and art remain.
+
+
+## Codex: paid optional expeditions and fallen quest givers (9e)
+
+The second real-command controller hires the starting priest, funds home defenses and a farm upgrade, and marches three existing formations plus the priest to Fenwick, the mine, quarry and tower. All three optional encounters can be completed without granting troops, XP, gold or ownership. The tower separates the priest from the formations and leaves the lord at home. Shared march/battle helpers keep both controllers on quoted commands and strict save checkpoints.
+
+Twenty seeds complete the tour in 13–14 months. All return the three Healing Draughts and quarry yield bonus with a living priest/ruler and no economic shortfalls. Seed 9 needs a next-month tower retry. A longer mode returns to Fenwick and then finishes the chapter; three checks finish in 21–27 months.
+
+This exposed and fixed an actual quest timing defect: Westmere could fall before M03 unlocked, then its dead guild would still offer a paid charter. Newly unlocked quests now respect prior conquest/loss, suppress stage-start events for a lost giver, prioritize already-met conquest goals, and preserve merchants that survive our conquest. An owned Westmere satisfies M03 without a toll payment. Stale imported offers refuse purchases immediately and settle next quest phase. No save schema change or retroactive removal of completed rewards.
+
+Validation: 316 tests and the production build pass. New coverage includes real expeditions, hero-only participants, actual rewards/XP, next-month recovery, completing the chapter after a late offer, pre-offer enemy/player conquest, stale-save quotes and merchant survival. Human difficulty/pacing assessment remains open.
+
+
+## Codex: current-stage quest destinations
+
+The header's quest shortcut now opens an active encounter's map site, while ordinary diplomacy still opens the giver. Current encounter sites also have explicit “Show” links on quest cards and in the journal: a tracked caravan leads to the mine, the cyclops to the quarry, and the discovered tower to its vault. These are map selections, not automatic marches or battle commands. Locked quests, future stage branches and resolved encounters do not expose destination links. The quick-play graph keeps its original location IDs.
+
+Validation: 320 tests and production build pass. Four navigation tests cover stage transitions, ordinary conversation, undiscovered/resolved quests, graph compatibility and rendering without campaign mutation. A smoke check of the compiled UI exercised the quarry shortcut, journal navigation, caravan tracking and mine card without moving troops, spending gold or starting a battle; no runtime errors. Canvas was stubbed for that DOM check, so visual browser review remains outstanding.
+
+
+## Codex: encounter party previews
+
+Quest quotes now describe the exact party at an encounter site: deployed troops, off-field reserves and anyone waiting outside. The encounter card shows names, current health and levels before the fight. Hero-only previews exclude the ruler and formations; normal encounters use the full local army. The field limit comes from the battle rules, and quotes do not consume RNG, split parties or change saves. Individual disabled choices now show their refusal beside the button, including the regroup delay after a failed attempt.
+
+Validation: all 324 tests and the production build pass. Four new tests compare preview IDs with actual launched parties and reserves, including save/reload, no eligible hero, hidden/ordinary choices and escaped hero names. A compiled DOM check confirms the priest-only launch, retreat, waiting troops remaining unchanged and visible regroup refusal, with no runtime errors. Canvas was stubbed; visual review remains separate. No battle rule, encounter reward, artwork or save-schema change.
 ## Western chapter, part 9d: city quests (#9)
 
 Two quests about decisions inside your own towns. With them, all six chapter side quests (Q01–Q06) and all four objectives (M01–M04) are implemented.

@@ -165,6 +165,9 @@ export const M03_CROSSING: QuestDefinition = {
   stages: [
     {
       id: 'dispute', text: 'Buy the guild’s charter for 250 gold and make Westmere an ally, or refuse and take the town.',
+      objectives: [{ id: 'already-held', label: 'Secured Westmere', when: [{ kind: 'town-owner', town: 'westmere', owner: 'player' }], then: {
+        status: 'succeeded', effects: [], journal: 'Westmere is already yours, and the bridge tolls with it. The guild’s dispute is settled.',
+      } }],
       choices: [
         { id: 'charter', label: 'Buy the toll charter', gold: 250, then: {
           status: 'succeeded', effects: [{ kind: 'treaty', town: 'westmere', relation: 'ally', passage: true }],
@@ -208,7 +211,7 @@ export const M04_INCURSION: QuestDefinition = {
         { kind: 'spawn', owner: 'orcs', at: 'camp', troops: ['warband', 'warband', 'orcArchers'], target: 'aldenhold' },
       ],
       objectives: [{ id: 'millbrook-lost', label: 'Lost Millbrook', when: [{ kind: 'town-owner', town: 'millbrook', owner: 'orcs' }], then: { stage: 'retake' } }],
-      deadline: { months: 4, outcome: {
+      deadline: { months: 4, afterBattles: true, outcome: {
         status: 'succeeded', effects: [],
         journal: 'Four months on, the incursion has broken against your towns. The west is safe for now.',
       } },

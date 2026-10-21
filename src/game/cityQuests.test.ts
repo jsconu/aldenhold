@@ -62,7 +62,7 @@ describe('Q01 The Empty Granary', () => {
     guard.at = neighborsOf(s, guard.at)[0];
     expect(questQuote(s, 'Q01', 'escort').reason).toBe('First: Bring an army to Millbrook.');
     const html = renderCampaign(s, ui(townLocation(s, 'aldenhold')));
-    expect(html).toContain('Escort grain from Millbrook: First: Bring an army to Millbrook.');
+    expect(html).toMatch(/data-choice="escort"[^>]*disabled[\s\S]*?<small class="hint">First: Bring an army to Millbrook\.<\/small>/);
     guard.at = townLocation(s, 'millbrook');
     const millbrook = food(s, 'millbrook');
     expect(chooseQuest(s, 'Q01', 'escort')).toBeNull();

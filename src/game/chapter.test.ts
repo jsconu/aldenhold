@@ -6,7 +6,7 @@ import type { UIState } from '../ui/shared';
 import { raidPath } from './ai';
 import { advanceMonth, applyBattle, armyAt, checkStatus, makeTroop, neighborsOf, newGame, startLocation } from './campaign';
 import { autoResolve } from './battle';
-import { advanceQuests, chooseQuest, conditionText, onTownOwnershipChange, questQuote } from './quests';
+import { settleHeldQuests, advanceQuests, chooseQuest, conditionText, onTownOwnershipChange, questQuote } from './quests';
 import { parseSave } from './saves';
 import type { GameState, QuestEvent } from './types';
 import { landAt, townLocation } from './world';
@@ -24,6 +24,7 @@ function month(s: GameState) {
   settleTreasury(s, [], []);
   s.turn += 1;
   advanceQuests(s);
+  settleHeldQuests(s);
   checkStatus(s);
 }
 
@@ -106,6 +107,58 @@ describe('Act I: M02 Bread and Law', () => {
 });
 
 describe('Act I: M03 The Crossing Dispute', () => {
+  it('does not revive a fallen guild when Westmere was lost before the dispute unlocked', () => {
+    const s = newGame(1, 'western-realm');
+    raise(s, 2);
+    month(s);
+    take(s, 'westmere', 'orcs');
+    s.cityEconomies.aldenhold.goods.food = 400; // still 160 after Q01's granary rot (keeps 40%)
+    take(s, 'fenwick');
+    month(s);
+    expect(s.quests.M03).toMatchObject({ status: 'superseded', resolvedBy: 'location-lost' });
+    expect(questQuote(s, 'M03', 'charter').reason).toBe('This matter is settled.');
+    expect(reload(s).quests.M03.status).toBe('superseded');
+    month(s);
+    expect(s.quests.M04.status).toBe('available');
+  });
+
+  it('recognizes Westmere already conquered before the dispute is offered', () => {
+    const s = newGame(1, 'western-realm');
+    raise(s, 2);
+    month(s);
+    take(s, 'westmere');
+    s.cityEconomies.aldenhold.goods.food = 400; // still 160 after Q01's granary rot (keeps 40%)
+    month(s);
+    expect(s.quests.M03).toMatchObject({ status: 'succeeded', resolvedBy: 'objective' });
+    expect(s.treaties.westmere).toBeUndefined();
+    expect(reload(s).quests.M03.status).toBe('succeeded');
+  });
+
+  it('blocks a stale imported offer immediately and settles its fallen giver next month', () => {
+    let s = atM03();
+    campBy(s, 'westmere');
+    // A save made by the older engine could retain this open offer after an earlier loss.
+    s.towns.westmere.owner = 'orcs';
+    s = reload(s);
+    const gold = s.gold;
+    expect(questQuote(s, 'M03', 'charter').reason).toBe('The quest giver’s town has changed hands.');
+    expect(chooseQuest(s, 'M03', 'charter')).toBe('The quest giver’s town has changed hands.');
+    expect(s.gold).toBe(gold);
+    expect(s.treaties.westmere).toBeUndefined();
+    month(s);
+    expect(reload(s).quests.M03.status).toBe('superseded');
+  });
+
+  it('keeps conquered councils unavailable while retaining merchants who survive conquest', () => {
+    const s = newGame(1, 'western-realm');
+    take(s, 'greenveil');
+    take(s, 'fenwick');
+    while (s.turn < 5) month(s);
+    expect(s.quests.Q04.status).toBe('unavailable');
+    expect(s.quests.Q05.status).toBe('available');
+    expect(reload(s).quests.Q05.status).toBe('available');
+  });
+
   it('buying the charter allies Westmere with passage', () => {
     const s = atM03();
     expect(s.quests.M03.status).toBe('available');
@@ -207,6 +260,7 @@ describe('Act I under the real month pipeline', () => {
     expect(s.quests.M04.stage).toBe('retake');
     take(s, 'millbrook');
     advanceMonth(s);
+    while (s.battle) { autoResolve(s.battle); applyBattle(s, s.battle); }
     expect(s).toMatchObject({ status: 'won', endingReason: 'chapter-complete' });
   }, 20_000);
 });

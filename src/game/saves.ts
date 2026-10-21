@@ -1,3 +1,5 @@
+import { WESTERN_ADDED_ARMIES, WESTERN_ADDED_TOWNS } from '../content/campaigns/westernExpansion';
+import { WESTERN_REVISION_1_TOWNS } from '../content/campaigns/westernRevision1';
 import { EFFECTS } from '../content/spells';
 import { BATTLE_H, BATTLE_W, createBattle, FIELD_LIMIT } from './battle';
 import { CATALOG, getCampaign } from '../content';
@@ -5,9 +7,9 @@ import { ITEMS } from '../content/items';
 import { QUESTS } from '../content/quests';
 import { DEADLINE, encounterMark, enteredStages, isOpen, isResolved, LOCATION_LOST, lockedProgress, resolutionOf, stageOf } from './quests';
 import { newTreasury } from './economy';
-import { BUILDING_IDS, BUILDINGS, developmentSites, GOODS, MAX_BUILDING_LEVEL, MAX_DEVELOPMENT_SITES, startingCities } from './cities';
+import { BUILDING_IDS, BUILDINGS, developmentSites, GOODS, MAX_BUILDING_LEVEL, MAX_DEVELOPMENT_SITES, startingCities, initialCityEconomy } from './cities';
 import { basicLoadout, EQUIPMENT, equipmentQuoteGold, usesBow } from './equipment';
-import { endingReason } from './campaign';
+import { endingReason, makeTroop, startLocation } from './campaign';
 import { TERRAIN, UNIT_TYPES } from './data';
 import { heroMaxHp, heroMaxMana, isHero } from './units';
 import { isLocation } from './world';
@@ -514,6 +516,42 @@ function addNewQuests(value: Record<string, unknown>) {
   for (const id of Object.keys(QUESTS)) if (!Object.hasOwn(quests, id)) quests[id] = lockedProgress();
 }
 
+/** Additive geography migration: every old cell and existing asset keeps its identity. */
+function upgradeWesternMap(value: Record<string, unknown>) {
+  if (value.campaignId !== 'western-realm' || value.campaignRevision !== 1) return;
+  const towns = object(value.towns), economies = object(value.cityEconomies);
+  const oldTownIds: readonly string[] = WESTERN_REVISION_1_TOWNS;
+  requireValue(Object.keys(towns).length === oldTownIds.length && oldTownIds.every((id) => Object.hasOwn(towns, id)) &&
+    Object.keys(economies).length === oldTownIds.length && oldTownIds.every((id) => Object.hasOwn(economies, id)), 'legacy Western town registry');
+  requireValue(integer(value.nextId, 1), 'legacy Western identity counter');
+  const armies = array(value.armies);
+  const oldLocation = (at: unknown) => {
+    if (typeof at !== 'string' || !/^\d+,\d+$/.test(at)) return false;
+    const [col, row] = at.split(',').map(Number);
+    return col >= 0 && col < 40 && row >= 0 && row < 28;
+  };
+  for (const raw of armies) {
+    const army = object(raw);
+    requireValue(oldLocation(army.at) && (army.from === null || oldLocation(army.from)), 'legacy Western army location');
+    requireValue(integer(army.id, 1, Number(value.nextId) - 1), 'legacy Western army identity');
+    for (const troop of array(army.troops)) requireValue(integer(object(troop).id, 1, Number(value.nextId) - 1), 'legacy Western troop identity');
+  }
+  for (const town of WESTERN_ADDED_TOWNS) {
+    towns[town.id] = { ...town };
+    economies[town.id] = initialCityEconomy(town);
+  }
+  const state = value as unknown as GameState;
+  for (const garrison of WESTERN_ADDED_ARMIES) {
+    const troops = garrison.troops.map((t) => {
+      const troop = typeof t === 'string' ? makeTroop(state, t) : makeTroop(state, t.type, t.name);
+      troop.mp = 0; // New neutral forces receive no mid-month movement on import.
+      return troop;
+    });
+    state.armies.push({ id: state.nextId++, owner: garrison.owner, at: startLocation(state, garrison.at), from: null, troops });
+  }
+  value.campaignRevision = 2;
+}
+
 /** Migration runs on parsed JSON only; it never edits the legacy storage entry. */
 export function parseSave(raw: string): GameState {
   requireValue(new TextEncoder().encode(raw).length <= MAX_SAVE_BYTES, 'file exceeds 5 MB');
@@ -565,6 +603,7 @@ export function parseSave(raw: string): GameState {
   if (value.version === 10) upgradeToV11(value);
   if (value.version === 11) upgradeToV12(value);
   addNewQuests(value);
+  upgradeWesternMap(value);
   validate(value);
   return value;
 }

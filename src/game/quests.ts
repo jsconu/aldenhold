@@ -1,3 +1,5 @@
+import { FIELD_LIMIT } from './battle';
+import { getCampaign } from '../content';
 import { QUESTS } from '../content/quests';
 import { armyAt, deed, findArmy, makeTroop, nodeName, neighborsOf, startBattle, startLocation } from './campaign';
 import { relationWith } from './diplomacy';
@@ -154,10 +156,11 @@ export function conditionText(state: GameState, c: QuestCondition): string {
 }
 
 /** Enter a stage: record when it began and set its events in motion (exactly once, on entry). */
-function enterStage(state: GameState, def: QuestDefinition, stageId: string) {
+function enterStage(state: GameState, def: QuestDefinition, stageId: string, runEvents = true) {
   const progress = state.quests[def.id];
   progress.stage = stageId;
   progress.stageTurn = state.turn;
+  if (!runEvents) return;
   for (const event of stageOf(def, stageId)?.onStart ?? []) {
     if (event.kind === 'item') {
       grantItem(state, event.item);
@@ -195,6 +198,13 @@ function checkObjectives(state: GameState, def: QuestDefinition) {
   }
 }
 
+/** Givers belong to the authored town's original ruler, except merchants who explicitly survive our conquest. */
+function giverLost(state: GameState, def: QuestDefinition): boolean {
+  const owner = state.towns[def.at]?.owner;
+  const original = getCampaign(state.campaignId).towns.find((town) => town.id === def.at)?.owner;
+  return owner !== original && !(owner === 'player' && def.survivesConquest);
+}
+
 /**
  * Unlock every quest of this campaign whose prerequisites now hold. Returns news lines for the newly unlocked
  * quests (at the start of a game the opening quests simply begin available).
@@ -205,14 +215,31 @@ export function unlockQuests(state: GameState): string[] {
     const progress = state.quests[def.id];
     if (progress.status !== 'unavailable' || !def.prerequisites.every((c) => conditionHolds(state, c))) continue;
     progress.status = 'available';
-    enterStage(state, def, def.stages[0].id);
+    const lost = giverLost(state, def);
+    enterStage(state, def, def.stages[0].id, !lost);
+    if (lost) {
+      // A conquest objective takes precedence over losing its council, including before the quest was offered.
+      checkObjectives(state, def);
+      if (isOpen(progress)) resolveQuest(state, def, def.onLocationLost, 'location-lost');
+      continue;
+    }
     news.push(`New ${def.kind === 'main' ? 'objective' : 'quest'}: ${def.name}, offered at ${nodeName(state, def.at)}.`);
   }
   return news;
 }
 
+export interface EncounterPreview {
+  site: string;
+  heroesOnly: boolean;
+  armyId: number | null;
+  deployed: number[];
+  reserves: number[];
+  waiting: number[];
+}
+
 export interface QuestQuote {
   gold: number;
+  encounter?: EncounterPreview;
   /** Why the choice can't be made now; null means it can. */
   reason: string | null;
 }
@@ -223,11 +250,13 @@ export function questQuote(state: GameState, questId: string, choiceId: string):
   const progress = state.quests[questId];
   const choice = def && progress ? stageOf(def, progress.stage)?.choices.find((c) => c.id === choiceId) : undefined;
   const gold = choice?.gold ?? 0;
-  const refuse = (reason: string): QuestQuote => ({ gold, reason });
+  let encounter: EncounterPreview | undefined;
+  const refuse = (reason: string | null): QuestQuote => ({ gold, reason, ...(encounter ? { encounter } : {}) });
   if (!def || !progress || !def.campaignIds.includes(state.campaignId)) return refuse('No such quest here.');
   if (state.status !== 'playing' || state.battle) return refuse(def.refusals?.battle ?? 'Not during a battle.');
   if (!isOpen(progress)) return refuse(isResolved(progress) ? def.refusals?.resolved ?? 'This matter is settled.' : 'This quest is not open yet.');
   if (!choice) return refuse('That choice is not open now.');
+  if (giverLost(state, def)) return refuse('The quest giver’s town has changed hands.');
   const missing = choice.requires?.find((item) => heldQty(state, item) < 1);
   if (missing) return refuse(`You need the ${ITEMS[missing]?.name ?? missing}.`);
   const unmet = choice.needs?.find((c) => !conditionHolds(state, c));
@@ -240,17 +269,32 @@ export function questQuote(state: GameState, questId: string, choiceId: string):
   }
   if ('encounter' in choice.then) {
     const enc = choice.then.encounter;
+    encounter = previewEncounter(state, enc);
+    if (progress.history.some((h) => h.choice === encounterMark(choice.id, false) && h.turn === state.turn)) return refuse('The expedition must regroup. Try again next campaign month.');
     const army = armyAt(state, startLocation(state, enc.site), 'player');
     if (!army) return refuse(`Bring an army to ${nodeName(state, startLocation(state, enc.site))} first.`);
     if (enc.heroesOnly && !partyOf(army.troops).length) return refuse('Only heroes may enter, and the council will not risk your lord. Bring a hired hero.');
   }
   if (state.gold < gold) return refuse(`You need ${gold} gold.`);
-  return { gold, reason: null };
+  return refuse(null);
 }
 
 /** The heroes who may enter a heroes-only encounter: everyone but the lord. */
 function partyOf(troops: GameState['armies'][number]['troops']) {
   return troops.filter((t) => isHero(t.type) && t.type !== 'lord');
+}
+
+/** Read only: matches the party split and first-in-army deployment used by the actual encounter. */
+function previewEncounter(state: GameState, encounter: QuestEncounter): EncounterPreview {
+  const army = armyAt(state, startLocation(state, encounter.site), 'player');
+  const troops = army?.troops ?? [];
+  const eligible = encounter.heroesOnly ? partyOf(troops) : troops;
+  const ids = eligible.map((t) => t.id);
+  return {
+    site: encounter.site, heroesOnly: !!encounter.heroesOnly, armyId: army?.id ?? null,
+    deployed: ids.slice(0, FIELD_LIMIT), reserves: ids.slice(FIELD_LIMIT),
+    waiting: troops.filter((t) => !eligible.includes(t)).map((t) => t.id),
+  };
 }
 
 /** Move a quest on: to another stage, or to its end. */
@@ -385,14 +429,34 @@ export function advanceQuests(state: GameState): string[] {
     checkObjectives(state, def);
     const progress = state.quests[def.id];
     if (!isOpen(progress)) continue;
+    // Also repair an older save that imported an open quest after its giver had already fallen.
+    if (giverLost(state, def)) {
+      resolveQuest(state, def, def.onLocationLost, 'location-lost');
+      continue;
+    }
     const deadline = stageOf(def, progress.stage)?.deadline;
-    if (deadline && progress.stageTurn !== null && state.turn - progress.stageTurn >= deadline.months) {
+    if (deadline && !deadline.afterBattles && progress.stageTurn !== null && state.turn - progress.stageTurn >= deadline.months) {
       progress.history.push({ stage: progress.stage, choice: DEADLINE, turn: state.turn });
       resolveQuest(state, def, deadline.outcome, 'deadline');
     }
   }
   // Follow-ups to quests that just ended are offered the same month; their goals are checked from next month.
   return [...news, ...unlockQuests(state)];
+}
+
+/** Hold-out success is checked only after this month's attacks and all queued battles settle. */
+export function settleHeldQuests(state: GameState) {
+  if (state.status !== 'playing' || state.battle || state.pending.length) return;
+  for (const def of campaignQuests(state).filter((q) => q.stages.some((s) => s.deadline?.afterBattles))) {
+    checkObjectives(state, def);
+    const progress = state.quests[def.id];
+    if (!isOpen(progress)) continue;
+    const deadline = stageOf(def, progress.stage)?.deadline;
+    if (deadline?.afterBattles && progress.stageTurn !== null && state.turn - progress.stageTurn >= deadline.months) {
+      progress.history.push({ stage: progress.stage, choice: DEADLINE, turn: state.turn });
+      resolveQuest(state, def, deadline.outcome, 'deadline');
+    }
+  }
 }
 
 /**

@@ -16,19 +16,19 @@ These came out of a planning review with the owner. They govern order and releas
 ## How the agents work
 
 - **This table is the work queue.** Work is tracked as GitHub issues; the owner sets the order here.
-- **Agents take turns.** Only one agent (Claude or Codex) works on the repo at a time. Each piece of work starts on a fresh branch from the latest `main`, and the agent records what it did in [implementation-progress.md](implementation-progress.md).
-- **Agents open PRs; the owner merges.** No agent merges its own PR. CI (tests and build) must pass first.
+- **Coordinate through the queue.** The owner subsequently authorized Codex to work on things Claude is not handling. Use distinct work areas, check current branches/PRs before starting, and consolidate overlapping implementations. Start from the latest `main` and record progress in [implementation-progress.md](implementation-progress.md).
+- **Agents may merge after checks.** The owner subsequently authorized merges whenever ready. Open a reviewable PR, pass CI, check for conflicts/current changes, then merge.
 
 ## Queue
 
 | Order | GitHub issue | Next deliverable |
 | --- | --- | --- |
 | Done | #21, #22, #17 | Action quotes (#24), month pipeline (#25), quest engine (#27), Q04 Woodland Accord (#29), faction registry and item policies (#30) |
-| 1 | [#9 Western chapter](https://github.com/jsconu/aragon/issues/9) — 9a chapter spine | Objective stages that advance on world state, stage-start events (the M04 incursion), M01–M04, and finishing Act I as the chapter's victory |
-| 2 | #9 — 9b map growth | The six missing R01–R02 settlements (Oakcross, Bellwater, Thornwatch, Redford, Saltwick, Ironbridge) and their geography; validator checks every objective is reachable. Map art heavy: a good Codex turn |
-| 3 | #9 — 9c encounters | Authored battles started from quest choices, hero-only encounters; Q02 One Eye at the Quarry, Q03 Beneath the Old Tower, Q05 The Missing Caravan |
+| Done (#31) | [#9 Western chapter](https://github.com/jsconu/aragon/issues/9) — 9a chapter spine | Objective stages that advance on world state, stage-start events (the M04 incursion), M01–M04, and finishing Act I as the chapter's victory |
+| Done (#34) | #9 — 9b map growth | Six new settlements, 52×38 geography, routes, resource roles and revision-1 save migration; distinct artwork and local stories remain. See [map growth](western-map-growth.md) |
+| Done (#32); follow-ups remain | #9 — 9c encounters | Q02 cyclops/boulder and noncombat mining choice, Q03 hero-only trial, Q05 caravan tracking/ransom. Remaining: unique shield, later merchant effects and balance |
 | 4 | #9 — 9d city quests | Q01 The Empty Granary, Q06 The Miller on Trial; consumable rewards |
-| 5 | #9 — 9e balance and art | Seeded playthrough bot for M01–M04 on Normal, incursion and economy tuning, chapter art pass, final title |
+| Partial | #9 — 9e balance and art | Encounter party previews, current-stage navigation and seeded real-command chapter/expedition controllers delivered; [60-run baseline and longer tours](chapter-playthroughs.md). Remaining: owner playthrough, agreed pacing window, optional encounter tuning, chapter art and final title |
 | After the chapter | [#15](https://github.com/jsconu/aragon/issues/15) remainder | Fog, scouting, pan/zoom, minimap, saved multi-month orders, next regions |
 | After the chapter | [#6 City economy](https://github.com/jsconu/aragon/issues/6) | Commerce, transport, markets, governors and realm forecasts |
 | After the chapter | [#7 Veteran equipment](https://github.com/jsconu/aragon/issues/7) | Full equipment tree, services, salvage and reinforcement rules |
