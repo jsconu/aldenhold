@@ -12,8 +12,7 @@ import type { Army, CampaignId, FactionId, GameState } from '../game/types';
 import { renderJournal } from './journalView';
 import { renderTreasury } from './treasuryView';
 import { BUILDING_IDS, BUILDINGS, cityMaintenance, constructionQuote, developmentSites, endowment, totalCityMaintenance } from '../game/cities';
-import { FENWICK_CHARTER } from '../content/quests';
-import { charterQuote, questSummary } from '../game/quests';
+import { campaignQuests, isOpen, questQuote, questsAt, questSummary, stageOf } from '../game/quests';
 import { esc, type UIState } from './shared';
 import { renderOverland } from './overlandMap';
 import { previewRoute, type RoutePreview } from '../game/overlandRoutes';
@@ -40,7 +39,7 @@ export function renderCampaign(state: GameState, ui: UIState): string {
     <span class="gold" title="Taxes ${income}, troop wages ${upkeep}, city maintenance ${operating}">Gold <b>${state.gold}</b>
       <em class="${net < 0 ? 'neg' : 'pos'}">${net >= 0 ? '+' : ''}${net}/month</em></span>
     <span class="spacer"></span>
-    ${state.quests.Q00?.status === 'available' ? '<button data-action="view-fenwick" class="ghost">Fenwick envoy</button>' : ''}
+    ${(() => { const q = nextOpenQuest(state); return q ? `<button data-action="view-quest" data-quest="${q.id}" class="ghost" title="Go to ${esc(nodeName(state, q.at))}">Quest: ${esc(q.name)}</button>` : ''; })()}
     <button data-action="treasury" class="ghost">${ui.view === 'treasury' ? 'Back to the map' : 'Treasury'}</button>
     <button data-action="journal" class="ghost">${ui.view === 'journal' ? 'Back to the map' : `Journal (${state.journal.length})`}</button>
     <button data-action="new-game" class="ghost">New game</button>
@@ -191,7 +190,7 @@ function renderNodePanel(state: GameState, ui: UIState, at: string): string {
   } else {
     html += `<p class="sub">Open country</p>`;
   }
-  if (town?.id === 'fenwick') html += renderFenwickQuest(state);
+  if (town) html += renderQuests(state, town.id);
   for (const a of armies) html += renderArmy(state, ui, a);
   if (!armies.length) html += `<p class="sub">No troops here.</p>`;
   return html;
@@ -235,20 +234,33 @@ function renderCityDevelopment(state: GameState, id: string): string {
     <div class="building-grid">${cards}</div></section>`;
 }
 
-function renderFenwickQuest(state: GameState): string {
-  const q = state.quests.Q00;
-  if (!q) return '';
-  if (q.status !== 'available') return `<div class="quest-card"><h3>${esc(FENWICK_CHARTER.name)}</h3><p>${esc(questSummary(state))}</p>
-    ${q.status === 'succeeded' && state.treaties.fenwick?.passage ? '<p class="sub">Your armies may share this town with its neutral garrison. Fenwick remains independent and pays no tax.</p>' : ''}</div>`;
-  const { reason } = charterQuote(state);
-  return `<div class="quest-card"><h3>${esc(FENWICK_CHARTER.name)}</h3>
-    <p>${esc(FENWICK_CHARTER.text)}</p>
-    <p class="sub">Reward: Sealed Fenwick Charter. Sign to gain peaceful passage, or decline and keep the military option.</p>
-    ${reason ? `<p class="hint">${esc(reason)}</p>` : ''}
-    <div class="quest-actions">
-      <button data-action="fenwick-sign" ${reason ? 'disabled' : ''}>Sign the charter</button>
-      <button data-action="fenwick-decline" ${reason ? 'disabled' : ''}>Decline</button>
-    </div></div>`;
+/** Cards for every quest offered at this town: the current stage and one button per choice, from its quote. */
+function renderQuests(state: GameState, townId: string): string {
+  return questsAt(state, townId).map((def) => {
+    const q = state.quests[def.id];
+    if (q.status === 'unavailable') return '';
+    const head = `<div class="quest-card"><h3>${esc(def.name)} <small>${def.kind === 'main' ? 'Main objective' : 'Side quest'} · ${esc(def.giver)}</small></h3>`;
+    if (!isOpen(q)) {
+      const passage = q.status === 'succeeded' && state.treaties[def.at]?.passage
+        ? `<p class="sub">Your armies may share this town with its neutral garrison. ${esc(nodeName(state, def.at))} remains independent and pays no tax.</p>` : '';
+      return `${head}<p>${esc(questSummary(state, def.id))}.</p>${passage}</div>`;
+    }
+    const stage = stageOf(def, q.stage)!;
+    const quotes = stage.choices.map((c) => ({ c, quote: questQuote(state, def.id, c.id) }));
+    // Reasons shared by every choice (no envoy, battle) are shown once above the buttons.
+    const shared = quotes.length && quotes.every((x) => x.quote.reason && x.quote.reason === quotes[0].quote.reason) ? quotes[0].quote.reason : null;
+    const deadline = stage.deadline && q.stageTurn !== null
+      ? `<p class="sub">Decide by ${esc(dateLabel(q.stageTurn + stage.deadline.months))}, or this ends on its own.</p>` : '';
+    return `${head}<p>${esc(def.summary)}</p><p class="sub">${esc(stage.text)}</p>${deadline}
+      ${shared ? `<p class="hint">${esc(shared)}</p>` : ''}
+      <div class="quest-actions">${quotes.map(({ c, quote }) => `<button data-action="quest-choice" data-quest="${def.id}" data-choice="${c.id}"
+        ${quote.reason ? `disabled title="${esc(quote.reason)}"` : ''}>${esc(c.label)}${quote.gold ? ` · ${quote.gold}g` : ''}</button>`).join('')}</div></div>`;
+  }).join('');
+}
+
+/** The first open quest of this campaign, for the header shortcut. */
+function nextOpenQuest(state: GameState) {
+  return campaignQuests(state).find((def) => isOpen(state.quests[def.id]));
 }
 
 function renderArmy(state: GameState, ui: UIState, a: Army): string {

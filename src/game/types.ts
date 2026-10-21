@@ -270,16 +270,85 @@ export interface Treaty {
   signedTurn: number;
 }
 
-export type QuestStatus = 'available' | 'succeeded' | 'failed' | 'superseded';
+export type QuestStatus = 'unavailable' | 'available' | 'active' | 'succeeded' | 'failed' | 'superseded';
+export type ResolvedQuestStatus = 'succeeded' | 'failed' | 'superseded';
+
+/** Saved progress through one quest. Definitions (content) never change at runtime. */
 export interface QuestProgress {
   status: QuestStatus;
-  stage: 'decision' | 'resolved';
-  choice: 'sign' | 'decline' | null;
+  /** Current stage id; 'locked' before the quest becomes available, 'resolved' after it ends. */
+  stage: string;
+  /** The last choice made, if any. */
+  choice: string | null;
   resolvedTurn: number | null;
+  /** How the quest ended: a player choice, a missed deadline, or its town changing hands. */
+  resolvedBy: 'choice' | 'deadline' | 'location-lost' | null;
+  /** Month the current stage began (deadlines count from here); null while locked or resolved. */
+  stageTurn: number | null;
+  /** Every choice made, in order. */
+  history: { stage: string; choice: string; turn: number }[];
+}
+
+/** When a quest unlocks: every condition must hold. */
+export type QuestCondition =
+  | { kind: 'quest'; quest: string; status: ResolvedQuestStatus }
+  | { kind: 'town-owner'; town: string; owner: FactionId }
+  | { kind: 'flag'; flag: string }
+  | { kind: 'month'; atLeast: number };
+
+/** What a quest's resolution changes in the campaign. Applied exactly once. */
+export type QuestEffect =
+  | { kind: 'treaty'; town: string; relation: Treaty['relation']; passage: boolean }
+  | { kind: 'item'; item: string }
+  | { kind: 'gold'; amount: number }
+  | { kind: 'flag'; flag: string };
+
+export interface QuestResolution {
+  status: ResolvedQuestStatus;
+  effects: QuestEffect[];
+  /** Journal entry recorded when the quest ends this way. */
+  journal: string;
+}
+
+export interface QuestChoice {
+  id: string;
+  label: string;
+  /** Gold the choice costs, paid when chosen. */
+  gold?: number;
+  /** Move to another stage, or end the quest. */
+  then: { stage: string } | QuestResolution;
+}
+
+export interface QuestStage {
+  id: string;
+  text: string;
+  choices: QuestChoice[];
+  /** Months after the stage begins before it fails, and what happens then. */
+  deadline?: { months: number; outcome: QuestResolution };
+}
+
+export interface QuestDefinition {
+  id: string;
+  campaignIds: CampaignId[];
+  kind: 'main' | 'side';
+  name: string;
+  giver: string;
+  /** Town id where the quest is offered and decided. */
+  at: string;
+  summary: string;
+  prerequisites: QuestCondition[];
+  /** A player army must stand at the quest's town or next to it to choose. */
+  needsEnvoy: boolean;
+  /** The first stage is where the quest starts. */
+  stages: QuestStage[];
+  /** What happens if the quest's town changes hands before it is resolved. */
+  onLocationLost: QuestResolution;
+  /** Quest-specific wording for refusals; generic wording is used otherwise. */
+  refusals?: { resolved?: string; envoy?: string; battle?: string };
 }
 
 /** Signed cash movements: positive receipts, negative actual payments. */
-export type LedgerCategory = 'tax' | 'wages' | 'recruitment' | 'hero-hire' | 'construction' | 'maintenance' | 'refit' | 'balance-correction';
+export type LedgerCategory = 'tax' | 'wages' | 'recruitment' | 'hero-hire' | 'construction' | 'maintenance' | 'refit' | 'quest' | 'quest-reward' | 'balance-correction';
 export interface LedgerEntry {
   turn: number;
   city: string | null;
@@ -339,7 +408,7 @@ export interface CityEconomy {
 }
 
 export interface GameState {
-  version: 10;
+  version: 11;
   campaignId: CampaignId;
   campaignRevision: number;
   endingReason: EndingReason | null;
@@ -364,5 +433,7 @@ export interface GameState {
   items: string[];
   /** Location-scoped treaties; no accidental world-wide neutral-faction alliance. */
   treaties: Record<string, Treaty>;
+  /** Campaign flags set by quest outcomes, read by later quests and rules. */
+  flags: string[];
   status: 'playing' | 'won' | 'lost';
 }

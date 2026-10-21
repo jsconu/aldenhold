@@ -3,7 +3,7 @@ import { BATTLE_H, BATTLE_W, createBattle, FIELD_LIMIT } from './battle';
 import { CATALOG, getCampaign } from '../content';
 import { ITEMS } from '../content/items';
 import { QUESTS } from '../content/quests';
-import { newQuestState } from './quests';
+import { DEADLINE, isResolved, lockedProgress, resolutionOf } from './quests';
 import { newTreasury } from './economy';
 import { BUILDING_IDS, BUILDINGS, developmentSites, GOODS, MAX_BUILDING_LEVEL, MAX_DEVELOPMENT_SITES, startingCities } from './cities';
 import { basicLoadout, EQUIPMENT, equipmentQuoteGold } from './equipment';
@@ -43,12 +43,12 @@ const factions = ['player', 'orcs', 'neutral'];
 const deedKinds: DeedKind[] = ['story', 'battle', 'capture', 'loss', 'hero', 'realm', 'ending', 'earlier'];
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const sides = ['attacker', 'defender'];
-const ledgerCategories: LedgerCategory[] = ['tax', 'wages', 'recruitment', 'hero-hire', 'construction', 'maintenance', 'refit', 'balance-correction'];
+const ledgerCategories: LedgerCategory[] = ['tax', 'wages', 'recruitment', 'hero-hire', 'construction', 'maintenance', 'refit', 'quest', 'quest-reward', 'balance-correction'];
 
 /** Validate both shape and references before exposing a save to rules or rendering. */
 function validate(value: unknown, allowMissingBattleTroops = false): asserts value is GameState {
   const s = object(value);
-  requireValue(s.version === 10, 'unsupported schema version');
+  requireValue(s.version === 11, 'unsupported schema version');
   requireValue(text(s.campaignId) && Object.hasOwn(CATALOG.campaigns, s.campaignId), 'unknown campaign');
   const def = getCampaign(s.campaignId as CampaignId);
   requireValue(s.campaignRevision === def.revision, 'unsupported campaign revision');
@@ -138,7 +138,7 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
         text(e.counterparty) && text(e.actionId) && e.actionId.length > 0 &&
         !unique.has(e.actionId), 'treasury transaction');
       unique.add(e.actionId as string);
-      requireValue(e.category === 'tax' ? Number(e.amount) > 0 :
+      requireValue(e.category === 'tax' || e.category === 'quest-reward' ? Number(e.amount) > 0 :
         e.category === 'balance-correction' ? Number(e.amount) !== 0 : Number(e.amount) < 0,
         'treasury transaction sign');
     }
@@ -158,7 +158,7 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
       'treasury does not reconcile');
     requireValue(transactions.filter((e) => e.category === 'tax').reduce((sum, e) => sum + Number(e.amount), 0) === month.income,
       'treasury income total');
-    requireValue(-transactions.filter((e) => ['wages', 'recruitment', 'hero-hire', 'construction', 'maintenance', 'refit'].includes(String(e.category)))
+    requireValue(-transactions.filter((e) => ['wages', 'recruitment', 'hero-hire', 'construction', 'maintenance', 'refit', 'quest'].includes(String(e.category)))
       .reduce((sum, e) => sum + Number(e.amount), 0) === month.expenses, 'treasury expense total');
   }
   const history = array(treasury.history);
@@ -207,17 +207,34 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
   const quests = object(s.quests);
   requireValue(Object.keys(quests).length === Object.keys(QUESTS).length &&
     Object.keys(QUESTS).every((id) => Object.hasOwn(quests, id)), 'quest registry');
-  for (const entry of Object.values(quests)) {
+  const turn = Number(s.turn);
+  for (const [id, entry] of Object.entries(quests)) {
     const q = object(entry);
-    requireValue(oneOf(q.status, ['available', 'succeeded', 'failed', 'superseded']), 'quest status');
-    requireValue(oneOf(q.stage, ['decision', 'resolved']), 'quest stage');
-    requireValue(oneOf(q.choice, [null, 'sign', 'decline']), 'quest choice');
-    requireValue(q.resolvedTurn === null || integer(q.resolvedTurn, 1, Number(s.turn)), 'quest resolution month');
-    requireValue(q.status === 'available'
-      ? q.stage === 'decision' && q.choice === null && q.resolvedTurn === null
-      : q.stage === 'resolved' && q.resolvedTurn !== null, 'quest progress');
-    requireValue(q.status === 'succeeded' ? q.choice === 'sign' : q.status === 'failed'
-      ? q.choice === 'decline' : q.choice === null, 'quest outcome');
+    const qdef = QUESTS[id];
+    requireValue(oneOf(q.status, ['unavailable', 'available', 'active', 'succeeded', 'failed', 'superseded']), 'quest status');
+    requireValue(qdef.campaignIds.includes(def.id) || q.status === 'unavailable', 'quest outside its campaign');
+    const resolved = oneOf(q.status, ['succeeded', 'failed', 'superseded']);
+    const open = q.status === 'available' || q.status === 'active';
+    const stageIds = qdef.stages.map((st) => st.id);
+    requireValue(q.status === 'unavailable' ? q.stage === 'locked' : resolved ? q.stage === 'resolved' : text(q.stage) && stageIds.includes(q.stage), 'quest stage');
+    requireValue(open ? integer(q.stageTurn, 1, turn) : q.stageTurn === null, 'quest stage month');
+    requireValue(resolved
+      ? integer(q.resolvedTurn, 1, turn) && oneOf(q.resolvedBy, ['choice', 'deadline', 'location-lost'])
+      : q.resolvedTurn === null && q.resolvedBy === null, 'quest resolution');
+    const history = array(q.history);
+    for (const raw of history) {
+      const h = object(raw);
+      const stage = qdef.stages.find((st) => st.id === h.stage);
+      requireValue(stage !== undefined && integer(h.turn, 1, turn) &&
+        (h.choice === DEADLINE || stage.choices.some((c) => c.id === h.choice)), 'quest history');
+    }
+    const choices = qdef.stages.flatMap((st) => st.choices.map((c) => c.id));
+    requireValue(q.choice === null || (text(q.choice) && choices.includes(q.choice)), 'quest choice');
+    requireValue(q.status !== 'unavailable' || (history.length === 0 && q.choice === null), 'quest progress');
+    requireValue(q.status !== 'active' || history.length > 0, 'quest progress');
+    if (resolved && q.resolvedBy !== 'location-lost') {
+      requireValue(resolutionOf(qdef, q as unknown as GameState['quests'][string])?.status === q.status, 'quest outcome');
+    }
   }
   const inventory = array(s.items);
   requireValue(inventory.every((id) => text(id) && Object.hasOwn(ITEMS, id)) &&
@@ -229,12 +246,29 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
       bool(t.passage) && integer(t.signedTurn, 1, Number(s.turn)), 'treaty');
     requireValue(!t.passage || t.relation === 'ally' || t.relation === 'vassal', 'treaty passage');
   }
-  if (object(quests.Q00).status === 'succeeded') {
-    requireValue(inventory.includes('fenwick-charter'), 'missing charter reward');
+  const flags = array(s.flags);
+  requireValue(flags.every(text) && new Set(flags).size === flags.length, 'campaign flags');
+  // Everything a quest grants must come from a quest that actually ended that way: no forged rewards, no
+  // missing ones. Treaties may have ended since (a town changing hands), so they only need a source.
+  const granted = { items: new Set<string>(), treaties: new Set<string>(), flags: new Set<string>() };
+  for (const [id, entry] of Object.entries(quests)) {
+    const progress = entry as GameState['quests'][string];
+    const resolution = isResolved(progress) ? resolutionOf(QUESTS[id], progress) : null;
+    for (const effect of resolution?.effects ?? []) {
+      if (effect.kind === 'item') {
+        granted.items.add(effect.item);
+        requireValue(inventory.includes(effect.item), 'missing quest reward');
+      }
+      if (effect.kind === 'treaty') granted.treaties.add(effect.town);
+      if (effect.kind === 'flag') {
+        granted.flags.add(effect.flag);
+        requireValue(flags.includes(effect.flag), 'missing quest flag');
+      }
+    }
   }
-  if (Object.hasOwn(treaties, 'fenwick') && object(treaties.fenwick).passage) {
-    requireValue(object(quests.Q00).status === 'succeeded', 'treaty has no signed quest');
-  }
+  requireValue(inventory.every((item) => granted.items.has(item as string)), 'inventory object with no quest that granted it');
+  requireValue(Object.keys(treaties).every((town) => granted.treaties.has(town)), 'treaty with no quest that granted it');
+  requireValue(flags.every((flag) => granted.flags.has(flag as string)), 'flag with no quest that set it');
   array(s.journal).forEach((entry, i) => {
     const j = object(entry);
     requireValue(j.id === i + 1 && integer(j.turn, 1, Number(s.turn)) && oneOf(j.kind, deedKinds) && text(j.text), 'journal entry');
@@ -324,12 +358,12 @@ function upgradeToV4(value: Record<string, unknown>) {
 function upgradeToV5(value: Record<string, unknown>) {
   const towns = object(value.towns);
   const fenwick = object(towns.fenwick);
-  const quest = newQuestState();
-  if (fenwick.owner !== 'neutral') {
-    quest.Q00 = { status: 'superseded', stage: 'resolved', choice: null,
-      resolvedTurn: integer(value.turn, 1) ? value.turn : 1 };
-  }
-  value.quests = quest;
+  // The v5 quest record: only the Fenwick Charter existed. upgradeToV11 converts it to the current shape.
+  value.quests = {
+    Q00: fenwick.owner !== 'neutral'
+      ? { status: 'superseded', stage: 'resolved', choice: null, resolvedTurn: integer(value.turn, 1) ? value.turn : 1 }
+      : { status: 'available', stage: 'decision', choice: null, resolvedTurn: null },
+  };
   value.items = [];
   value.treaties = {};
   value.version = 5;
@@ -399,6 +433,38 @@ function upgradeToV10(value: Record<string, unknown>) {
   value.version = 10;
 }
 
+/**
+ * v10 → v11 brings in the data-driven quest engine. Old records (only the Fenwick Charter, with a single
+ * 'decision' stage) gain how they were resolved, the month their stage began and their choice history.
+ * Campaign flags start empty: no earlier quest set any.
+ */
+function upgradeToV11(value: Record<string, unknown>) {
+  const old = object(value.quests);
+  const turn = integer(value.turn, 1) ? value.turn : 1;
+  const quests: Record<string, unknown> = {};
+  for (const id of Object.keys(QUESTS)) {
+    const q = old[id] === undefined ? null : object(old[id]);
+    if (!q) {
+      quests[id] = lockedProgress();
+      continue;
+    }
+    const choice = text(q.choice) ? q.choice : null;
+    const resolvedTurn = integer(q.resolvedTurn, 1) ? q.resolvedTurn : null;
+    quests[id] = {
+      status: q.status,
+      stage: q.stage,
+      choice,
+      resolvedTurn,
+      resolvedBy: q.status === 'superseded' ? 'location-lost' : q.status === 'succeeded' || q.status === 'failed' ? 'choice' : null,
+      stageTurn: q.status === 'available' ? turn : null,
+      history: choice && resolvedTurn ? [{ stage: 'decision', choice, turn: resolvedTurn }] : [],
+    };
+  }
+  value.quests = quests;
+  value.flags = [];
+  value.version = 11;
+}
+
 /** Migration runs on parsed JSON only; it never edits the legacy storage entry. */
 export function parseSave(raw: string): GameState {
   requireValue(new TextEncoder().encode(raw).length <= MAX_SAVE_BYTES, 'file exceeds 5 MB');
@@ -426,6 +492,7 @@ export function parseSave(raw: string): GameState {
     upgradeToV8(value);
     upgradeToV9(value);
     upgradeToV10(value);
+    upgradeToV11(value);
     validate(value, true);
     if (value.battle) {
       const b = value.battle;
@@ -445,6 +512,7 @@ export function parseSave(raw: string): GameState {
   if (value.version === 7) upgradeToV8(value);
   if (value.version === 8) upgradeToV9(value);
   if (value.version === 9) upgradeToV10(value);
+  if (value.version === 10) upgradeToV11(value);
   validate(value);
   return value;
 }

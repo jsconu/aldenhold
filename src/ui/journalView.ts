@@ -1,9 +1,8 @@
 import { dateLabel, nodeName } from '../game/campaign';
 import type { DeedKind, GameState, JournalEntry } from '../game/types';
 import { esc } from './shared';
-import { FENWICK_CHARTER } from '../content/quests';
 import { ITEMS } from '../content/items';
-import { questSummary } from '../game/quests';
+import { campaignQuests, questSummary } from '../game/quests';
 import { townLocation } from '../game/world';
 
 const KIND_LABEL: Record<DeedKind, string> = {
@@ -50,10 +49,7 @@ export function renderJournal(state: GameState): string {
         <div><dt>Hero deeds</dt><dd>${count('hero')}</dd></div>
       </dl>
     </div>
-    <section class="quest-ledger"><h2>Quests</h2>
-      <p><b>${esc(FENWICK_CHARTER.name)}</b> — ${esc(questSummary(state))}.
-      <button class="link" data-action="goto" data-node="${townLocation(state, 'fenwick')}">View Fenwick</button></p>
-    </section>
+    ${renderQuestLedger(state)}
     <section class="quest-ledger"><h2>Inventory</h2>
       ${state.items.length ? `<ul>${state.items.map((id) => {
         const item = ITEMS[id];
@@ -62,4 +58,18 @@ export function renderJournal(state: GameState): string {
     </section>
     ${sections || '<p class="hint">Nothing recorded yet.</p>'}
   </main>`;
+}
+
+/** Quests grouped into main objectives and side quests, with what actually happened and a link to the place. */
+function renderQuestLedger(state: GameState): string {
+  const quests = campaignQuests(state).filter((def) => state.quests[def.id].status !== 'unavailable');
+  const group = (kind: 'main' | 'side', title: string) => {
+    const list = quests.filter((d) => d.kind === kind);
+    if (!list.length) return '';
+    return `<h3>${title}</h3><ul>${list.map((def) => `<li><b>${esc(def.name)}</b>: ${esc(questSummary(state, def.id))}.
+      <button class="link" data-action="goto" data-node="${townLocation(state, def.at)}">View ${esc(nodeName(state, def.at))}</button></li>`).join('')}</ul>`;
+  };
+  return `<section class="quest-ledger"><h2>Quests</h2>
+    ${quests.length ? group('main', 'Main objectives') + group('side', 'Side quests') : '<p class="sub">No quests offered yet.</p>'}
+  </section>`;
 }

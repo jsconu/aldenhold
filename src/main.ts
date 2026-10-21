@@ -11,7 +11,8 @@ import { moveTargets, plannedRoute, renderCampaign } from './ui/campaignView';
 import { esc, type UIState } from './ui/shared';
 import { loadGame, MAX_SAVE_BYTES, parseSave, saveGame } from './game/saves';
 import { CATALOG } from './content';
-import { decideFenwickCharter } from './game/quests';
+import { chooseQuest } from './game/quests';
+import { QUESTS } from './content/quests';
 import { buildCity, BUILDINGS } from './game/cities';
 import { beginRefit, EQUIPMENT } from './game/equipment';
 import { log } from './game/campaign';
@@ -132,15 +133,16 @@ function onAction(action: string, data: DOMStringMap) {
     case 'map-zoom':
       ui.mapZoom = Math.max(1, Math.min(2, (ui.mapZoom ?? 1) + (data.zoom === 'in' ? 0.5 : -0.5)));
       break;
-    case 'view-fenwick':
-      ui.view = 'map';
-      selectNode(townLocation(state, 'fenwick'));
+    case 'view-quest': {
+      const quest = QUESTS[data.quest ?? ''];
+      if (quest) {
+        ui.view = 'map';
+        selectNode(townLocation(state, quest.at));
+      }
       break;
-    case 'fenwick-sign':
-      ui.message = decideFenwickCharter(state, 'sign') ?? '';
-      break;
-    case 'fenwick-decline':
-      ui.message = decideFenwickCharter(state, 'decline') ?? '';
+    }
+    case 'quest-choice':
+      ui.message = chooseQuest(state, data.quest ?? '', data.choice ?? '') ?? '';
       break;
     case 'refit': {
       const item = data.item as EquipmentId;

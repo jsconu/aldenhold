@@ -35,11 +35,7 @@ export function validateContent(catalog: Catalog): string[] {
     if (item.value < 0 || !Number.isFinite(item.value)) err(`item ${id}: invalid value`);
     for (const questId of item.questIds) if (!Object.hasOwn(catalog.quests, questId)) err(`item ${id}: unknown quest "${questId}"`);
   }
-  for (const [id, quest] of Object.entries(catalog.quests)) {
-    if (quest.id !== id) err(`quest ${id}: mismatched id "${quest.id}"`);
-    for (const cid of quest.campaignIds) if (!Object.hasOwn(catalog.campaigns, cid)) err(`quest ${id}: unknown campaign "${cid}"`);
-    if (!catalog.items[quest.rewardItem]) err(`quest ${id}: unknown reward item "${quest.rewardItem}"`);
-  }
+  validateQuests(catalog, err);
   for (const type of catalog.hireableHeroes) {
     if (!catalog.units[type]?.hero) err(`hireable hero "${type}" is not a hero unit`);
     if (!catalog.heroNames[type]?.length) err(`hireable hero "${type}" has no names`);
@@ -190,4 +186,83 @@ function validateHex(catalog: Catalog, world: HexWorld, err: (msg: string) => vo
       return new Set(world.places.filter((p) => seen.has(placeKey(p))).map((p) => p.id));
     },
   };
+}
+
+/**
+ * Quest content: references resolve, stages link up, prerequisites don't loop, and every prerequisite asks for an
+ * outcome its quest can actually produce, so no quest is left that can never unlock.
+ */
+function validateQuests(catalog: Catalog, err: (msg: string) => void) {
+  const quests = catalog.quests;
+  for (const [id, q] of Object.entries(quests)) {
+    const where = `quest ${id}`;
+    if (q.id !== id) err(`${where}: mismatched id "${q.id}"`);
+    if (!q.campaignIds.length) err(`${where}: belongs to no campaign`);
+    for (const cid of q.campaignIds) {
+      const campaign = catalog.campaigns[cid];
+      if (!campaign) err(`${where}: unknown campaign "${cid}"`);
+      else if (!campaign.towns.some((t) => t.id === q.at)) err(`${where}: town "${q.at}" is not in campaign "${cid}"`);
+    }
+    if (!q.stages.length) err(`${where}: has no stages`);
+    const stageIds = new Set<string>();
+    for (const stage of q.stages) {
+      if (stageIds.has(stage.id)) err(`${where}: duplicate stage "${stage.id}"`);
+      stageIds.add(stage.id);
+      if (stage.id === 'locked' || stage.id === 'resolved') err(`${where}: stage id "${stage.id}" is reserved`);
+      if (!stage.choices.length && !stage.deadline) err(`${where}: stage "${stage.id}" has no way to end`);
+      if (stage.deadline && (!Number.isInteger(stage.deadline.months) || stage.deadline.months < 1)) err(`${where}: stage "${stage.id}" has an invalid deadline`);
+      const choiceIds = new Set<string>();
+      for (const c of stage.choices) {
+        if (choiceIds.has(c.id)) err(`${where}: duplicate choice "${c.id}" in stage "${stage.id}"`);
+        choiceIds.add(c.id);
+        if (c.gold !== undefined && (!Number.isInteger(c.gold) || c.gold < 0)) err(`${where}: choice "${c.id}" has an invalid cost`);
+      }
+    }
+    const resolutions = [
+      ...q.stages.flatMap((st) => st.choices.flatMap((c) => ('stage' in c.then ? [] : [c.then]))),
+      ...q.stages.flatMap((st) => (st.deadline ? [st.deadline.outcome] : [])),
+      q.onLocationLost,
+    ];
+    for (const st of q.stages) {
+      for (const c of st.choices) if ('stage' in c.then && !stageIds.has(c.then.stage)) err(`${where}: choice "${c.id}" leads to unknown stage "${c.then.stage}"`);
+    }
+    for (const r of resolutions) {
+      for (const e of r.effects) {
+        if (e.kind === 'item' && !catalog.items[e.item]) err(`${where}: rewards unknown item "${e.item}"`);
+        if (e.kind === 'treaty' && !q.campaignIds.every((cid) => catalog.campaigns[cid]?.towns.some((t) => t.id === e.town))) err(`${where}: treaty with unknown town "${e.town}"`);
+      }
+    }
+    for (const c of q.prerequisites) {
+      if (c.kind === 'quest' && !quests[c.quest]) err(`${where}: requires unknown quest "${c.quest}"`);
+      if (c.kind === 'town-owner' && !q.campaignIds.every((cid) => catalog.campaigns[cid]?.towns.some((t) => t.id === c.town))) err(`${where}: requires unknown town "${c.town}"`);
+    }
+  }
+  // A prerequisite on another quest's outcome must be an outcome that quest can produce.
+  const outcomes = (q: (typeof quests)[string]) => new Set([
+    ...q.stages.flatMap((st) => st.choices.flatMap((c) => ('stage' in c.then ? [] : [c.then.status]))),
+    ...q.stages.flatMap((st) => (st.deadline ? [st.deadline.outcome.status] : [])),
+    q.onLocationLost.status,
+  ]);
+  for (const [id, q] of Object.entries(quests)) {
+    for (const c of q.prerequisites) {
+      if (c.kind === 'quest' && quests[c.quest] && !outcomes(quests[c.quest]).has(c.status)) {
+        err(`quest ${id}: requires "${c.quest}" to end ${c.status}, which it never can`);
+      }
+    }
+  }
+  // Prerequisite cycles: a quest that (indirectly) waits on itself can never unlock.
+  const visiting = new Set<string>();
+  const done = new Set<string>();
+  const visit = (id: string, path: string[]) => {
+    if (done.has(id)) return;
+    if (visiting.has(id)) {
+      err(`quest prerequisites loop: ${[...path.slice(path.indexOf(id)), id].join(' → ')}`);
+      return;
+    }
+    visiting.add(id);
+    for (const c of quests[id]?.prerequisites ?? []) if (c.kind === 'quest') visit(c.quest, [...path, id]);
+    visiting.delete(id);
+    done.add(id);
+  };
+  for (const id of Object.keys(quests)) visit(id, []);
 }

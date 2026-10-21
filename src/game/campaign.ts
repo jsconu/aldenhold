@@ -3,7 +3,7 @@ import { autoResolve, createBattle, isAI, runAI } from './battle';
 import { getCampaign } from '../content';
 import { hasPassage } from './diplomacy';
 import { newTreasury, recordPurchase, settleTreasury, type CashFlow } from './economy';
-import { newQuestState, onTownOwnershipChange } from './quests';
+import { advanceQuests, newQuestState, onTownOwnershipChange, unlockQuests } from './quests';
 import { advanceCities, cityMaintenance, startingCities, type CityPhaseResult } from './cities';
 import { basicLoadout, finishRefits, troopUpkeep } from './equipment';
 import { HERO_NAMES, HIREABLE_HEROES, UNIT_TYPES } from './data';
@@ -24,7 +24,7 @@ const OFFER_MONTHS = 3;
 export function newGame(seed = Math.floor(Math.random() * 2 ** 31), campaignId: CampaignId = 'valley-quickplay'): GameState {
   const def = getCampaign(campaignId);
   const state: GameState = {
-    version: 10,
+    version: 11,
     campaignId: def.id,
     campaignRevision: def.revision,
     endingReason: null,
@@ -46,6 +46,7 @@ export function newGame(seed = Math.floor(Math.random() * 2 ** 31), campaignId: 
     quests: newQuestState(),
     items: [],
     treaties: {},
+    flags: [],
     status: 'playing',
   };
   for (const t of def.towns) state.towns[t.id] = { ...t };
@@ -54,6 +55,8 @@ export function newGame(seed = Math.floor(Math.random() * 2 ** 31), campaignId: 
     state.armies.push({ id: state.nextId++, owner: a.owner, at: startLocation(state, a.at), from: null, troops: a.troops.map((t) => (typeof t === 'string' ? makeTroop(state, t) : makeTroop(state, t.type, t.name))) });
   }
   deed(state, 'story', def.intro, townLocation(state, def.capital));
+  // The opening quests simply begin available; later ones are announced when they unlock.
+  unlockQuests(state);
   return state;
 }
 
@@ -512,7 +515,7 @@ export function checkStatus(state: GameState) {
 /** The phases of a month, in the order they run. */
 export type MonthPhaseId =
   | 'snapshot' | 'cities' | 'population' | 'heroes' | 'treasury' | 'construction' | 'refits' | 'shortages'
-  | 'desertion' | 'calendar' | 'offers' | 'ai' | 'ending';
+  | 'desertion' | 'calendar' | 'offers' | 'quests' | 'ai' | 'ending';
 
 /** One line the month produced: news for the chronicle, or a deed that also goes in the journal. */
 export interface MonthNote {
@@ -547,7 +550,7 @@ const news = (text: string): MonthNote => ({ text });
 
 /**
  * The month, in order (EVENT-01, ECO-23). Order matters: maintenance is charged on the sites operating before
- * this month's construction finishes; the economy settles before the calendar turns; the orcs move last.
+ * this month's construction finishes; the economy settles before the calendar turns; quests and deadlines are evaluated before the orcs move last.
  *
  * Interruptions: only the `ai` phase can start a battle, and every economic phase has already run by then, so a
  * month never has to resume halfway. Battles queued by the AI are fought after the month closes, and the ending
@@ -633,6 +636,8 @@ const MONTH_PHASES: MonthPhase[] = [
     },
   },
   { id: 'offers', run(state) { const line = newOffers(state); return line ? [news(line)] : []; } },
+  // Scheduled events: quests unlock and missed deadlines end their stage (EVENT-01: before the AI moves).
+  { id: 'quests', run(state) { return advanceQuests(state).map(news); } },
   // The orcs' own battles, captures and raids are recorded by the rules they trigger.
   { id: 'ai', run(state) { orcTurn(state); return []; } },
   { id: 'ending', run(state) { checkStatus(state); return []; } },

@@ -191,3 +191,17 @@ Each phase returns its notes (chronicle news, or deeds that also go to the journ
 **Interruption rule:** only the `ai` phase can start a battle, and every economic phase has already run by then, so a month never has to resume halfway and no save change is needed. Battles the AI queues are fought after the month closes; the ending check runs again after each battle, and the month is never re-run.
 
 Validation: 218 tests pass, including 5 new month tests (documented order, notes written in phase order, deeds in the journal, no work during a battle or after the ending, an orc attack fought after the month closes without re-running it, and deterministic reports for a seed). All earlier seeded campaign tests pass unchanged, so month results are identical. Checked in the browser: four month-ends on the Western Realm.
+
+## Quest engine increment (#17, part 1)
+
+Quests are now data (`content/quests.ts`), run by one engine (`game/quests.ts`). The Fenwick Charter is the first quest written this way; the Western chapter's quests will use the same engine.
+
+- **Definitions:** each quest has a giver town, prerequisites (another quest's outcome, a town's owner, a campaign flag, or a month), an envoy rule, staged choices with optional gold costs, and an optional deadline on any stage. It also has a fallback outcome for when its town changes hands.
+- **Lifecycle:** unavailable → available → active → succeeded, failed or superseded. A new `quests` month phase (between `offers` and `ai`) unlocks quests whose prerequisites now hold and ends stages whose deadline has passed. Each unlocked quest is announced in the month report.
+- **Exactly-once rewards:** effects (treaty, item, gold, campaign flag) apply only in the single transition that resolves a quest, so a reload, a repeated command or a revisit can't award them twice. Quest costs and gold rewards go through the treasury ledger (`quest` and `quest-reward` categories), so months reconcile without balance corrections.
+- **Quotes:** `questQuote` and `chooseQuest` follow the quote pattern (#21). Buttons show the quote's reason when a choice is disabled.
+- **Save v11:** each quest keeps its stage, the month that stage began, how it ended, and its choice history; the game keeps campaign `flags`. Validation rejects impossible progress and any item, treaty or flag that no resolved quest granted. It also rejects a granted reward that is missing. v10 saves migrate with the charter's outcome and history intact.
+- **Content validation:** checks for unknown stages, items, towns outside the quest's campaign, stages with no way to end, prerequisites that require an outcome the quest can never produce, and prerequisite loops.
+- **UI:** the town panel shows a card for each quest offered there, the header button jumps to the next open quest, and the journal lists main objectives and side quests with their outcome and a link to the town.
+
+Validation: 228 tests pass, including 10 new engine tests on two-stage fixture quests (unlock, full success across reloads, refusal, deadline failure, location loss, forged and missing rewards, content validation and v10 → v11 migration). Build passes. In the browser I checked the charter card, signing it, the header shortcut and the journal ledger.
