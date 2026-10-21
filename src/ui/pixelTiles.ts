@@ -217,6 +217,57 @@ function paintTile(c: Canvas, col: number, row: number, land: Land) {
   }
 }
 
+/**
+ * Diffuse only a few pixels around tile seams, before roads are painted.
+ * The terrain remains rendered at crisp native pixel resolution, but transitions
+ * no longer advertise the shape of every movement cell.
+ *
+ * Never alter alpha outside the world or change land IDs / movement costs.
+ */
+export function softenHexSeams(c: Canvas, world: HexWorld) {
+  const original = c.data.slice();
+  let touched = 0;
+  for (let row = 0; row < world.rows.length; row++) {
+    for (let col = 0; col < world.rows[row].length; col++) {
+      const [ox, oy] = tileOrigin(col, row);
+      for (let y = 0; y < TILE_H; y++) {
+        const inset = HEX_INSET[y];
+        for (let x = inset; x < TILE_W - inset; x++) {
+          const edge = Math.min(y, TILE_H - 1 - y, x - inset, TILE_W - 1 - inset - x);
+          if (edge >= 4) continue;
+          const px = ox + x, py = oy + y;
+          const i = (py * c.width + px) * 4;
+          if (original[i + 3] !== 255) continue;
+          let total = 0, red = 0, green = 0, blue = 0;
+          for (let dy = -3; dy <= 3; dy++) {
+            const yy = py + dy;
+            if (yy < 0 || yy >= c.height) continue;
+            for (let dx = -3; dx <= 3; dx++) {
+              const xx = px + dx;
+              if (xx < 0 || xx >= c.width) continue;
+              const at = (yy * c.width + xx) * 4;
+              if (original[at + 3] !== 255) continue;
+              const distance = Math.abs(dx) + Math.abs(dy);
+              const weight = 1 / (1 + distance);
+              total += weight;
+              red += original[at] * weight;
+              green += original[at + 1] * weight;
+              blue += original[at + 2] * weight;
+            }
+          }
+          if (total <= 0) continue;
+          const blend = (4 - edge) * 0.17; // stronger next to the seam, zero in the interior
+          c.data[i] = Math.round(original[i] * (1 - blend) + (red / total) * blend);
+          c.data[i + 1] = Math.round(original[i + 1] * (1 - blend) + (green / total) * blend);
+          c.data[i + 2] = Math.round(original[i + 2] * (1 - blend) + (blue / total) * blend);
+          touched++;
+        }
+      }
+    }
+  }
+  return touched;
+}
+
 /** Draw a thick line between two pixel points (Bresenham), clipped to the canvas. */
 function thickLine(c: Canvas, x0: number, y0: number, x1: number, y1: number, width: number, rgb: RGB) {
   const dx = Math.abs(x1 - x0);
@@ -267,6 +318,8 @@ export function paintTerrain(world: HexWorld): Canvas {
   world.rows.forEach((line, row) => {
     for (let col = 0; col < line.length; col++) paintTile(c, col, row, hexLand(world, `${col},${row}`).id);
   });
+  // Paint across tile boundaries before laying down sharp, continuous roads.
+  softenHexSeams(c, world);
   paintRoads(c, world);
   return c;
 }

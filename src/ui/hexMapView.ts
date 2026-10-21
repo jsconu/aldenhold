@@ -130,15 +130,16 @@ export function renderHexMap(
     return { col, row, centre: tileCenter(col, row) };
   };
 
-  // Reachable hexes get a light wash; hexes where the march would end in a fight or capture get a red edge.
+  // Glowing positions indicate legal moves. The invisible hit polygons still use exact hex rules.
   let reach = '';
   for (const [key] of targets) {
     const { col, row } = cell(key);
     const ends = arrivalOutcome(state, key) !== null;
-    reach += `<polygon points="${tilePolygon(col, row)}" class="reach${ends ? ' ends' : ''}"/>`;
+    const [cx, cy] = tileCenter(col, row);
+    reach += `<ellipse cx="${cx}" cy="${cy}" rx="11" ry="9" class="reach${ends ? ' ends' : ''}"/>`;
   }
   const sel = ui.selected && /^\d+,\d+$/.test(ui.selected) ? cell(ui.selected) : null;
-  const selection = sel ? `<polygon points="${tilePolygon(sel.col, sel.row)}" class="selected"/>` : '';
+  const selection = sel ? `<ellipse cx="${sel.centre[0]}" cy="${sel.centre[1]}" rx="11" ry="9" class="selected"/>` : '';
 
   let places = '';
   let labels = '';
