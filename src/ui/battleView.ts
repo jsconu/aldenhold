@@ -10,6 +10,7 @@ import { hexKey, hexDistance } from '../game/hex';
 import type { Battle, BattleUnit, GameState, Terrain } from '../game/types';
 import { pixelSprite, pixelSpriteDefs } from './pixelSprites';
 import { spriteDefs, terrainArt } from './sprites';
+import { battleScenery } from './battleScenery';
 import { esc, type UIState } from './shared';
 
 const S = 30;
@@ -130,6 +131,7 @@ export function renderBattle(state: GameState, ui: UIState): string {
       </defs>
       <rect x="0" y="0" width="${w}" height="${h}" class="battle-earth"/>
       <g class="battle-terrain-wash" filter="url(#battle-terrain-blend)">${ground}</g>
+      ${battleScenery(b)}
       <g class="battle-surface-details" pointer-events="none">${groundArt}</g>
       <g class="battle-move-highlights" pointer-events="none">${highlights}</g>
       ${overlay}${units}
