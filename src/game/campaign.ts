@@ -1,3 +1,4 @@
+import { endRaid, planRaids, resolveRaids } from './raids';
 import { discoverLairs, newLairState, settleLairs } from './lairs';
 import { recoverFallenKit } from './items';
 import { orcTurn } from './ai';
@@ -28,7 +29,7 @@ const OFFER_MONTHS = 3;
 export function newGame(seed = Math.floor(Math.random() * 2 ** 31), campaignId: CampaignId = 'valley-quickplay'): GameState {
   const def = getCampaign(campaignId);
   const state: GameState = {
-    version: 14,
+    version: 15,
     campaignId: def.id,
     campaignRevision: def.revision,
     endingReason: null,
@@ -52,6 +53,7 @@ export function newGame(seed = Math.floor(Math.random() * 2 ** 31), campaignId: 
     treaties: {},
     flags: [],
     lairs: newLairState(campaignId),
+    raids: [],
     status: 'playing',
   };
   for (const t of def.towns) state.towns[t.id] = { ...t };
@@ -478,6 +480,12 @@ export function applyBattle(state: GameState, b: Battle) {
     deed(state, 'battle', winner === 'player' ? `Victory at ${place}.` : `Defeat at ${place}.`, b.at);
   }
   settleLairs(state);
+  // A raid: raiders plunder if they won and leave either way; nobody falls back and the town never changes hands.
+  if (attacker?.raid) {
+    endRaid(state, b, attacker.id);
+    finishBattles(state);
+    return;
+  }
   // A quest encounter: nobody falls back or takes the site; the quest decides what follows.
   if (b.encounter) {
     endEncounter(state, b);
@@ -577,7 +585,7 @@ export function checkStatus(state: GameState) {
 /** The phases of a month, in the order they run. */
 export type MonthPhaseId =
   | 'snapshot' | 'cities' | 'population' | 'heroes' | 'treasury' | 'construction' | 'refits' | 'shortages'
-  | 'desertion' | 'calendar' | 'offers' | 'quests' | 'lairs' | 'ai' | 'ending';
+  | 'desertion' | 'calendar' | 'offers' | 'quests' | 'lairs' | 'ai' | 'raids' | 'ending';
 
 /** One line the month produced: news for the chronicle, or a deed that also goes in the journal. */
 export interface MonthNote {
@@ -704,6 +712,9 @@ const MONTH_PHASES: MonthPhase[] = [
   { id: 'lairs', run(state) { return [...discoverLairs(state), ...settleLairs(state)].map(news); } },
   // The orcs' own battles, captures and raids are recorded by the rules they trigger.
   { id: 'ai', run(state) { orcTurn(state); return []; } },
+  // Monster raids: last month's arrive (fighting or plundering), then next month's are planned and announced.
+  // Like the AI, this can start battles, so it runs after every economic phase.
+  { id: 'raids', run(state) { return [...resolveRaids(state), ...planRaids(state)].map(news); } },
   { id: 'ending', run(state) { checkStatus(state); return []; } },
 ];
 

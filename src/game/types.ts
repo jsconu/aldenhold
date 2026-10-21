@@ -155,6 +155,8 @@ export interface Army {
   target?: string;
   /** How this army sets up and fights; absent means Offensive. */
   tactics?: Tactics;
+  /** A monster raiding party from this lair: it never captures, and leaves after its battle. */
+  raid?: { lair: string };
 }
 
 /** An army's battle plan: a preset stance, or Custom with your own placements (TAC-01). */
@@ -482,13 +484,23 @@ export interface QuestDefinition {
 }
 
 /** Signed cash movements: positive receipts, negative actual payments. */
-export type LedgerCategory = 'tax' | 'wages' | 'recruitment' | 'hero-hire' | 'construction' | 'maintenance' | 'refit' | 'quest' | 'quest-reward' | 'item-sale' | 'item-purchase' | 'lair-plunder' | 'balance-correction';
+export type LedgerCategory = 'tax' | 'wages' | 'recruitment' | 'hero-hire' | 'construction' | 'maintenance' | 'refit' | 'quest' | 'quest-reward' | 'item-sale' | 'item-purchase' | 'lair-plunder' | 'raid-loss' | 'balance-correction';
 
 /** A monster lair's state: active until its garrison is destroyed; hidden until found. */
 export interface LairState {
   status: 'active' | 'cleared';
   discovered: boolean;
   clearedTurn: number | null;
+  /** Month of its last raid, for its cooldown. */
+  lastRaid: number | null;
+}
+
+/** A raid announced this month, arriving next month. */
+export interface PendingRaid {
+  lair: string;
+  target: string;
+  announced: number;
+  arrives: number;
 }
 
 /** One kind of object in the campaign inventory. `qty` + `spent` always equals the number quests granted. */
@@ -561,7 +573,7 @@ export interface CityEconomy {
 }
 
 export interface GameState {
-  version: 14;
+  version: 15;
   campaignId: CampaignId;
   campaignRevision: number;
   endingReason: EndingReason | null;
@@ -591,5 +603,7 @@ export interface GameState {
   flags: string[];
   /** Monster lairs of this campaign (content/lairs.ts), by id. */
   lairs: Record<string, LairState>;
+  /** Raids announced and due next month (monster raids spec, step 3). */
+  raids: PendingRaid[];
   status: 'playing' | 'won' | 'lost';
 }

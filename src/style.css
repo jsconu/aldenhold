@@ -546,3 +546,8 @@ button.travel-destination b { color: var(--gold); font-size: 11px; }
 .minimap circle.foe { fill: #ff5555; }
 .minimap .minimap-view { fill: none; stroke: #ffe680; stroke-width: 12; }
 .minimap figcaption { font-size: 11px; color: var(--muted, #b8ad94); }
+
+/* Monster raids: the threat on a town's panel, and a warning on the map for a raid that's on its way. */
+.raid-threat h3 { margin-bottom: 4px; }
+.raid-warning { border-left: 3px solid #e05a3a; padding-left: 8px; }
+.overland .raid-alert { font: bold 14px ui-monospace, monospace; fill: #ff5a3a; paint-order: stroke; stroke: #1a0a06; stroke-width: 2.5px; }

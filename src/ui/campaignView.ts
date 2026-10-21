@@ -1,4 +1,5 @@
-import { SPECIES, type LairDefinition } from '../content/lairs';
+import { LAIRS, SPECIES, type LairDefinition } from '../content/lairs';
+import { DETERRENCE, raidOdds } from '../game/raids';
 import { lairAt, lairGarrison } from '../game/lairs';
 import { CATALOG } from '../content';
 import {
@@ -216,7 +217,7 @@ function renderNodePanel(state: GameState, ui: UIState, at: string): string {
           ${Array.from({ length: 11 }, (_, i) => i * 5).map((v) => `<option value="${v}" ${v === town.tax ? 'selected' : ''}>${v}%</option>`).join('')}
         </select></label>
         <p class="sub">Brings in ${townIncome(town)} gold a month. Population ${growth >= 0 ? 'grows' : 'shrinks'} by about ${Math.abs(growth)}.</p>
-        ${renderRecruit(state, town)}`;
+        ${renderRecruit(state, town)}${renderRaidThreat(state, town.id)}`;
       if (town.kind !== 'capital') html += `<p class="sub">Knights can only be raised in ${esc(nodeName(state, campaignOf(state).capital))}.</p>`;
       html += renderCityDevelopment(state, id);
       html += renderOffers(state, id);
@@ -327,6 +328,23 @@ function renderEncounterParty(state: GameState, preview: EncounterPreview): stri
     ${preview.reserves.length ? `<p><b>Off-field reserves:</b> ${names(preview.reserves)}. They stay off the field and earn no combat experience.</p>` : ''}
     ${preview.waiting.length ? `<p><b>Waiting outside:</b> ${names(preview.waiting)}</p>` : ''}
   </details>`;
+}
+
+/**
+ * The town's raid threat (monster raids spec, step 3): a raid already on its way, or this month's odds with the
+ * lairs behind them, the garrison's strength against the threat, and what it would take to deter raids.
+ */
+function renderRaidThreat(state: GameState, townId: string): string {
+  const due = state.raids.find((r) => r.target === townId);
+  const odds = raidOdds(state, townId);
+  if (!due && !odds.sources.length) return '';
+  const name = (id: string) => (state.lairs[id]?.discovered ? LAIRS[id].name : 'an unknown lair');
+  const from = odds.sources.map((s) => `${SPECIES[s.lair.species].name.toLowerCase()} from ${name(s.lair.id)}`).join(', ');
+  const warning = due ? `<p class="msg raid-warning">${esc(`Raid expected next month: ${SPECIES[LAIRS[due.lair].species].name.toLowerCase()} from ${name(due.lair)}.`)} Reinforce to ${odds.needed.toFixed(1)} defence to turn them back.</p>` : '';
+  const line = !odds.sources.length ? '' : odds.deterred
+    ? `Deterred: the garrison (${odds.defense.toFixed(1)}) is at least ${DETERRENCE}× the threat (${odds.threat.toFixed(1)}). No routine raids.`
+    : `${Math.round(odds.chance * 100)}% chance of a raid each month. Garrison ${odds.defense.toFixed(1)} against a threat of ${odds.threat.toFixed(1)}; ${odds.needed.toFixed(1)} would deter raids.`;
+  return `<section class="raid-threat"><h3>Raid threat</h3>${warning}${line ? `<p class="sub">${esc(line)}</p>` : ''}${from ? `<p class="sub">${esc(`In reach: ${from}.`)}</p>` : ''}</section>`;
 }
 
 /** A found lair: its people, how they fight and how to counter them, its garrison and plunder, or that it's cleared. */

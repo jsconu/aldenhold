@@ -39,7 +39,7 @@ describe('the lair registry', () => {
       expect(SPECIES[l.species].lands).toContain(hexLand(world, at).id);
       expect(hexDistance(parseKey(at), capital)).toBeGreaterThanOrEqual(SPECIES[l.species].minDistance);
       expect(lairGarrison(s, l)!.troops.map((t) => t.type)).toEqual(l.garrison);
-      expect(s.lairs[l.id]).toEqual({ status: 'active', discovered: false, clearedTurn: null });
+      expect(s.lairs[l.id]).toEqual({ status: 'active', discovered: false, clearedTurn: null, lastRaid: null });
     }
     // The titan's sanctum is far out in the east.
     expect(hexDistance(parseKey(lairLocation(s, LAIRS.eldersanctum)), capital)).toBeGreaterThan(40);
@@ -96,7 +96,7 @@ describe('the lair registry', () => {
   it('save validation keeps lairs honest; v13 saves gain lairs and their garrisons', () => {
     const s = newGame(1, 'western-realm');
     const forged = structuredClone(s);
-    forged.lairs.stonejaw = { status: 'cleared', discovered: false, clearedTurn: 1 };
+    forged.lairs.stonejaw = { status: 'cleared', discovered: false, clearedTurn: 1, lastRaid: null };
     expect(() => reload(forged)).toThrow(/cleared lair/);
     const orphan = structuredClone(s);
     orphan.armies = orphan.armies.filter((a) => a.owner !== 'giants');
@@ -106,7 +106,7 @@ describe('the lair registry', () => {
     delete v13.lairs;
     v13.armies = v13.armies.filter((a: Army) => !['goblins', 'trolls', 'giants', 'titans'].includes(a.owner));
     const restored = parseSave(JSON.stringify(v13));
-    expect(restored.version).toBe(14);
+    expect(restored.version).toBe(15);
     expect(Object.keys(restored.lairs).sort()).toEqual(Object.keys(LAIRS).sort());
     expect(lairGarrison(restored, LAIRS.eldersanctum)!.troops.map((t) => t.type)).toEqual(['titan', 'giant', 'giant']);
     expect(() => reload(restored)).not.toThrow();

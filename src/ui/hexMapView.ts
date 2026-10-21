@@ -210,7 +210,8 @@ export function renderHexMap(
     if (town) {
       const top = cy + 6 - (sprite ? PLACE_SPRITES[sprite].length : 12);
       const half = sprite ? PLACE_SPRITES[sprite][0].length / 2 : 6;
-      places += `<g class="settlement-owner"><title>${esc(settlementTitle(state, p.id, `${p.col},${p.row}`))}</title>${bannerSvg(bannerFor(state, p.id), cx + half - 9, top - 18, 20)}</g>`;
+      const raid = state.raids.find((r) => r.target === p.id);
+      places += `<g class="settlement-owner"><title>${esc(settlementTitle(state, p.id, `${p.col},${p.row}`) + (raid ? ' Raid expected next month!' : ''))}</title>${bannerSvg(bannerFor(state, p.id), cx + half - 9, top - 18, 20)}${raid ? `<text x="${cx + half + 8}" y="${top - 6}" class="raid-alert">!</text>` : ''}</g>`;
     }
     const lair = lairAt(state, `${p.col},${p.row}`);
     if (lair) {

@@ -666,3 +666,44 @@ Validation: 411 tests pass, including 7 new lair tests:
 - troll regeneration
 
 The build passes. In the browser, marching near Briarwood Warren and ending the month revealed it, with its story in the chronicle, a skull banner on the map, and its panel.
+
+## Monster raids: threat and garrison deterrence (monster raids spec, step 3)
+
+Each month, every town you rule faces a raid threat from the active lairs that can reach it. A strong enough garrison stops routine raids entirely.
+
+**Threat.** A lair reaches every town within its raid radius, counted in steps over passable ground. Its threat to a town is its raid strength × its activity, falling off with distance. The town's threat is the sum over every active lair in reach. Clearing a lair removes its share, and only its share.
+
+**Defence.** A garrison's defence is the sum of its formations' attack and defence, scaled by the men each has left, plus its heroes' leadership, kit and level. Walls add a quarter.
+
+**Odds.** With no lair in reach, or a garrison at least 1.75× the threat, the chance of a raid is zero. Below that, it starts at up to 50% a month and falls steadily as the garrison grows. Reinforcing never raises it. No raids are planned before month 4.
+
+**Raids.** A new **raids** step runs after the AI, so it never starts a battle before the month's economy is settled:
+- Raids due this month arrive first:
+  - A raid on a town you no longer hold is dropped.
+  - A raid from a lair cleared in the meantime never comes.
+  - If you reinforced the town past the deterrence line, the raiders turn back.
+  - Otherwise they fight the garrison in a battle you can play. With no garrison, they plunder: gold (25 per point of strength, through the treasury as "Raid losses") and people (15 per point, never below 100).
+  - Raiders never take the town. After their battle they leave, plundering only if they won.
+- Then each town rolls once from the seeded RNG. A raid comes from the strongest lair in reach that isn't on its cooldown. It is announced a month ahead in the chronicle and the month report.
+
+**Seeing it.** A town's panel shows its raid threat: the monthly chance, the garrison against the threat, the defence that would deter raids, and the lairs in reach (named only once found). A raid on its way adds a warning with the defence needed to turn it back. The map marks the town with a red "!" and its tooltip says a raid is expected.
+
+**Saves: version 15.** Saves record pending raids and each lair's last raid. Validation checks that:
+- a pending raid comes from an active lair, against a town, one per town, arriving the month after it was announced;
+- a raiding party belongs to its lair's species.
+
+v14 saves gain no pending raids.
+
+Validation: 422 tests pass, including 11 new raid tests:
+- no threat out of reach
+- reinforcing never raises the odds, and enough deters raids
+- clearing a lair removes only its own threat
+- seeded, repeatable planning, the grace month, one raid per town
+- plunder without capture
+- a garrison battle that never changes the town's owner
+- turned back by reinforcement
+- announced in the month report, and never planned twice after reloading
+- forged raids rejected
+- the town panel text
+
+All 20 seeded full chapter tours still win (20–33 months) with raids active. In the browser, a save holding Westmere with a raid due showed the panel warning, the map alert and tooltip. Ending the month plundered the empty town (250 gold, 150 people), kept it yours, and announced the next raid.
