@@ -1,6 +1,6 @@
 import { EFFECTS } from '../content/spells';
 import {
-  attackOf, attackTargets, alive, commandOf, COMMAND_RANGE, defenseOf, escapeQuote, isAI, powerOf, knownSpells, playerSide, RALLY_AT, rangeOf, reachable, ROUT_AT, spellTargets,
+  attackOf, attackTargets, alive, commandOf, maxRounds, COMMAND_RANGE, defenseOf, escapeQuote, isAI, powerOf, knownSpells, playerSide, RALLY_AT, rangeOf, reachable, ROUT_AT, spellTargets,
   terrainAt, unitLabel, reserves, FIELD_LIMIT, movementOf, previewSpell, spellAffected, spellCost, teleportDestinations,
 } from '../game/battle';
 import { nodeName } from '../game/campaign';
@@ -97,6 +97,7 @@ export function renderBattle(state: GameState, ui: UIState): string {
     .join('');
 
   const w = PAD * 2 + S * 2 + (b.width - 1) * 1.5 * S;
+  const zoom = ui.battleZoom ?? 1;
   const h = PAD * 2 + H * (b.height + 0.5);
   const turnText = b.outcome
     ? b.owners[b.outcome] === 'player' ? 'Victory!' : 'Defeat.'
@@ -105,7 +106,7 @@ export function renderBattle(state: GameState, ui: UIState): string {
   return `
   <header class="bar">
     <h1>Battle at ${esc(nodeName(state, b.at))}</h1>
-    <span class="date">Round ${Math.min(b.round, 20)} of 20</span>
+    <span class="date">Round ${Math.min(b.round, maxRounds(b))} of ${maxRounds(b)}</span>
     <span class="turn ${myTurn ? 'mine' : ''}">${turnText}</span>
     ${sel ? renderCastBar(b, sel, ui) : ''}
     <span class="spacer"></span>
@@ -115,11 +116,17 @@ export function renderBattle(state: GameState, ui: UIState): string {
           const q = escapeQuote(b, me);
           return `<button data-action="battle-retreat" class="ghost" ${q.reason ? `disabled title="${esc(q.reason)}"` : `title="Fails ${100 - Math.round(q.chance * 100)}% of the time and spends your turn; enemies next to your troops make it harder."`}>Run away${q.reason ? ` (after turn ${q.after})` : ` (${Math.round(q.chance * 100)}%)`}</button>`;
         })() : ''}
+         <span class="camera" aria-label="Camera">
+           <button data-action="battle-zoom" data-dir="-1" class="ghost" title="Zoom out">−</button>
+           <button data-action="battle-zoom" data-dir="1" class="ghost" title="Zoom in">+</button>
+           ${sel ? '<button data-action="battle-center" class="ghost" title="Scroll to the selected formation">Centre</button>' : ''}
+         </span>
          <button data-action="battle-auto" class="ghost">Auto-resolve</button>
          <button data-action="battle-end" class="primary">End turn</button>`}
   </header>
   <main class="battle">
-    <section class="field-wrap"><svg viewBox="0 0 ${w.toFixed(0)} ${h.toFixed(0)}" class="field">
+    <section class="field-wrap battle-scroll" tabindex="0" aria-label="Battlefield: drag or use the arrow keys to look around">
+      <svg viewBox="0 0 ${w.toFixed(0)} ${h.toFixed(0)}" class="field" width="${(w * zoom).toFixed(0)}" height="${(h * zoom).toFixed(0)}">
       ${spriteDefs()}
       <defs>${pixelSpriteDefs()}
         <filter id="battle-terrain-blend" x="-5%" y="-5%" width="110%" height="110%">
@@ -143,6 +150,7 @@ export function renderBattle(state: GameState, ui: UIState): string {
       ${overlay}${units}
     </svg></section>
     <aside class="side">
+      ${renderMinimap(b, w, h)}
       ${b.outcome ? renderOutcome(b) : sel ? renderUnit(b, sel, ui) : '<p class="hint">Click one of your units (blue), then a glowing location to move or a marked enemy to attack. Each unit may move, then attack, once a turn. Heroes (★) can cast spells instead of attacking.</p>'}
       <p class="sub">The thin bar under each troop is its morale. Below ${ROUT_AT} it breaks and runs for its own edge of the field; at ${RALLY_AT} it may rally.</p>
       ${b.walls ? `<p class="sub">${me === 'defender' ? 'You fight behind town walls: +1 defense.' : 'The enemy is behind walls: +1 defense.'}</p>` : ''}
@@ -151,6 +159,36 @@ export function renderBattle(state: GameState, ui: UIState): string {
       <details class="log" open><summary>Battle report</summary><ul>${b.log.slice(-14).reverse().map((l) => `<li>${esc(l)}</li>`).join('')}</ul></details>
     </aside>
   </main>`;
+}
+
+/** Ground colours for the minimap. */
+const MINIMAP_GROUND: Partial<Record<Terrain, string>> = {
+  forest: '#2f5a2a', hill: '#8a7a4a', stream: '#3d6fa8', marsh: '#4d6a55', thorns: '#5c6b2a', ruins: '#8c8378', rocks: '#5a5a5a', spring: '#7fc8e8',
+};
+
+/**
+ * The whole field small: ground, both armies, and a frame for what the main view shows (kept in step by the
+ * page's scroll handler). Click it to look there.
+ */
+function renderMinimap(b: Battle, w: number, h: number): string {
+  let ground = '';
+  for (let col = 0; col < b.width; col++) {
+    for (let row = 0; row < b.height; row++) {
+      const fill = MINIMAP_GROUND[b.terrain[col][row]];
+      if (!fill) continue;
+      const [cx, cy] = center(col, row);
+      ground += `<rect x="${(cx - S).toFixed(0)}" y="${(cy - H / 2).toFixed(0)}" width="${(S * 2).toFixed(0)}" height="${H.toFixed(0)}" fill="${fill}"/>`;
+    }
+  }
+  const me = playerSide(b);
+  const dots = b.units.filter((u) => !u.reserve && !u.fled && u.men > 0).map((u) => {
+    const [cx, cy] = center(u.col, u.row);
+    return `<circle cx="${cx.toFixed(0)}" cy="${cy.toFixed(0)}" r="${S * 0.8}" class="${u.side === me ? 'mine' : 'foe'}"/>`;
+  }).join('');
+  return `<figure class="minimap"><svg viewBox="0 0 ${w.toFixed(0)} ${h.toFixed(0)}" data-action="minimap" data-width="${w.toFixed(0)}" data-height="${h.toFixed(0)}" role="img" aria-label="Minimap of the whole field">
+    <rect x="0" y="0" width="${w.toFixed(0)}" height="${h.toFixed(0)}" fill="#55704a"/>${ground}${dots}
+    <rect class="minimap-view" x="0" y="0" width="0" height="0"/></svg>
+    <figcaption>${b.width}×${b.height} field · click to look there</figcaption></figure>`;
 }
 
 function renderLegend(b: Battle): string {

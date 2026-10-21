@@ -9,7 +9,8 @@ describe('Western chapter with real player commands', () => {
         expect(result).toMatchObject({
           status: 'won', ending: 'chapter-complete', rulerAlive: true,
           unpaid: 0, foodShortages: 0, corrections: 0,
-          resolutions: { M01: 'succeeded', M02: 'succeeded', M03: crossing === 'charter' ? 'succeeded' : 'failed', M04: 'succeeded' },
+          // An ignored dispute either times out or ends early when the orcs take Westmere; the chapter goes on either way.
+          resolutions: { M01: 'succeeded', M02: 'succeeded', M03: crossing === 'charter' ? 'succeeded' : expect.stringMatching(/^(failed|superseded)$/), M04: 'succeeded' },
         });
         expect(result.months).toBeLessThanOrEqual(24);
         expect(result.minimumGold).toBeGreaterThanOrEqual(0);

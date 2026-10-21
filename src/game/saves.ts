@@ -1,7 +1,7 @@
 import { WESTERN_ADDED_ARMIES, WESTERN_ADDED_TOWNS } from '../content/campaigns/westernExpansion';
 import { WESTERN_REVISION_1_TOWNS } from '../content/campaigns/westernRevision1';
 import { EFFECTS } from '../content/spells';
-import { BATTLE_H, BATTLE_W, createBattle, FIELD_LIMIT } from './battle';
+import { BATTLE_SIZES, createBattle, FIELD_LIMIT, maxRounds, ZONE_ROWS } from './battle';
 import { CATALOG, getCampaign } from '../content';
 import { ITEMS } from '../content/items';
 import { MERCHANTS } from '../content/merchants';
@@ -97,7 +97,7 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
         const cells = new Set<string>();
         for (const [troopId, raw] of Object.entries(object(tactics.layout))) {
           const c = object(raw);
-          requireValue(/^[1-9][0-9]*$/.test(troopId) && integer(c.depth, 0, 2) && integer(c.row, 0, BATTLE_H - 1) && !cells.has(`${c.depth},${c.row}`), 'custom layout');
+          requireValue(/^[1-9][0-9]*$/.test(troopId) && integer(c.depth, 0, 2) && integer(c.row, 0, ZONE_ROWS - 1) && !cells.has(`${c.depth},${c.row}`), 'custom layout');
           cells.add(`${c.depth},${c.row}`);
         }
       }
@@ -327,13 +327,14 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
   });
   if (s.battle !== null) {
     const b = object(s.battle);
-    requireValue(loc(b.at) && b.width === BATTLE_W && b.height === BATTLE_H, 'battle map');
-    requireValue(integer(b.round, 1, 21) && integer(b.seed, -2147483648, 2147483647) && bool(b.walls), 'battle numbers');
+    requireValue(loc(b.at) && Object.values(BATTLE_SIZES).some((size) => size.width === b.width && size.height === b.height), 'battle map');
+    const width = Number(b.width), height = Number(b.height);
+    requireValue(integer(b.round, 1, maxRounds(b as { width: number }) + 1) && integer(b.seed, -2147483648, 2147483647) && bool(b.walls), 'battle numbers');
     requireValue(oneOf(b.active, sides) && oneOf(b.outcome, [null, ...sides]) && oneOf(b.retreated, [null, ...sides]), 'battle status');
     const owners = object(b.owners);
     requireValue(oneOf(owners.attacker, factions) && oneOf(owners.defender, factions), 'battle owners');
     const terrain = array(b.terrain);
-    requireValue(terrain.length === BATTLE_W && terrain.every((col) => array(col).length === BATTLE_H && array(col).every((k) => text(k) && Object.hasOwn(TERRAIN, k))), 'battle terrain');
+    requireValue(terrain.length === width && terrain.every((col) => array(col).length === height && array(col).every((k) => text(k) && Object.hasOwn(TERRAIN, k))), 'battle terrain');
     requireValue(array(b.log).every(text), 'battle log');
     const state = value as GameState;
     const a = state.armies.find((a) => a.id === b.attackerId);
@@ -367,7 +368,7 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
       if (u.reserve) {
         requireValue(u.col === -1 && u.row === -1 && u.men === u.startMen && u.deeds === 0 && !u.fled && !u.routing, 'reserve state');
       } else {
-        requireValue(integer(u.col, 0, BATTLE_W - 1) && integer(u.row, 0, BATTLE_H - 1), 'battle position');
+        requireValue(integer(u.col, 0, width - 1) && integer(u.row, 0, height - 1), 'battle position');
         deployed[u.side as 'attacker' | 'defender']++;
         if (Number(u.men) > 0 && !u.fled) {
           const key = `${u.col},${u.row}`;

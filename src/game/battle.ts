@@ -7,10 +7,42 @@ import type { Army, Battle, BattleUnit, DeployCell, Land, Side, SpellId, Stance,
 import { attackFor, heroLevel, heroMaxHp, isHero, kitBonus, level } from './units';
 import { EQUIPMENT } from './equipment';
 
-export const BATTLE_W = 12;
-export const BATTLE_H = 9;
-export const FIELD_LIMIT = 3 * BATTLE_H;
+/** Rows in each side's deployment zone; the zone is 3 columns deep, centred on the field. */
+export const ZONE_ROWS = 9;
+export const FIELD_LIMIT = 3 * ZONE_ROWS;
 export const MAX_ROUNDS = 20;
+
+/**
+ * Battlefield sizes (monster raids spec, step 1b). The bigger the fight, the bigger the field; the two
+ * deployment zones' fronts stay 7 columns apart in the middle, so armies still meet in two or three turns and the extra
+ * room is for flanks and terrain. The round limit grows with the field. `legacy` is the old 12x9 field, kept so
+ * battles saved before this change still load.
+ */
+export const BATTLE_SIZES = {
+  skirmish: { width: 18, height: 12, rounds: 20 },
+  field: { width: 24, height: 16, rounds: 22 },
+  major: { width: 30, height: 20, rounds: 24 },
+  legacy: { width: 12, height: 9, rounds: MAX_ROUNDS },
+} as const;
+export type BattleSize = keyof typeof BATTLE_SIZES;
+
+/** Skirmish for up to 6 formations in all, field up to 14, major beyond that or against walls. */
+export function battleSize(attacker: Army, defender: Army, walls: boolean): Exclude<BattleSize, 'legacy'> {
+  const n = attacker.troops.length + defender.troops.length;
+  return walls || n > 14 ? 'major' : n > 6 ? 'field' : 'skirmish';
+}
+
+/** The last round before an attack stalls, by field size. */
+export function maxRounds(b: Pick<Battle, 'width'>): number {
+  return Object.values(BATTLE_SIZES).find((s) => s.width === b.width)?.rounds ?? MAX_ROUNDS;
+}
+
+/** The battlefield columns of a side's deployment zone, front first, and the zone's top row. */
+export function deploymentZone(b: Pick<Battle, 'width' | 'height'>, side: Side): { cols: number[]; top: number } {
+  const front = Math.floor(b.width / 2) - 4;
+  const cols = side === 'attacker' ? [front, front - 1, front - 2] : [b.width - 1 - front, b.width - front, b.width + 1 - front];
+  return { cols, top: Math.floor((b.height - ZONE_ROWS) / 2) };
+}
 /** A troop whose morale drops below this breaks and runs. */
 export const ROUT_AT = 25;
 /** A running troop stops and turns to fight again once morale climbs back to this. */
@@ -29,8 +61,8 @@ export function createBattle(at: string, attacker: Army, defender: Army, walls: 
     attackerId: attacker.id,
     defenderId: defender.id,
     owners: { attacker: attacker.owner, defender: defender.owner },
-    width: BATTLE_W,
-    height: BATTLE_H,
+    width: BATTLE_SIZES[battleSize(attacker, defender, walls)].width,
+    height: BATTLE_SIZES[battleSize(attacker, defender, walls)].height,
     terrain: [],
     units: [],
     round: 1,
@@ -41,9 +73,9 @@ export function createBattle(at: string, attacker: Army, defender: Army, walls: 
     retreated: null,
     seed,
   };
-  b.terrain = generateTerrain(b, land);
-  deploy(b, attacker, 'attacker', [2, 1, 0]);
-  deploy(b, defender, 'defender', [BATTLE_W - 3, BATTLE_W - 2, BATTLE_W - 1]);
+  b.terrain = generateTerrain(b, land, b.width, b.height);
+  deploy(b, attacker, 'attacker');
+  deploy(b, defender, 'defender');
   const stances: Partial<Record<Side, Stance>> = {};
   for (const [side, army] of [['attacker', attacker], ['defender', defender]] as const) {
     if (army.tactics && army.tactics.stance !== 'offensive') stances[side] = army.tactics.stance;
@@ -56,13 +88,37 @@ export function leadershipOf(army: Army): number {
   return Math.max(0, ...army.troops.map((t) => (t.men > 0 ? (UNIT_TYPES[t.type].hero?.leadership ?? 0) + kitBonus(t.kit).leadership : 0)));
 }
 
-/** The middle of the field gets features shaped by the land outside; the three columns at each edge stay open. */
-function generateTerrain(rng: { seed: number }, land: Land): Terrain[][] {
+/**
+ * Larger features by land: groves, ridges, ruined hamlets, marsh pools and rock walls with gaps (chokepoints).
+ * Each is a chance per field; sizes scale with the field.
+ */
+const FEATURES: Partial<Record<Land, { kind: 'grove' | 'ridge' | 'hamlet' | 'pool' | 'wall'; chance: number }[]>> = {
+  plains: [{ kind: 'grove', chance: 0.7 }, { kind: 'ridge', chance: 0.5 }, { kind: 'hamlet', chance: 0.4 }],
+  farmland: [{ kind: 'hamlet', chance: 0.8 }, { kind: 'grove', chance: 0.5 }],
+  forest: [{ kind: 'grove', chance: 1 }, { kind: 'grove', chance: 0.8 }, { kind: 'ridge', chance: 0.3 }],
+  deepwood: [{ kind: 'grove', chance: 1 }, { kind: 'grove', chance: 1 }, { kind: 'pool', chance: 0.3 }],
+  hills: [{ kind: 'ridge', chance: 1 }, { kind: 'wall', chance: 0.6 }, { kind: 'grove', chance: 0.4 }],
+  mountains: [{ kind: 'wall', chance: 1 }, { kind: 'ridge', chance: 1 }],
+  swamp: [{ kind: 'pool', chance: 1 }, { kind: 'pool', chance: 0.7 }, { kind: 'grove', chance: 0.3 }],
+  water: [{ kind: 'pool', chance: 0.8 }],
+  badlands: [{ kind: 'wall', chance: 0.7 }, { kind: 'ridge', chance: 0.6 }, { kind: 'hamlet', chance: 0.3 }],
+};
+
+/**
+ * A field shaped by the land outside: scattered ground everywhere except the two deployment zones, larger
+ * features, sometimes a stream between the armies and a holy spring. Rock is never allowed to cut the armies
+ * off from each other: if it does, a gap is cleared through the middle.
+ */
+function generateTerrain(rng: { seed: number }, land: Land, width: number, height: number): Terrain[][] {
   const { battleScatter, battleStream } = LAND[land];
-  const t: Terrain[][] = Array.from({ length: BATTLE_W }, () => Array<Terrain>(BATTLE_H).fill('plain'));
-  const middle = (col: number) => col >= 3 && col < BATTLE_W - 3;
-  for (let col = 3; col < BATTLE_W - 3; col++) {
-    for (let row = 0; row < BATTLE_H; row++) {
+  const t: Terrain[][] = Array.from({ length: width }, () => Array<Terrain>(height).fill('plain'));
+  const zones = (['attacker', 'defender'] as const).map((side) => deploymentZone({ width, height }, side));
+  const inZone = (col: number, row: number) => zones.some((z) => z.cols.includes(col) && row >= z.top && row < z.top + ZONE_ROWS);
+  const inside = (col: number, row: number) => col >= 0 && row >= 0 && col < width && row < height;
+  const set = (col: number, row: number, kind: Terrain) => { if (inside(col, row) && !inZone(col, row)) t[col][row] = kind; };
+  for (let col = 0; col < width; col++) {
+    for (let row = 0; row < height; row++) {
+      if (inZone(col, row)) continue;
       let r = random(rng);
       for (const [kind, weight] of battleScatter) {
         if (r < weight) {
@@ -73,23 +129,69 @@ function generateTerrain(rng: { seed: number }, land: Land): Terrain[][] {
       }
     }
   }
-  // Some fields have a stream winding from top to bottom; how often depends on the land.
+  const [attackZone, defendZone] = zones;
+  const gapFrom = attackZone.cols[0] + 1;
+  const gapTo = defendZone.cols[0] - 1;
+  const pick = (from: number, to: number) => from + Math.floor(random(rng) * (to - from + 1));
+  const scale = Math.max(1, Math.round(width / 12));
+  for (const f of FEATURES[land] ?? []) {
+    if (random(rng) >= f.chance) continue;
+    const col = pick(1, width - 2);
+    const row = pick(1, height - 2);
+    if (f.kind === 'grove' || f.kind === 'pool') {
+      const radius = scale;
+      for (const h of hexesWithin({ col, row }, radius)) if (random(rng) < 0.8) set(h.col, h.row, f.kind === 'grove' ? 'forest' : 'marsh');
+    } else if (f.kind === 'ridge') {
+      for (let i = 0; i < 3 + 2 * scale; i++) set(col + (i % 2), row - scale + i, 'hill');
+    } else if (f.kind === 'hamlet') {
+      for (const h of hexesWithin({ col, row }, 1)) if (random(rng) < 0.55) set(h.col, h.row, 'ruins');
+    } else {
+      // A rock wall across the no-man's land, with a gap or two to fight through: a chokepoint.
+      const wallCol = pick(gapFrom + 1, Math.max(gapFrom + 1, gapTo - 1));
+      const gaps = new Set([pick(0, height - 1), pick(0, height - 1)]);
+      for (let r = 0; r < height; r++) if (!gaps.has(r) && random(rng) < 0.85) set(wallCol, r, 'rocks');
+    }
+  }
+  // Some fields have a stream winding from top to bottom between the armies; how often depends on the land.
   if (random(rng) < battleStream) {
-    let col = 5 + Math.floor(random(rng) * 2);
-    for (let row = 0; row < BATTLE_H; row++) {
-      t[col][row] = 'stream';
+    let col = pick(gapFrom + 1, Math.max(gapFrom + 1, gapTo - 1));
+    for (let row = 0; row < height; row++) {
+      set(col, row, 'stream');
       const drift = random(rng);
       const next = drift < 0.25 ? col - 1 : drift > 0.75 ? col + 1 : col;
-      if (middle(next) && next >= 4 && next <= BATTLE_W - 5) col = next;
+      if (next > gapFrom && next < gapTo) col = next;
     }
   }
   // Some fields have a holy spring.
-  if (random(rng) < 0.4) {
-    const col = 4 + Math.floor(random(rng) * (BATTLE_W - 8));
-    const row = Math.floor(random(rng) * BATTLE_H);
-    t[col][row] = 'spring';
-  }
+  if (random(rng) < 0.4) set(pick(gapFrom, gapTo), pick(0, height - 1), 'spring');
+  ensureCrossing(t, width, height, zones[0], zones[1]);
   return t;
+}
+
+function hexesWithin(c: Hex, radius: number): Hex[] {
+  const out: Hex[] = [];
+  for (let col = c.col - radius; col <= c.col + radius; col++) {
+    for (let row = c.row - radius; row <= c.row + radius; row++) if (hexDistance(c, { col, row }) <= radius) out.push({ col, row });
+  }
+  return out;
+}
+
+/** If rock leaves no way from one deployment zone to the other, clear a path through the middle row. */
+function ensureCrossing(t: Terrain[][], width: number, height: number, a: { cols: number[]; top: number }, d: { cols: number[]; top: number }) {
+  const passable = (h: Hex) => h.col >= 0 && h.row >= 0 && h.col < width && h.row < height && TERRAIN[t[h.col][h.row]].move < Infinity;
+  const start = { col: a.cols[0], row: a.top + 4 };
+  const seen = new Set([hexKey(start)]);
+  const queue = [start];
+  while (queue.length) {
+    const cur = queue.shift()!;
+    if (d.cols.includes(cur.col) && cur.row >= d.top && cur.row < d.top + ZONE_ROWS) return;
+    for (const n of hexNeighbors(cur)) {
+      if (!passable(n) || seen.has(hexKey(n))) continue;
+      seen.add(hexKey(n));
+      queue.push(n);
+    }
+  }
+  for (let col = a.cols[0]; col <= d.cols[0]; col++) if (t[col][a.top + 4] === 'rocks') t[col][a.top + 4] = 'plain';
 }
 
 export function terrainAt(b: Battle, h: Hex) {
@@ -150,13 +252,14 @@ export function planDeployment(army: Army): Map<number, DeployCell> {
   return plan;
 }
 
-function deploy(b: Battle, army: Army, side: Side, cols: number[]) {
+function deploy(b: Battle, army: Army, side: Side) {
+  const { cols, top } = deploymentZone(b, side);
   const plan = planDeployment(army);
   const leadership = leadershipOf(army);
   army.troops.forEach((t) => {
     const type = UNIT_TYPES[t.type];
     const cell = plan.get(t.id);
-    const slot = cell ? { col: cols[cell.depth], row: cell.row } : undefined;
+    const slot = cell ? { col: cols[cell.depth], row: top + cell.row } : undefined;
     b.units.push({
       id: b.units.length + 1,
       effects: [],
@@ -650,7 +753,7 @@ export function endSideTurn(b: Battle) {
   }
   if (b.active === 'attacker') {
     b.round++;
-    if (b.round > MAX_ROUNDS) {
+    if (b.round > maxRounds(b)) {
       b.outcome = 'defender';
       b.log.push('The attack stalls. The defenders hold.');
       return;

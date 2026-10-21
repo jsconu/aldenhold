@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { alive, attackTargets, createBattle, defenseOf, endSideTurn, moveUnit, rangeOf, reachable } from './battle';
+import { alive, attackTargets, createBattle, defenseOf, endSideTurn, moveUnit, rangeOf, reachable, deploymentZone } from './battle';
 import { makeTroop, newGame } from './campaign';
 import type { Army, Battle, BattleUnit, Terrain } from './types';
 
@@ -34,7 +34,10 @@ describe('battlefield generation', () => {
       const one = createBattle('x', a, d, false, seed);
       const two = createBattle('x', a, d, false, seed);
       expect(one.terrain).toEqual(two.terrain);
-      for (const col of [0, 1, 2, 9, 10, 11]) expect(one.terrain[col].every((t) => t === 'plain')).toBe(true);
+      for (const side of ['attacker', 'defender'] as const) {
+        const zone = deploymentZone(one, side);
+        for (const col of zone.cols) for (let row = zone.top; row < zone.top + 9; row++) expect(one.terrain[col][row]).toBe('plain');
+      }
     }
   });
 

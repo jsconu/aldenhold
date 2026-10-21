@@ -97,7 +97,43 @@ function capitalOf(s: GameState): string {
 
 const app = document.getElementById('app')!;
 
+/** The battlefield's scrolling frame, if a battle is on screen. */
+function battleScroll(): HTMLElement | null {
+  return app.querySelector<HTMLElement>('.battle-scroll');
+}
+
+/** Keep the minimap's frame on what the battle view shows. */
+function syncMinimap() {
+  const frame = battleScroll();
+  const mini = app.querySelector<SVGSVGElement>('.minimap svg');
+  const view = mini?.querySelector<SVGRectElement>('.minimap-view');
+  const field = frame?.querySelector<SVGSVGElement>('svg.field');
+  if (!frame || !mini || !view || !field) return;
+  const scale = Number(mini.dataset.width) / field.clientWidth;
+  view.setAttribute('x', String(frame.scrollLeft * scale));
+  view.setAttribute('y', String(frame.scrollTop * scale));
+  view.setAttribute('width', String(Math.min(frame.clientWidth, field.clientWidth) * scale));
+  view.setAttribute('height', String(Math.min(frame.clientHeight, field.clientHeight) * scale));
+}
+
 function render() {
+  // The page is redrawn after every action: keep the battlefield where the player was looking.
+  const before = battleScroll();
+  const scroll = before ? { left: before.scrollLeft, top: before.scrollTop, width: before.scrollWidth, height: before.scrollHeight } : null;
+  draw();
+  const after = battleScroll();
+  if (after && scroll) {
+    // After a zoom, keep the same point of the field in view.
+    after.scrollLeft = scroll.left * (after.scrollWidth / Math.max(1, scroll.width));
+    after.scrollTop = scroll.top * (after.scrollHeight / Math.max(1, scroll.height));
+  } else if (after && state.battle) {
+    // A new battle opens on the player's own troops.
+    app.querySelector('.unit.mine')?.scrollIntoView({ block: 'center', inline: 'center' });
+  }
+  syncMinimap();
+}
+
+function draw() {
   app.innerHTML = `<nav class="save-bar" aria-label="Saved games">
     <button data-action="saved-games" aria-expanded="${savesOpen}" aria-controls="save-content">${savesOpen ? 'Back to game' : 'Saved games'}</button>
     <button data-action="export-save" ${hasGame ? '' : 'disabled'}>Export save</button>
@@ -290,6 +326,9 @@ function onAction(action: string, data: DOMStringMap) {
       ui.battleUnit = null;
       ui.battleSpell = null;
       break;
+    case 'battle-zoom':
+      ui.battleZoom = Math.min(1.6, Math.max(0.5, Math.round(((ui.battleZoom ?? 1) + 0.2 * Number(data.dir)) * 10) / 10));
+      break;
     case 'battle-auto':
       autoResolve(state.battle!);
       break;
@@ -339,9 +378,63 @@ function onHex(col: number, row: number) {
   else if (!clicked && reachable(b, sel).has(hexKey({ col, row }))) moveUnit(b, sel.id, { col, row });
 }
 
+// Drag to pan the battlefield. A drag that moved never counts as a click (no accidental moves or attacks).
+let drag: { x: number; y: number; left: number; top: number; moved: boolean } | null = null;
+let swallowClick = false;
+app.addEventListener('pointerdown', (e) => {
+  const frame = (e.target as Element).closest<HTMLElement>('.battle-scroll');
+  if (!frame || e.button !== 0) return;
+  drag = { x: e.clientX, y: e.clientY, left: frame.scrollLeft, top: frame.scrollTop, moved: false };
+});
+app.addEventListener('pointermove', (e) => {
+  const frame = battleScroll();
+  if (!drag || !frame || !(e.buttons & 1)) return;
+  const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+  if (!drag.moved && Math.hypot(dx, dy) < 6) return;
+  drag.moved = true;
+  frame.scrollLeft = drag.left - dx;
+  frame.scrollTop = drag.top - dy;
+});
+window.addEventListener('pointerup', () => {
+  if (drag?.moved) swallowClick = true;
+  drag = null;
+});
+app.addEventListener('click', (e) => {
+  if (swallowClick) {
+    swallowClick = false;
+    e.stopImmediatePropagation();
+    e.preventDefault();
+  }
+}, true);
+app.addEventListener('scroll', (e) => { if ((e.target as Element).classList?.contains('battle-scroll')) syncMinimap(); }, true);
+// Arrow keys look around the battlefield (unless typing in a field).
+window.addEventListener('keydown', (e) => {
+  const frame = battleScroll();
+  if (!frame || !state.battle || e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement) return;
+  const step = { ArrowLeft: [-80, 0], ArrowRight: [80, 0], ArrowUp: [0, -80], ArrowDown: [0, 80] }[e.key];
+  if (!step) return;
+  e.preventDefault();
+  frame.scrollBy({ left: step[0], top: step[1] });
+});
+
 app.addEventListener('click', (e) => {
   const el = (e.target as Element).closest<HTMLElement | SVGElement>('[data-action]');
   if (!el) return;
+  if (el.dataset.action === 'minimap') {
+    // Look at the clicked point: centre the battle view on it.
+    const frame = battleScroll();
+    const field = frame?.querySelector<SVGSVGElement>('svg.field');
+    const box = (el as SVGSVGElement).getBoundingClientRect();
+    if (frame && field) {
+      const fx = (e.clientX - box.left) / box.width, fy = (e.clientY - box.top) / box.height;
+      frame.scrollTo({ left: fx * field.clientWidth - frame.clientWidth / 2, top: fy * field.clientHeight - frame.clientHeight / 2 });
+    }
+    return;
+  }
+  if (el.dataset.action === 'battle-center') {
+    app.querySelector('.unit.sel')?.scrollIntoView({ block: 'center', inline: 'center', behavior: 'smooth' });
+    return;
+  }
   if (el.dataset.action === 'saved-games') {
     savesOpen = !savesOpen;
     render();

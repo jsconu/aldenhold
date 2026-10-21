@@ -12,6 +12,8 @@ export interface UIState {
   /** Spell the selected hero is about to cast. */
   battleSpell: SpellId | null;
   battleTarget?: number | null;
+  /** Battle camera zoom (1 = the field's drawn size); the field scrolls inside its frame. */
+  battleZoom?: number;
   /** Tactics screen: the formation picked up to move to another cell. */
   tacticsTroop?: number | null;
   battleDestination?: { col: number; row: number } | null;

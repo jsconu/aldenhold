@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { renderCampaign } from '../ui/campaignView';
 import type { UIState } from '../ui/shared';
-import { createBattle, holdsGround, planDeployment, runAI } from './battle';
+import { createBattle, deploymentZone, holdsGround, planDeployment, runAI } from './battle';
 import { ARMY_CAP, advanceMonth, armyAt, hireQuote, makeTroop, marchQuote, moveTroops, neighborsOf, newGame, recruitQuote } from './campaign';
 import { parseSave } from './saves';
 import { placeFormation, setStance } from './tactics';
@@ -94,7 +94,8 @@ describe('tactics', () => {
     const foe: Army = { id: 999, owner: 'orcs', at: restored.at, from: null, troops: [makeTroop(s, 'warband')] };
     const b = createBattle(restored.at, restored, foe, false, 1);
     const unit = b.units.find((u) => u.troopId === archers.id)!;
-    expect({ col: unit.col, row: unit.row }).toEqual({ col: [2, 1, 0][spearCell.depth], row: spearCell.row });
+    const zone = deploymentZone(b, 'attacker');
+    expect({ col: unit.col, row: unit.row }).toEqual({ col: zone.cols[spearCell.depth], row: zone.top + spearCell.row });
     expect(b.stances).toEqual({ attacker: 'custom' });
   });
 

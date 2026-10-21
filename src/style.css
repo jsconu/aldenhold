@@ -535,3 +535,14 @@ button.travel-destination b { color: var(--gold); font-size: 11px; }
 .overland .owner-banner { filter: drop-shadow(0 0 0.6px #000); }
 .map-legend { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; margin: 6px 0 2px; font-size: 13px; }
 .map-legend span { display: inline-flex; align-items: center; gap: 5px; }
+/* The battlefield scrolls at a readable size; the minimap shows the whole field. */
+.field-wrap.battle-scroll { display: block; overflow: auto; max-height: 72vh; cursor: grab; justify-content: initial; }
+.field-wrap.battle-scroll:active { cursor: grabbing; }
+.field-wrap.battle-scroll svg.field { max-width: none; width: auto; display: block; margin: 0 auto; }
+.camera { display: inline-flex; gap: 4px; }
+.minimap { margin: 0 0 10px; }
+.minimap svg { width: 100%; max-width: 260px; display: block; border: 1px solid var(--line); cursor: pointer; }
+.minimap circle.mine { fill: #5577ff; }
+.minimap circle.foe { fill: #ff5555; }
+.minimap .minimap-view { fill: none; stroke: #ffe680; stroke-width: 12; }
+.minimap figcaption { font-size: 11px; color: var(--muted, #b8ad94); }
