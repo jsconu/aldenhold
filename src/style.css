@@ -460,3 +460,13 @@ button.travel-destination b { color: var(--gold); font-size: 11px; }
 .battle-wildflower { fill: #d7c781; opacity: .9; }
 .battle-forest-shadow { fill: #203e29; opacity: .35; }
 .battle-scree { fill: none; stroke: #8b8878; stroke-width: 2; stroke-linecap: round; }
+
+
+/* Western Realm settlements now have their own hand-composed 34×24 silhouettes.
+   A small cast shadow separates rooftops from detailed terrain without a hex base. */
+.overland .map-place-sprite {
+  image-rendering: pixelated;
+  shape-rendering: crispEdges;
+  filter: drop-shadow(0 2px 1px #111a14aa);
+  pointer-events: none;
+}

@@ -2,6 +2,7 @@ import type { Army, FactionId, GameState, HexWorld } from '../game/types';
 import { arrivalOutcome } from '../game/campaign';
 import { hasRoad, hexLand, locationName, parseKey, type MarchStep } from '../game/world';
 import { pixelRects } from './pixelSprites';
+import { WESTERN_PLACE_ART } from './settlementSprites';
 import { mapPixelSize, paintTerrain, tileCenter, tilePolygon } from './pixelTiles';
 import { esc, type UIState } from './shared';
 
@@ -15,10 +16,12 @@ const OWNER_COLOUR: Record<FactionId, string> = { player: '#5555ff', orcs: '#ff3
 const MAP_PALETTE: Record<string, string> = {
   k: '#10100c', w: '#ffffff', g: '#c8c0a8', G: '#8a8270', s: '#b0a890', S: '#5a5048', b: '#6a4a20', B: '#2a1a10',
   y: '#ffff55', R: '#c83c28', r: '#ff7a3c', H: '#6a8a3a', c: '#55ffff',
+  L: '#718fa3', o: '#d9bc77', v: '#377b56',
 };
 
 /** Map sprites for towns and landmarks, same character scheme as the unit sprites. 'F' is the owner's colour. */
 export const PLACE_SPRITES: Record<string, string[]> = {
+  ...WESTERN_PLACE_ART,
   town: [
     '...k..........',
     '...kFF........',
@@ -72,6 +75,7 @@ export const PLACE_SPRITES: Record<string, string[]> = {
 
 /** Which map sprite a place uses: towns by kind, landmarks by id. */
 function spriteFor(state: GameState, placeId: string, kind: 'town' | 'landmark'): string | null {
+  if (PLACE_SPRITES[placeId]) return placeId;
   if (kind === 'town') {
     const t = state.towns[placeId];
     return t?.kind === 'capital' ? 'capital' : t?.kind === 'lair' ? 'lair' : 'town';
@@ -94,7 +98,7 @@ function use(name: string, owner: FactionId, cx: number, bottom: number): string
   const rows = PLACE_SPRITES[name];
   const w = rows[0].length;
   const h = rows.length;
-  return `<use href="#map-${name}-${owner}" x="${cx - w / 2}" y="${bottom - h}" width="${w}" height="${h}"/>`;
+  return `<use href="#map-${name}-${owner}" x="${cx - w / 2}" y="${bottom - h}" width="${w}" height="${h}" class="map-place-sprite"/>`;
 }
 
 const terrainCache = new WeakMap<HexWorld, string>();
