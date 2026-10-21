@@ -431,6 +431,13 @@ Validation: 300 tests pass, including 13 new city-quest tests:
 
 The build passes. In the browser: the granary rotted on schedule, rationing blocked Aldenhold's recruit buttons with the reason, and the trial brought the ledger into the inventory, then archived it on conviction. No console errors.
 
+
+## Codex: Western chapter city-quest and alliance playthrough pass (9e)
+
+Extended the real-command optional-expedition controller to resolve Q01 through bought, escorted or rationed grain and Q06 through an evidence-led conviction or pardon. It prioritizes the timed granary response before optional garrison spending, checks imports immediately after decisions, and separately exercises an envoy's Q04 woodland alliance. No production gameplay rules changed.
+
+Forty refreshed main-story runs complete with the post-Q01 food economy: charter in nine months, ignored crossing in 11–14, with a living ruler and no shortfalls or ledger corrections. Twenty-seed buy/convict and ration/pardon tours complete the chapter and five side quests in 21–28 months without a dead ruler/priest or unpaid bills; three escort/convict seeds also complete. The early Q04 alliance legitimately satisfies M02 sooner, and seed 1 wins in month 11 before the long party reaches Q03. This leaves unfinished optional-quest continuation for the next authored act to resolve rather than weakening the allied-standing rule. See [reproducible commands and results](chapter-playthroughs.md). All 365 tests and the production build pass on the current main with hero equipment; human tactical/visual and pacing acceptance remain open.
+
 ## Codex: treasury cash reports (#6)
 
 The treasury's old “Revenue” summary counted taxes but omitted quest rewards and item sales. Reports now derive all receipts/payments directly from posted entries and show a complete opening-to-closing cash equation, with balance adjustments separate. Each period includes category and location breakdowns plus individual transactions with readable category labels. Mobile army costs stay under Field / realm; the location view does not invent separate city bank balances.

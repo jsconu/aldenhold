@@ -2,6 +2,40 @@ import { describe, expect, it } from 'vitest';
 import { playQuestExpedition } from './testing/questExpedition';
 
 describe('optional quests through a paid campaign expedition', () => {
+  for (const cityChoices of ['buy-convict', 'escort-convict', 'ration-pardon'] as const) {
+    for (const seed of [1, 42, 2026]) {
+      it(`seed ${seed}, ${cityChoices}: resolves every chapter side quest and finishes Act I`, () => {
+        const result = playQuestExpedition(seed, { finishChapter: true, cityChoices });
+        expect(result).toMatchObject({
+          status: 'won', ending: 'chapter-complete', rulerAlive: true, priestAlive: true,
+          unpaid: 0, foodShortages: 0, corrections: 0,
+          cityResolutions: { Q01: 'succeeded', Q06: 'succeeded' },
+          resolutions: { Q02: 'succeeded', Q03: 'succeeded', Q05: 'succeeded' },
+          draughts: 3, quarryYield: 1.25,
+        });
+        expect(result.cityFlags).toEqual([cityChoices === 'ration-pardon' ? 'miller-pardoned' : 'miller-convicted']);
+        expect(result.cityCompleted.Q01).toBeLessThan(result.cityCompleted.Q06);
+        expect(result.cityCompleted.Q06).toBeLessThan(result.completed.Q05);
+        expect(result.actions).toContainEqual(expect.stringContaining(`Q01: ${cityChoices === 'ration-pardon' ? 'ration' : cityChoices === 'escort-convict' ? 'escort' : 'buy'}`));
+        expect(result.actions).toContainEqual(expect.stringContaining('Q06: investigate'));
+        expect(result.actions).toContainEqual(expect.stringContaining(`Q06: ${cityChoices === 'ration-pardon' ? 'pardon' : 'convict'}`));
+      }, 15_000);
+    }
+  }
+
+  it('an early Greenveil alliance accelerates the chapter and can leave the tower unvisited', () => {
+    const result = playQuestExpedition(1, { finishChapter: true, cityChoices: 'buy-convict', woodlandAccord: true });
+    expect(result).toMatchObject({
+      status: 'won', ending: 'chapter-complete', woodlandResolution: 'succeeded',
+      cityResolutions: { Q01: 'succeeded', Q06: 'succeeded' },
+      resolutions: { Q02: 'succeeded', Q05: 'succeeded' },
+      unpaid: 0, foodShortages: 0, corrections: 0,
+    });
+    expect(result.woodlandCompleted).toBeLessThan(result.cityCompleted.Q06);
+    expect(result.completed.Q03).toBeUndefined();
+    expect(result.months).toBeLessThan(playQuestExpedition(1, { finishChapter: true, cityChoices: 'buy-convict' }).months);
+  }, 15_000);
+
   it('can return from the expedition and finish the chapter after Westmere fell before M03 unlocked', () => {
     const result = playQuestExpedition(1, { finishChapter: true });
     expect(result).toMatchObject({
