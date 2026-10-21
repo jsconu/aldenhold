@@ -1,4 +1,4 @@
-import { hexKey, hexNeighbors } from '../game/hex';
+import { hexDistance, hexKey, hexNeighbors } from '../game/hex';
 import type { CampaignDefinition, HexWorld, QuestCondition, QuestDefinition, QuestNext } from '../game/types';
 import { choiceOutcomes, isResolution } from '../game/quests';
 import { hexLand, parseKey, placeKey, roadsOf } from '../game/world';
@@ -124,6 +124,20 @@ function validateCampaign(catalog: Catalog, c: CampaignDefinition, err: (msg: st
   for (const o of c.offers) {
     if (!towns.has(o.town)) err(`hero offer in unknown town "${o.town}"`);
     if (!catalog.hireableHeroes.includes(o.type)) err(`hero offer of non-hireable type "${o.type}"`);
+  }
+
+  // Monster lairs: each on a landmark of its species' ground, far enough from the capital, with a real garrison.
+  for (const l of Object.values(catalog.lairs).filter((x) => x.campaignId === c.id)) {
+    const place = c.hex?.places.find((p) => p.id === l.place);
+    if (!place || place.kind !== 'landmark') { err(`lair "${l.id}" is not on a landmark place`); continue; }
+    const land = hexLand(c.hex!, placeKey(place)).id;
+    if (!catalog.species[l.species].lands.includes(land)) err(`lair "${l.id}" stands on ${land}, not ${l.species} ground`);
+    const capital = c.hex!.places.find((p) => p.id === c.capital)!;
+    if (hexDistance(place, capital) < catalog.species[l.species].minDistance) err(`lair "${l.id}" is too close to the capital`);
+    if (!catalog.factions[l.species]) err(`lair "${l.id}" belongs to unknown faction "${l.species}"`);
+    if (!l.garrison.length || l.garrison.some((t) => !catalog.units[typeof t === 'string' ? t : t.type])) err(`lair "${l.id}" has an empty or unknown garrison`);
+    if (!c.armies.some((a) => a.owner === l.species && a.at === l.place)) err(`lair "${l.id}" has no garrison in the campaign`);
+    if (!(l.loot.gold > 0)) err(`lair "${l.id}" has no plunder`);
   }
 
   // Every named location must be reachable from the capital, so every town can be taken and the lair attacked.

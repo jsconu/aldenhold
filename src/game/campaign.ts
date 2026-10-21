@@ -1,3 +1,4 @@
+import { discoverLairs, newLairState, settleLairs } from './lairs';
 import { recoverFallenKit } from './items';
 import { orcTurn } from './ai';
 import { autoResolve, createBattle, isAI, runAI } from './battle';
@@ -27,7 +28,7 @@ const OFFER_MONTHS = 3;
 export function newGame(seed = Math.floor(Math.random() * 2 ** 31), campaignId: CampaignId = 'valley-quickplay'): GameState {
   const def = getCampaign(campaignId);
   const state: GameState = {
-    version: 13,
+    version: 14,
     campaignId: def.id,
     campaignRevision: def.revision,
     endingReason: null,
@@ -50,6 +51,7 @@ export function newGame(seed = Math.floor(Math.random() * 2 ** 31), campaignId: 
     items: {},
     treaties: {},
     flags: [],
+    lairs: newLairState(campaignId),
     status: 'playing',
   };
   for (const t of def.towns) state.towns[t.id] = { ...t };
@@ -301,6 +303,7 @@ export function moveTroops(state: GameState, from: string, troopIds: number[], t
   const army: Army = { id: state.nextId++, owner: 'player', at: from, from: null, troops: moving, ...(src.tactics ? { tactics: structuredClone(src.tactics) } : {}) };
   state.armies.push(army);
   marchAlong(state, army, quote.path);
+  discoverLairs(state);
   return null;
 }
 
@@ -474,6 +477,7 @@ export function applyBattle(state: GameState, b: Battle) {
   if (b.owners.attacker === 'player' || b.owners.defender === 'player') {
     deed(state, 'battle', winner === 'player' ? `Victory at ${place}.` : `Defeat at ${place}.`, b.at);
   }
+  settleLairs(state);
   // A quest encounter: nobody falls back or takes the site; the quest decides what follows.
   if (b.encounter) {
     endEncounter(state, b);
@@ -573,7 +577,7 @@ export function checkStatus(state: GameState) {
 /** The phases of a month, in the order they run. */
 export type MonthPhaseId =
   | 'snapshot' | 'cities' | 'population' | 'heroes' | 'treasury' | 'construction' | 'refits' | 'shortages'
-  | 'desertion' | 'calendar' | 'offers' | 'quests' | 'ai' | 'ending';
+  | 'desertion' | 'calendar' | 'offers' | 'quests' | 'lairs' | 'ai' | 'ending';
 
 /** One line the month produced: news for the chronicle, or a deed that also goes in the journal. */
 export interface MonthNote {
@@ -696,6 +700,8 @@ const MONTH_PHASES: MonthPhase[] = [
   { id: 'offers', run(state) { const line = newOffers(state); return line ? [news(line)] : []; } },
   // Scheduled events: quests unlock and missed deadlines end their stage (EVENT-01: before the AI moves).
   { id: 'quests', run(state) { return advanceQuests(state).map(news); } },
+  // Lairs found by armies that marched near them, and any whose garrison is gone.
+  { id: 'lairs', run(state) { return [...discoverLairs(state), ...settleLairs(state)].map(news); } },
   // The orcs' own battles, captures and raids are recorded by the rules they trigger.
   { id: 'ai', run(state) { orcTurn(state); return []; } },
   { id: 'ending', run(state) { checkStatus(state); return []; } },

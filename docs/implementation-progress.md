@@ -621,3 +621,48 @@ Validation: 401 tests pass, including 6 new ones (sizing, zones, connected and v
 - the arrow keys scrolled and zoom worked;
 - the minimap frame followed the view;
 - a plain click still moved a formation.
+
+## Monster raids spec, step 2: the lair registry
+
+**Monster factions.** Goblins, trolls, giants and titans are now their own factions in the registry (kind `monsters`, hostile by default), rather than being funnelled through the orcs.
+
+**New units, each with an original pixel sprite and icon:**
+- Goblin Archers.
+- Giant: throws boulders, fearless.
+- Titan: a larger boulder, fearless.
+
+Trolls now regenerate one man at the start of each of their turns (the spec's troll trait). This applies to the orcs' trolls too.
+
+**Lairs (`content/lairs.ts`).** Each lair is a named landmark on the map with:
+- a species, a tier, and a garrison that starts there;
+- plunder;
+- a discovery story and a clearing story;
+- raid inputs (radius, activity, strength, cooldown), which step 3 will use.
+
+Each species has its preferred ground, its tactics and counter (shown on the lair panel), and a minimum distance from the player's capital. Content validation enforces these: each lair stands on its species' ground, far enough from the capital, has a real garrison and plunder, and is reachable.
+
+| Lair | Species | Tier | Place | Garrison | Plunder |
+| --- | --- | --- | --- | --- | --- |
+| Briarwood Warren | Goblins | 1 | Forest east of Fenwick (16,8) | 2 skirmishers, 2 archers | 120 g |
+| Hollowpine Warren | Goblins | 1 | Southern pines by Thornwatch (27,36) | 3 skirmishers, 1 archer | 120 g |
+| Blackmire Den | Trolls | 2 | The great swamp (20,25) | 3 trolls | 220 g |
+| Stonejaw Crag | Giants | 3 | Hills by the mountain spine (25,11) | 2 giants | 350 g |
+| The Elder Sanctum | Titans | 4 | Remote eastern hills (47,8) | a titan, 2 giants | 800 g |
+
+**Discovery.** A lair and its garrison are hidden from the map, tooltips, hex names and march highlights until one of your armies comes within 3 hexes. It's then recorded in the journal with its story and shown with a skull banner, a tooltip and a panel (species, tactics, counter, garrison, plunder). Discovery is checked after each march, after battles, and in a new **lairs** step of the month (after quests, before the AI).
+
+**Clearing.** Defeating the garrison clears the lair for good. Its plunder is paid exactly once, through the treasury (a new `lair-plunder` receipt, shown as "Lair plunder"), and the banner changes to "Cleared lair". Garrisons stay home for now; raids from lairs are step 3.
+
+**Saves: version 14.** Saves record each lair's state (active or cleared, discovered, month cleared). Validation keeps an active lair's garrison in place and requires cleared lairs to be found. v13 saves gain every lair, active and undiscovered, with its garrison. This happens after any older map upgrade, since some lairs stand outside the old map. A lair whose place was already occupied starts cleared, with no plunder.
+
+Validation: 411 tests pass, including 7 new lair tests:
+- placement and ground for every species, and garrisons
+- discovery and its journal entry
+- hidden until found
+- clearing with plunder paid once, through the ledger
+- the month step
+- save checks and the v13 migration
+- content checks
+- troll regeneration
+
+The build passes. In the browser, marching near Briarwood Warren and ending the month revealed it, with its story in the chronicle, a skull banner on the map, and its panel.

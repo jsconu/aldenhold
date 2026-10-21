@@ -1,3 +1,4 @@
+import { LAIRS } from '../content/lairs';
 import { getCampaign } from '../content';
 import { LAND, UNIT_TYPES } from '../content/rules';
 import { hexDistance, hexKey, hexNeighbors, type Hex } from './hex';
@@ -118,14 +119,20 @@ export function townAt(state: GameState, at: string): Town | undefined {
 }
 
 /** A readable name for a location, a town id or a place id. */
+/** A lair nobody has found yet: its place isn't named anywhere the player can see. */
+function hiddenLairPlace(state: GameState, placeId: string): boolean {
+  const lair = Object.values(LAIRS).find((l) => l.campaignId === state.campaignId && l.place === placeId);
+  return !!lair && !state.lairs?.[lair.id]?.discovered;
+}
+
 export function locationName(state: GameState, at: string): string {
   const world = worldOf(state);
   if (world.kind === 'graph') return world.nodes.find((n) => n.id === at)?.name ?? at;
   const named = world.places.find((p) => p.id === at) ?? placeAt(state, at);
-  if (named) return named.name;
+  if (named && !hiddenLairPlace(state, named.id)) return named.name;
   if (!isLocation(state, at)) return at;
   const h = parseKey(at);
-  const nearest = [...world.places].sort((a, b) => hexDistance(h, a) - hexDistance(h, b))[0];
+  const nearest = world.places.filter((p) => !hiddenLairPlace(state, p.id)).sort((a, b) => hexDistance(h, a) - hexDistance(h, b))[0];
   return `the ${hexLand(world, at).name.toLowerCase()} near ${nearest.name}`;
 }
 

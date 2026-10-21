@@ -1,3 +1,5 @@
+import { SPECIES } from '../content/lairs';
+import { hiddenLairAt, lairAt, lairGarrison } from '../game/lairs';
 import { relationWith, RELATION_LABEL } from '../game/diplomacy';
 import { FACTIONS } from '../content/factions';
 import type { Army, FactionId, GameState, HexWorld } from '../game/types';
@@ -101,10 +103,10 @@ function symbolDefs(): string {
  * colour alone: a crowned, gold-bordered banner for yours; crossed swords for the enemy; a plain banner for a
  * free town; a skull for a monster lair.
  */
-export type BannerKind = 'player' | 'enemy' | 'free' | 'lair';
+export type BannerKind = 'player' | 'enemy' | 'free' | 'lair' | 'cleared';
 
 export const BANNER_LABEL: Record<BannerKind, string> = {
-  player: 'Yours', enemy: 'Enemy-held', free: 'Free town', lair: 'Monster lair',
+  player: 'Yours', enemy: 'Enemy-held', free: 'Free town', lair: 'Monster lair', cleared: 'Cleared lair',
 };
 
 const BANNER_ART: Record<BannerKind, string> = {
@@ -116,6 +118,8 @@ const BANNER_ART: Record<BannerKind, string> = {
   lair: `<rect x="2" y="0.5" width="9" height="7" fill="#262626" stroke="#0a0a0a" stroke-width="0.8"/>
     <circle cx="6.5" cy="3.6" r="2.4" fill="#ece7d8"/><rect x="5.2" y="5.2" width="2.6" height="1.6" fill="#ece7d8"/>
     <circle cx="5.6" cy="3.5" r="0.6" fill="#111"/><circle cx="7.4" cy="3.5" r="0.6" fill="#111"/>`,
+  cleared: `<rect x="2" y="0.5" width="9" height="7" fill="#7a7466" stroke="#2a2620" stroke-width="0.8"/>
+    <path d="M3.4 6.6 9.6 1.4" stroke="#e8e2d0" stroke-width="1.3"/>`,
 };
 
 function bannerDefs(): string {
@@ -171,7 +175,7 @@ function terrainImage(world: HexWorld): string {
 
 function armyTitle(a: Army): string {
   const men = a.troops.reduce((s, t) => s + t.men, 0);
-  const who = a.owner === 'player' ? 'Your troops' : a.owner === 'orcs' ? 'Orc host' : 'Town militia';
+  const who = a.owner === 'player' ? 'Your troops' : a.owner === 'orcs' ? 'Orc host' : a.owner === 'neutral' ? 'Town militia' : FACTIONS[a.owner].name;
   return `${who}: ${a.troops.length} ${a.troops.length === 1 ? 'troop' : 'troops'}, ${men} men`;
 }
 
@@ -188,7 +192,8 @@ export function renderHexMap(
   let reach = '';
   for (const [key] of targets) {
     const { col, row } = cell(key);
-    const ends = arrivalOutcome(state, key) !== null;
+    // A hidden lair doesn't give itself away as a fight on arrival.
+    const ends = arrivalOutcome(state, key) !== null && !hiddenLairAt(state, key);
     const [cx, cy] = tileCenter(col, row);
     reach += `<ellipse cx="${cx}" cy="${cy}" rx="11" ry="9" class="reach${ends ? ' ends' : ''}"/>`;
   }
@@ -207,12 +212,22 @@ export function renderHexMap(
       const half = sprite ? PLACE_SPRITES[sprite][0].length / 2 : 6;
       places += `<g class="settlement-owner"><title>${esc(settlementTitle(state, p.id, `${p.col},${p.row}`))}</title>${bannerSvg(bannerFor(state, p.id), cx + half - 9, top - 18, 20)}</g>`;
     }
+    const lair = lairAt(state, `${p.col},${p.row}`);
+    if (lair) {
+      // A lair shows only once found: a skull banner, or a struck-through one when cleared.
+      const st = state.lairs[lair.id];
+      if (!st?.discovered) continue;
+      const garrison = lairGarrison(state, lair);
+      const title = `${lair.name}: ${SPECIES[lair.species].name.toLowerCase()} lair, tier ${lair.tier}. ${st.status === 'cleared' ? 'Cleared.' : `Active. ${garrison ? `Garrison: ${armyTitle(garrison)}.` : ''}`}`;
+      places += `<g class="settlement-owner lair-marker"><title>${esc(title)}</title>${bannerSvg(st.status === 'cleared' ? 'cleared' : 'lair', cx - 9, cy - 18, 20)}</g>`;
+    }
     labels += `<text x="${cx}" y="${cy + 15}" class="${p.kind === 'town' ? 'place-label' : 'place-label landmark'}">${esc(p.name)}</text>`;
   }
 
   let armies = '';
   const byHex = new Map<string, Army[]>();
-  for (const a of state.armies) byHex.set(a.at, [...(byHex.get(a.at) ?? []), a]);
+  // Monsters in a lair nobody has found stay hidden.
+  for (const a of state.armies) if (!hiddenLairAt(state, a.at)) byHex.set(a.at, [...(byHex.get(a.at) ?? []), a]);
   for (const [key, list] of byHex) {
     const { centre: [cx, cy] } = cell(key);
     list.forEach((a, i) => {

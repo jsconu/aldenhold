@@ -35,6 +35,12 @@ const ICONS: Record<string, string> = {
   minotaur: `<path d="M4 4c0 5 3 7 8 7s8-2 8-7"/><path d="M8 11v9h8v-9" class="fill soft"/>`,
   // Small head and a long spear.
   goblinSkirmishers: `<path d="M6 21 18 5"/><path d="M18 5l-1 4 3-1z" class="fill"/><circle cx="8" cy="10" r="3" class="fill soft"/>`,
+  // Bow over a small head.
+  goblinArchers: `<path d="M8 3c7 3 7 15 0 18"/><path d="M8 3v18" class="thin"/><circle cx="16" cy="7" r="3" class="fill soft"/>`,
+  // A huge figure hefting a rock.
+  giant: `<circle cx="17" cy="6" r="4" class="fill"/><path d="M5 22V10h10v12" class="fill soft"/>`,
+  // A crowned colossus.
+  titan: `<path d="M6 6 8 2l2 3 2-3 2 3 2-3 2 4z" class="fill"/><path d="M5 22V8h14v14" class="fill soft"/>`,
   troll: `<path d="M5 21.5 12 13"/><ellipse cx="15.5" cy="8.5" rx="4" ry="6.5" transform="rotate(40 15.5 8.5)" class="fill soft"/><circle cx="19.5" cy="4.5" r="1.2" class="fill"/><circle cx="20.5" cy="10" r="1.2" class="fill"/><circle cx="14" cy="3" r="1.2" class="fill"/>`,
   // Horned helm.
   warchief: `<path d="M7 20v-6a5 5 0 0 1 10 0v6z" class="fill soft"/><path d="M7.5 12C4 11 2.5 7.5 3.5 3.5c.8 3 2.5 4.5 5 5M16.5 12c3.5-1 5-4.5 4-8.5-.8 3-2.5 4.5-5 5"/><path d="M9.5 15.5h5"/>`,
