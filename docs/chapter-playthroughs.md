@@ -13,7 +13,7 @@ Both policies upgrade Aldenhold's farms, raise the two formations needed for M01
 
 Monthly taxes, payroll, construction, production, growth, random offers, raids, quest deadlines and incursion movement all run. Every battle is auto-resolved. Each monthly checkpoint and both pending and resolved battle checkpoints pass through the player's strict save importer before play continues.
 
-## Initial baseline
+## Initial baseline before the city quests
 
 Forty runs (20 seeds × two policies) completed the chapter with the ruler alive, no unpaid wages/maintenance, no player food shortage and no treasury corrections. Seeds: 1–10, 42, 99, 777, 1989, 2026, 12345, 65535, 999999, 2147483647 and 4294967295.
 
@@ -22,7 +22,7 @@ Forty runs (20 seeds × two policies) completed the chapter with the ruler alive
 | Charter | 7 | 400 | 27 | 3 | 9–39 |
 | Ignore | 11–12 | 1083–1205 | 27 | 3–4 | 11–39 |
 
-For the charter policy, M01 completes after month 1, M02 after month 2, M03 during month 3, and M04 after month 7. The ignored dispute sometimes ends earlier because the orcs take Westmere; the chapter correctly continues after either failure or supersession. `months` counts elapsed month closures; the game calendar starts at month 1.
+These figures preceded Q01's granary rot. On that earlier build, the charter policy completed M01 after month 1, M02 after month 2, M03 during month 3, and M04 after month 7. The current numbers are below. The ignored dispute can end early because the orcs take Westmere; the chapter continues after either failure or supersession. `months` counts elapsed month closures; the game calendar starts at month 1.
 
 CI checks three seeds under both policies, a deterministic replay, and an intentionally truncated run. The provisional 24-month ceiling catches a stuck chapter; it is a regression bound, not an accepted pacing target. Casualties count lost soldiers in nonhero formations, including formations destroyed in battle, without treating later recruitment as a loss reduction. Minimum gold samples after each purchase/action and monthly settlement.
 
@@ -44,3 +44,18 @@ Set `CHAPTER_FINISH=1 npm run simulate:quests -- 1 42 2026` to return the party 
 The longer tour exposed a quest-ownership defect: Westmere may fall to the orcs before M03 unlocks. New offers now check their giver's current ownership against the authored starting ruler. A fallen guild resolves through its loss branch, with no stage-start spawns or treaty purchase; a previously player-conquered Westmere completes its conquest objective without charging a charter fee. Quotes block a stale open offer immediately, and the next quest phase settles such an offer imported from an older save. Merchant quests explicitly marked to survive player conquest remain available. Existing completed rewards and save schema v12 remain intact.
 
 These are feasibility and persistence checks using automated tactics; optional encounter difficulty still needs a human assessment.
+
+## Current Western chapter pass after Q01 and Q06
+
+Replayed the same 20 seeds under both main-story policies after the city quests were added. All 40 completed with a living ruler, no unpaid bills, player-town food shortage or treasury correction. The policies deliberately leave Q01 unanswered, so the rot delays M02; the population consequence also occurs. This is a measured policy choice, not a claim that buying or escorting grain is unaffordable.
+
+| Policy | Months elapsed | Ending gold | M01 → M02 → M03 → M04 |
+| --- | --- | --- | --- |
+| Charter | 9 in all 20 | 617 | 1 → 4 → 5 → 9 |
+| Ignore | 11–14 | 1,051–1,394 | M03 may fail or be superseded; M04 follows |
+
+For a longer real-command tour, run `CITY_CHOICES=buy-convict CHAPTER_FINISH=1 npm run simulate:quests -- 1 42 2026`, or use `escort-convict` or `ration-pardon`. The controller pays for the priest, raises and marches real troops, fights and resumes the three encounter battles through save import, resolves Q01 and Q06 through their quoted choices, then returns to Fenwick and finishes Act I. It spends on the time-limited granary before optional garrison recruitment; doing the reverse caused the buy path to miss its deadline. No game rules or resources were changed to make that route work.
+
+Across the 20 listed seeds, both buy/convict and ration/pardon tours won in 21–28 months with Q01, Q02, Q03, Q05 and Q06 succeeded, a living ruler and priest, no unpaid bills, shortages or corrections. The paid priest temporarily brought cash to zero. An escort/convict tour was also checked on seeds 1, 42 and 2026: Q01 transfers actual Millbrook food while the army is there and ends successfully; it completes Act I in 21–27 months. CI covers those three seeds under each city policy, including exact choice actions and saved outcomes.
+
+Q04 is a distinct, time-limited route. `WOODLAND_ACCORD=1 CITY_CHOICES=buy-convict CHAPTER_FINISH=1 npm run simulate:quests -- 1` sends a paid-for militia envoy to Greenveil and signs the logging cap. Its alliance counts toward M02's stated standing goal, bringing the incursion forward. Seed 1 finishes Act I in 11 months with Q01, Q02, Q04, Q05 and Q06 resolved but before the party reaches Q03's tower; the game ends and cannot finish that optional trial in the same save. This is an unresolved campaign-continuation design question for the next act, not a broken quest or a reason to discount allied standing. The owner still needs a hands-on tactical and pacing playthrough.

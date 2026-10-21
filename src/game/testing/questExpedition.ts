@@ -8,7 +8,12 @@ import { townLocation } from '../world';
 import { marchParty, resumeBattles, type EncounterResult } from './campaignCommands';
 
 /** An affordable side-quest tour; withhold the optional Fenwick signature so the chapter does not end mid-tour. */
-export function playQuestExpedition(seed: number, options: { finishChapter?: boolean; maxMonths?: number } = {}) {
+export function playQuestExpedition(seed: number, options: {
+  finishChapter?: boolean;
+  maxMonths?: number;
+  cityChoices?: 'buy-convict' | 'escort-convict' | 'ration-pardon';
+  woodlandAccord?: boolean;
+} = {}) {
   const maxMonths = options.maxMonths ?? (options.finishChapter ? 36 : 24);
   let state = newGame(seed, 'western-realm');
   const party = armyAt(state, townLocation(state, 'aldenhold'), 'player')!.troops;
@@ -16,6 +21,8 @@ export function playQuestExpedition(seed: number, options: { finishChapter?: boo
   const partyIds = [party.find((t) => t.type === 'militia')!.id,
     party.find((t) => t.type === 'spearmen')!.id, party.find((t) => t.type === 'archers')!.id];
   let priestId: number | undefined;
+  let woodlandEnvoyId: number | undefined;
+  let woodlandCompleted: number | undefined;
   let months = 0;
   let minimumGold = state.gold;
   let unpaid = 0;
@@ -26,6 +33,7 @@ export function playQuestExpedition(seed: number, options: { finishChapter?: boo
   const actions: string[] = [];
   const encounters: EncounterResult[] = [];
   const completed: Record<string, number> = {};
+  const cityCompleted: Record<string, number> = {};
   const note = (action: string) => {
     actions.push(`${state.turn}: ${action}`);
     minimumGold = Math.min(minimumGold, state.gold);
@@ -59,9 +67,44 @@ export function playQuestExpedition(seed: number, options: { finishChapter?: boo
         note('recruit militia at aldenhold');
       }
     }
+    if (options.woodlandAccord && state.quests.M01.status === 'succeeded' && state.quests.Q04.status === 'available') {
+      woodlandEnvoyId ??= armyAt(state, townLocation(state, 'aldenhold'), 'player')?.troops
+        .find((t) => t.type === 'militia' && !partyIds.includes(t.id))?.id;
+      if (woodlandEnvoyId !== undefined) {
+        const leg = marchParty(state, [woodlandEnvoyId], 'greenveil', true);
+        if (leg) note(`woodland envoy toward greenveil: ${leg}`);
+      }
+      if (!questQuote(state, 'Q04', 'cap').reason) {
+        must(chooseQuest(state, 'Q04', 'cap'));
+        note('Q04: cap');
+        state = parseSave(JSON.stringify(state));
+        woodlandCompleted = state.turn;
+      }
+    }
     if (state.cityEconomies.aldenhold.buildings.farm < 2 && !constructionQuote(state, 'aldenhold', 'farm').reason) {
       must(buildCity(state, 'aldenhold', 'farm'));
       note('upgrade capital farms');
+    }
+    if (options.cityChoices) {
+      const granaryChoice = options.cityChoices === 'ration-pardon' ? 'ration' :
+        options.cityChoices === 'escort-convict' ? 'escort' : 'buy';
+      if (state.quests.Q01.status === 'available' && !questQuote(state, 'Q01', granaryChoice).reason) {
+        must(chooseQuest(state, 'Q01', granaryChoice));
+        note(`Q01: ${granaryChoice}`);
+        state = parseSave(JSON.stringify(state));
+      }
+      if (state.quests.Q06.status === 'available' && !questQuote(state, 'Q06', 'investigate').reason) {
+        must(chooseQuest(state, 'Q06', 'investigate'));
+        note('Q06: investigate');
+        state = parseSave(JSON.stringify(state));
+      }
+      const verdict = options.cityChoices === 'ration-pardon' ? 'pardon' : 'convict';
+      if (state.quests.Q06.status === 'active' && !questQuote(state, 'Q06', verdict).reason) {
+        must(chooseQuest(state, 'Q06', verdict));
+        note(`Q06: ${verdict}`);
+        state = parseSave(JSON.stringify(state));
+      }
+      for (const id of ['Q01', 'Q06']) if (state.quests[id].status === 'succeeded' && !(id in cityCompleted)) cityCompleted[id] = state.turn;
     }
     for (const [type, target] of [['spearmen', 3], ['archers', 2]] as const) {
       const count = armyAt(state, townLocation(state, 'millbrook'), 'player')?.troops.filter((t) => t.type === type).length ?? 0;
@@ -97,6 +140,7 @@ export function playQuestExpedition(seed: number, options: { finishChapter?: boo
     fight();
     note(`month ${closed.month} closed: ${state.gold} gold`);
     state = parseSave(JSON.stringify(state));
+    for (const id of ['Q01', 'Q06']) if (state.quests[id].status === 'succeeded' && !(id in cityCompleted)) cityCompleted[id] = closed.month;
   }
   const priest = state.armies.filter((a) => a.owner === 'player').flatMap((a) => a.troops).find((t) => t.id === priestId);
   return {
@@ -104,6 +148,9 @@ export function playQuestExpedition(seed: number, options: { finishChapter?: boo
     battles, casualties, rulerAlive: (lordOf(state)?.men ?? 0) > 0, priestAlive: (priest?.men ?? 0) > 0,
     priestXp: priest?.xp ?? 0, draughts: heldQty(state, 'healing-draught'), quarryYield: yieldFactor(state, 'aldenhold', 'mine'),
     completed, encounters, actions,
+    cityCompleted, cityResolutions: Object.fromEntries(['Q01', 'Q06'].map((id) => [id, state.quests[id].status])),
+    woodlandCompleted, woodlandResolution: state.quests.Q04.status,
+    cityFlags: state.flags.filter((flag) => flag.startsWith('miller-')),
     resolutions: Object.fromEntries(['Q02', 'Q03', 'Q05'].map((id) => [id, state.quests[id].status])),
     chapter: state.quests.M02.status, ending: state.endingReason,
     crossing: state.quests.M03.status, westmereOwner: state.towns.westmere.owner,
