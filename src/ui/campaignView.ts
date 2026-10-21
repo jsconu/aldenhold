@@ -4,7 +4,7 @@ import {
   recruitQuote, startLocation, townGrowth, townIncome,
 } from '../game/campaign';
 import { hasRoad, hexLand, marchRate, placeAt, townAt, townLocation, worldOf, type MarchStep } from '../game/world';
-import { renderHexMap } from './hexMapView';
+import { BANNER_LABEL, bannerSvg, renderHexMap, type BannerKind } from './hexMapView';
 import { SPELLS, UNIT_TYPES } from '../game/data';
 import { heroLevel, heroMaxHp, heroMaxMana, level } from '../game/units';
 import { EQUIPMENT, refitQuote, equipmentUpkeep, usesBow } from '../game/equipment';
@@ -477,6 +477,8 @@ function renderHexSection(state: GameState, ui: UIState): string {
   if (world.kind !== 'hex') return '';
   return `<section class="map-wrap">
     ${renderHexMap(state, ui, world, moveTargets(state, ui), ui.selected ? arrivalEstimates(state, ui.selected, [...ui.checked]) : new Map())}
+    <div class="map-legend" aria-label="Map legend">${(['player', 'enemy', 'free', 'lair'] as BannerKind[]).map((k) =>
+      `<span><svg viewBox="0 0 12 13" width="14" height="15" aria-hidden="true">${bannerSvg(k, 0, 0)}</svg>${BANNER_LABEL[k]}</span>`).join('')}</div>
     <p class="atlas-caption">Every hex can be walked. Roads cost 1 movement; plains and farmland 2; forest, hills and badlands 3; deep woods and swamp 4. Rivers are crossed only at bridges and mountains only at Grey Pass or the southern trail. Hover a hex for its cost and how many months it takes to reach.</p>
   </section>`;
 }
