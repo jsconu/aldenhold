@@ -1,6 +1,8 @@
 import { dateLabel, nodeName, startLocation } from '../game/campaign';
 import type { DeedKind, GameState, JournalEntry } from '../game/types';
 import { esc } from './shared';
+import { LAIRS, SPECIES } from '../content/lairs';
+import { raidLine } from '../game/raids';
 import { ITEMS } from '../content/items';
 import { campaignQuests, questSummary, trackedQuests } from '../game/quests';
 import { townLocation } from '../game/world';
@@ -28,6 +30,13 @@ function entry(state: GameState, j: JournalEntry): string {
     <span class="what">${esc(j.text)}${place}</span></li>`;
 }
 
+/** Every raid that came due, newest first, with what it cost: the realm's raid history. */
+function renderRaidLog(state: GameState): string {
+  if (!state.raidLog.length) return '';
+  const rows = [...state.raidLog].reverse().map((r) => `<li><b>${esc(nodeName(state, r.target))}</b>, ${esc(state.lairs[r.lair]?.discovered ? LAIRS[r.lair].name : `${SPECIES[LAIRS[r.lair].species].name.toLowerCase()} from an unknown lair`)}: ${esc(raidLine(r))}</li>`).join('');
+  return `<section class="quest-ledger raid-log"><h2>Raids</h2><ul>${rows}</ul></section>`;
+}
+
 /** The permanent campaign journal (BASE-04): every deed of the game, newest year first. */
 export function renderJournal(state: GameState): string {
   const count = (kind: DeedKind) => state.journal.filter((j) => j.kind === kind).length;
@@ -53,6 +62,7 @@ export function renderJournal(state: GameState): string {
       </dl>
     </div>
     ${renderQuestLedger(state)}
+    ${renderRaidLog(state)}
     ${renderInventory(state)}
     ${sections || '<p class="hint">Nothing recorded yet.</p>'}
   </main>`;

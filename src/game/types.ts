@@ -241,6 +241,8 @@ export interface Battle {
   stances?: Partial<Record<Side, Stance>>;
   /** A quest encounter: which choice started it, the guardian army, and the hero party split off for it. */
   encounter?: { quest: string; choice: string; guardian: number; army: number; party?: number };
+  /** A monster raid on one of your towns: the lair it came from and the town it struck. */
+  raid?: { lair: string; town: string };
 }
 
 export interface PendingBattle {
@@ -495,12 +497,33 @@ export interface LairState {
   lastRaid: number | null;
 }
 
-/** A raid announced this month, arriving next month. */
+/** A raid announced in one month, arriving its species' warning later. */
 export interface PendingRaid {
   lair: string;
   target: string;
   announced: number;
   arrives: number;
+}
+
+/**
+ * How a raid ended: it never came (its lair was cleared), turned back from a strong garrison, was beaten off in
+ * battle, plundered the town, sacked it (a siege: plunder and a building knocked down), or took it.
+ */
+export type RaidResult = 'never-came' | 'turned-back' | 'beaten-off' | 'plundered' | 'sacked' | 'taken';
+
+export interface RaidRecord {
+  turn: number;
+  lair: string;
+  target: string;
+  result: RaidResult;
+  /** Whether the garrison fought it. */
+  battle: boolean;
+  gold: number;
+  people: number;
+  damaged: BuildingId | null;
+  /** Men lost on each side (heroes not counted). */
+  garrisonLost: number;
+  raidersLost: number;
 }
 
 /** One kind of object in the campaign inventory. `qty` + `spent` always equals the number quests granted. */
@@ -573,7 +596,7 @@ export interface CityEconomy {
 }
 
 export interface GameState {
-  version: 15;
+  version: 16;
   campaignId: CampaignId;
   campaignRevision: number;
   endingReason: EndingReason | null;
@@ -603,7 +626,9 @@ export interface GameState {
   flags: string[];
   /** Monster lairs of this campaign (content/lairs.ts), by id. */
   lairs: Record<string, LairState>;
-  /** Raids announced and due next month (monster raids spec, step 3). */
+  /** Raids announced and on their way (monster raids spec, step 3). */
   raids: PendingRaid[];
+  /** Every raid that came due, and how it ended (monster raids spec, step 4). */
+  raidLog: RaidRecord[];
   status: 'playing' | 'won' | 'lost';
 }

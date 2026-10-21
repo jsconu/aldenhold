@@ -3,7 +3,7 @@ import { advanceMonth, armyAt, lordOf, newGame, recruit, recruitQuote } from '..
 import { buildCity, constructionQuote } from '../cities';
 import { chooseQuest, questQuote } from '../quests';
 import { parseSave } from '../saves';
-import type { GameState } from '../types';
+import type { GameState, RaidRecord } from '../types';
 import { townLocation } from '../world';
 import { marchParty, resumeBattles } from './campaignCommands';
 
@@ -24,6 +24,8 @@ export interface ChapterPlaythrough {
   completed: Record<string, number>;
   resolutions: Record<string, string>;
   actions: string[];
+  /** Every raid that came due during the tour. */
+  raids: RaidRecord[];
 }
 
 /** A conservative public-command policy, not a fixture: it never grants resources or edits game state. */
@@ -32,7 +34,7 @@ export function playChapter(seed: number, crossing: 'charter' | 'ignore' = 'char
   const envoyId = armyAt(state, townLocation(state, 'aldenhold'), 'player')!.troops.find((t) => t.type === 'militia')!.id;
   const report: ChapterPlaythrough = {
     seed, crossing, status: state.status, ending: state.endingReason, months: 0, gold: state.gold, minimumGold: state.gold,
-    battles: 0, casualties: 0, rulerAlive: true, unpaid: 0, foodShortages: 0, corrections: 0, completed: {}, resolutions: {}, actions: [],
+    battles: 0, casualties: 0, rulerAlive: true, unpaid: 0, foodShortages: 0, corrections: 0, completed: {}, resolutions: {}, actions: [], raids: [],
   };
   const note = (action: string) => {
     report.actions.push(`${state.turn}: ${action}`);
@@ -99,6 +101,7 @@ export function playChapter(seed: number, crossing: 'charter' | 'ignore' = 'char
   report.status = state.status;
   report.ending = state.endingReason;
   report.gold = state.gold;
+  report.raids = state.raidLog;
   report.rulerAlive = (lordOf(state)?.men ?? 0) > 0;
   return report;
 }

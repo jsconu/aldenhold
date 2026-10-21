@@ -1,5 +1,5 @@
 import { LAIRS, SPECIES, type LairDefinition } from '../content/lairs';
-import { DETERRENCE, raidOdds } from '../game/raids';
+import { DETERRENCE, monthsAway, raidLine, raidOdds, raidsOn, raidStakes } from '../game/raids';
 import { lairAt, lairGarrison } from '../game/lairs';
 import { CATALOG } from '../content';
 import {
@@ -331,21 +331,25 @@ function renderEncounterParty(state: GameState, preview: EncounterPreview): stri
 }
 
 /**
- * The town's raid threat (monster raids spec, step 3): a raid already on its way, or this month's odds with the
- * lairs behind them, the garrison's strength against the threat, and what it would take to deter raids.
+ * The town's raid threat (monster raids spec, steps 3 and 4): a raid already on its way and what losing it would
+ * cost, this month's odds with the lairs behind them, the garrison's strength against the threat, what it would
+ * take to deter raids, and how the town's last raids ended.
  */
 function renderRaidThreat(state: GameState, townId: string): string {
   const due = state.raids.find((r) => r.target === townId);
   const odds = raidOdds(state, townId);
-  if (!due && !odds.sources.length) return '';
+  const past = raidsOn(state, townId).slice(0, 3);
+  if (!due && !odds.sources.length && !past.length) return '';
   const name = (id: string) => (state.lairs[id]?.discovered ? LAIRS[id].name : 'an unknown lair');
   const from = odds.sources.map((s) => `${SPECIES[s.lair.species].name.toLowerCase()} from ${name(s.lair.id)}`).join(', ');
-  const warning = due ? `<p class="msg raid-warning">${esc(`Raid expected next month: ${SPECIES[LAIRS[due.lair].species].name.toLowerCase()} from ${name(due.lair)}.`)} Reinforce to ${odds.needed.toFixed(1)} defence to turn them back.</p>` : '';
+  const warning = due ? `<p class="msg raid-warning">${esc(`Raid expected ${monthsAway(due.arrives - state.turn)}: ${SPECIES[LAIRS[due.lair].species].name.toLowerCase()} from ${name(due.lair)}. ${raidStakes(state, due.lair, townId)}`)} Reinforce to ${odds.needed.toFixed(1)} defence to turn them back.</p>` : '';
+  const history = past.length ? `<p class="sub">Last raids:</p><ul class="raid-history">${past.map((r) => `<li>${esc(raidLine(r))}</li>`).join('')}</ul>` : '';
   const line = !odds.sources.length ? '' : odds.deterred
     ? `Deterred: the garrison (${odds.defense.toFixed(1)}) is at least ${DETERRENCE}× the threat (${odds.threat.toFixed(1)}). No routine raids.`
     : `${Math.round(odds.chance * 100)}% chance of a raid each month. Garrison ${odds.defense.toFixed(1)} against a threat of ${odds.threat.toFixed(1)}; ${odds.needed.toFixed(1)} would deter raids.`;
-  return `<section class="raid-threat"><h3>Raid threat</h3>${warning}${line ? `<p class="sub">${esc(line)}</p>` : ''}${from ? `<p class="sub">${esc(`In reach: ${from}.`)}</p>` : ''}</section>`;
+  return `<section class="raid-threat"><h3>Raid threat</h3>${warning}${line ? `<p class="sub">${esc(line)}</p>` : ''}${from ? `<p class="sub">${esc(`In reach: ${from}.`)}</p>` : ''}${history}</section>`;
 }
+
 
 /** A found lair: its people, how they fight and how to counter them, its garrison and plunder, or that it's cleared. */
 function renderLair(state: GameState, lair: LairDefinition): string {

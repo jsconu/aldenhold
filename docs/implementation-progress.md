@@ -707,3 +707,110 @@ Validation: 422 tests pass, including 11 new raid tests:
 - the town panel text
 
 All 20 seeded full chapter tours still win (20–33 months) with raids active. In the browser, a save holding Westmere with a raid due showed the panel warning, the map alert and tooltip. Ending the month plundered the empty town (250 gold, 150 people), kept it yours, and announced the next raid.
+
+## Monster raids: defence battles, sieges and the raid log (monster raids spec, step 4)
+
+Step 4 settles what a raid does when it arrives, keeps a record of every raid, and balances raids against garrisons with a seeded simulation.
+
+**Harassment and sieges.** Each species raids its own way, and the warning says which:
+
+| Species | Raid | Warning | If the raiders win |
+| --- | --- | --- | --- |
+| Goblins | Harassment | 1 month | Gold carried off and people driven away. The town stays yours. |
+| Trolls | Harassment | 1 month | The same. |
+| Giants | Siege | 2 months | The same, and the town's highest building loses a level. The town stays yours. |
+| Titans | Siege | 3 months | The same, and they take the town and hold it. Never your capital: that is only sacked. |
+
+A raid announced more than a month ahead gets a reminder in the chronicle the month before it arrives. The warning and the town panel both say what losing would cost.
+
+**Defence battles.** A garrison fights the raiders on the town's own field, behind its walls. A garrison that loses still cuts the plunder: raiders take gold and people in proportion to how many of them are left. Survivors of a garrison stay in the town unless titans take it, in which case they fall back. The battle's end screen says what follows: "The raid is beaten off", or what the raiders do now that they're in.
+
+**Deterrence, recalibrated.** The step 3 threat mixed how often a lair raids with how hard it hits, so two militia "deterred" giants they lose to every time. Now:
+- The threat is the strongest raiding party in reach (0.35 defence per point of lair strength).
+- Deterrence needs 1.75 times that.
+- The monthly chance comes from how drawn the lairs in reach are to the town (activity, falling off with distance), capped at 50%. It falls steadily as the garrison grows.
+
+The titans' strength went from 24 to 36, so only a real coalition deters them.
+
+**The raid log.** Every raid that comes due is recorded:
+- the month, the lair and the town;
+- how it ended: never came, turned back, beaten off, plundered, sacked or town taken;
+- whether there was a battle;
+- the gold and people lost and any building damaged;
+- the men lost on each side.
+
+The town panel lists its last three raids, and the journal has a Raids section with the realm's whole raid history. Saves are now **version 16**:
+- The raid log is validated: in month order, known lairs and towns, a known result, and no battle losses without a battle.
+- A raid battle records its lair and town.
+- A pending raid must arrive within its species' warning.
+- v15 saves gain an empty log.
+
+**Seeded balancing.** `npm run simulate:raids -- [runs] [seeds...]` runs two seeded reports (`src/game/testing/raidReport.ts`):
+- Each lair's raid is forced against four garrisons at Westmere, even where the garrison would deter it, to measure the fight.
+- Every frontier town is held for two years with the same garrison, never reinforced, with the orcs out of the way.
+
+The chapter-tour table it also prints shows no raids: the tour controller holds only Aldenhold and Millbrook, which no lair can reach. A test locks the balance in: a garrison that deters a lair must beat its raids at least 90% of the time, and raids must thin out as garrisons grow. From `npm run simulate:raids -- 100 1 2 3 4 5 6 7 8`:
+
+```
+Raids on Westmere, one lair at a time, by garrison:
+┌─────────┬─────────────────────┬───────────────────┬─────────┬────────────────┬────────┬──────────┬──────┬────────┐
+│ (index) │ lair                │ garrison          │ defence │ monthly chance │ held   │ men lost │ gold │ people │
+├─────────┼─────────────────────┼───────────────────┼─────────┼────────────────┼────────┼──────────┼──────┼────────┤
+│ 0       │ 'Briarwood Warren'  │ 'none'            │ '0.0'   │ '20%'          │ '0%'   │ '0.0'    │ 75   │ 45     │
+│ 1       │ 'Briarwood Warren'  │ 'militia'         │ '2.0'   │ 'deterred'     │ '99%'  │ '7.6'    │ 0    │ 0      │
+│ 2       │ 'Briarwood Warren'  │ 'spears and bows' │ '4.5'   │ 'deterred'     │ '100%' │ '2.1'    │ 0    │ 0      │
+│ 3       │ 'Briarwood Warren'  │ 'strong'          │ '9.5'   │ 'deterred'     │ '100%' │ '0.5'    │ 0    │ 0      │
+│ 4       │ 'Blackmire Den'     │ 'none'            │ '0.0'   │ '0%'           │ '0%'   │ '0.0'    │ 150  │ 90     │
+│ 5       │ 'Blackmire Den'     │ 'militia'         │ '2.0'   │ '0%'           │ '91%'  │ '12.8'   │ 11   │ 7      │
+│ 6       │ 'Blackmire Den'     │ 'spears and bows' │ '4.5'   │ '0%'           │ '100%' │ '3.4'    │ 0    │ 0      │
+│ 7       │ 'Blackmire Den'     │ 'strong'          │ '9.5'   │ '0%'           │ '100%' │ '1.8'    │ 0    │ 0      │
+│ 8       │ 'Stonejaw Crag'     │ 'none'            │ '0.0'   │ '9%'           │ '0%'   │ '0.0'    │ 250  │ 150    │
+│ 9       │ 'Stonejaw Crag'     │ 'militia'         │ '2.0'   │ '6%'           │ '0%'   │ '35.1'   │ 205  │ 123    │
+│ 10      │ 'Stonejaw Crag'     │ 'spears and bows' │ '4.5'   │ '2%'           │ '79%'  │ '31.6'   │ 22   │ 13     │
+│ 11      │ 'Stonejaw Crag'     │ 'strong'          │ '9.5'   │ 'deterred'     │ '100%' │ '19.9'   │ 0    │ 0      │
+│ 12      │ 'The Elder Sanctum' │ 'none'            │ '0.0'   │ '0%'           │ '0%'   │ '0.0'    │ 300  │ 540    │
+│ 13      │ 'The Elder Sanctum' │ 'militia'         │ '2.0'   │ '0%'           │ '0%'   │ '36.3'   │ 300  │ 512    │
+│ 14      │ 'The Elder Sanctum' │ 'spears and bows' │ '4.5'   │ '0%'           │ '0%'   │ '47.9'   │ 300  │ 454    │
+│ 15      │ 'The Elder Sanctum' │ 'strong'          │ '9.5'   │ '0%'           │ '0%'   │ '94.1'   │ 300  │ 308    │
+└─────────┴─────────────────────┴───────────────────┴─────────┴────────────────┴────────┴──────────┴──────┴────────┘
+Every frontier town held for two years with the same garrison (per campaign, averaged over the seeds):
+┌─────────┬───────────────────┬───────┬──────────────────┬──────┬────────┬─────────┬──────────────┬────────────────────────────────────────────────┐
+│ (index) │ garrison          │ seeds │ raidsPerTownYear │ gold │ people │ damaged │ garrisonLost │ results                                        │
+├─────────┼───────────────────┼───────┼──────────────────┼──────┼────────┼─────────┼──────────────┼────────────────────────────────────────────────┤
+│ 0       │ 'none'            │ 8     │ '0.86'           │ 1428 │ 857    │ '1.3'   │ 0            │ '{"plundered":97,"sacked":13}'                 │
+│ 1       │ 'militia'         │ 8     │ '0.55'           │ 671  │ 403    │ '1.4'   │ 89           │ '{"beaten-off":29,"sacked":13,"plundered":28}' │
+│ 2       │ 'spears and bows' │ 8     │ '0.31'           │ 146  │ 88     │ '0.3'   │ 32           │ '{"beaten-off":30,"sacked":5,"plundered":5}'   │
+│ 3       │ 'strong'          │ 8     │ '0.00'           │ 0    │ 0      │ '0.0'   │ 0            │ '{}'                                           │
+└─────────┴───────────────────┴───────┴──────────────────┴──────┴────────┴─────────┴──────────────┴────────────────────────────────────────────────┘
+Raids over full chapter tours (the controller holds only Aldenhold and Millbrook, out of every lair’s reach):
+┌─────────┬──────┬────────────────────┬────────┬───────┬─────────┬──────┬────────┬─────────┬─────────┐
+│ (index) │ seed │ ending             │ months │ raids │ battles │ gold │ people │ damaged │ results │
+├─────────┼──────┼────────────────────┼────────┼───────┼─────────┼──────┼────────┼─────────┼─────────┤
+│ 0       │ 1    │ 'chapter-complete' │ 26     │ 0     │ 0       │ 0    │ 0      │ 0       │ '{}'    │
+│ 1       │ 2    │ 'chapter-complete' │ 30     │ 0     │ 0       │ 0    │ 0      │ 0       │ '{}'    │
+│ 2       │ 3    │ 'chapter-complete' │ 27     │ 0     │ 0       │ 0    │ 0      │ 0       │ '{}'    │
+│ 3       │ 4    │ 'chapter-complete' │ 35     │ 0     │ 0       │ 0    │ 0      │ 0       │ '{}'    │
+```
+
+Reading it:
+- Two militia see off goblins.
+- Spears and bows hold against trolls and usually against giants. Giants are deterred only by a strong garrison.
+- Titans beat any single garrison, which is why their raids are rare, come with three months' warning, and stay out of reach of the starting towns.
+- Ungarrisoned frontier towns are raided about once every 14 months each. A strong garrison stops raids entirely.
+
+Validation: 429 tests pass, 18 of them raid tests (10 new here):
+- harassment without damage
+- a siege knocking down a building
+- titans taking a town but never the capital
+- stakes in the warning, and the reminder for long warnings
+- the raid battle's walls, outcome text and log entry
+- a losing garrison still cutting the plunder
+- the log surviving a save and appearing in the journal
+- forged raid records rejected
+- the v15 migration
+- the seeded balance check
+
+The build passes. 19 of 20 seeded full tours finish the chapter. Seed 12 runs out of months the same way on main, with no raids. In the browser, a two-militia Westmere warned of a giants' siege, lost the auto-resolved battle, and showed:
+- the break-in on the end screen;
+- the farms losing a level;
+- the raid in the town's "Last raids" and in the journal's Raids section.

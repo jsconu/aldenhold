@@ -4,6 +4,7 @@ import {
   terrainAt, unitLabel, reserves, FIELD_LIMIT, movementOf, previewSpell, spellAffected, spellCost, teleportDestinations,
 } from '../game/battle';
 import { nodeName } from '../game/campaign';
+import { raidAftermath } from '../game/raids';
 import { SPELLS, TERRAIN, UNIT_TYPES } from '../game/data';
 import { heroLevel, kitBonus, level } from '../game/units';
 import { hexKey, hexDistance } from '../game/hex';
@@ -151,7 +152,7 @@ export function renderBattle(state: GameState, ui: UIState): string {
     </svg></section>
     <aside class="side">
       ${renderMinimap(b, w, h)}
-      ${b.outcome ? renderOutcome(b) : sel ? renderUnit(b, sel, ui) : '<p class="hint">Click one of your units (blue), then a glowing location to move or a marked enemy to attack. Each unit may move, then attack, once a turn. Heroes (★) can cast spells instead of attacking.</p>'}
+      ${b.outcome ? renderOutcome(state, b) : sel ? renderUnit(b, sel, ui) : '<p class="hint">Click one of your units (blue), then a glowing location to move or a marked enemy to attack. Each unit may move, then attack, once a turn. Heroes (★) can cast spells instead of attacking.</p>'}
       <p class="sub">The thin bar under each troop is its morale. Below ${ROUT_AT} it breaks and runs for its own edge of the field; at ${RALLY_AT} it may rally.</p>
       ${b.walls ? `<p class="sub">${me === 'defender' ? 'You fight behind town walls: +1 defense.' : 'The enemy is behind walls: +1 defense.'}</p>` : ''}
       ${renderReserves(b)}
@@ -235,14 +236,15 @@ function renderUnit(b: Battle, u: BattleUnit, ui: UIState): string {
       ${renderSpellPreview(b, u, ui)}` : ''}`;
 }
 
-function renderOutcome(b: Battle): string {
+function renderOutcome(state: GameState, b: Battle): string {
   const won = b.owners[b.outcome!] === 'player';
   const lost = (side: 'attacker' | 'defender') =>
     b.units.filter((u) => u.side === side && !UNIT_TYPES[u.type].hero).reduce((s, u) => s + (u.startMen - u.men), 0);
   const me = playerSide(b)!;
   return `<h2>${won ? 'Victory' : 'Defeat'}</h2>
     <p>You lost ${lost(me)} men. The enemy lost ${lost(me === 'attacker' ? 'defender' : 'attacker')}.</p>
-    ${b.retreated === me ? '<p class="sub">Your troops fall back to where they came from.</p>' : ''}`;
+    ${b.retreated === me && !b.raid ? '<p class="sub">Your troops fall back to where they came from.</p>' : ''}
+    ${b.raid ? `<p class="raid-outcome">${esc(won ? `The raid is beaten off. ${nodeName(state, b.raid.town)} is safe.` : `The raiders break into ${nodeName(state, b.raid.town)}. ${raidAftermath(state, b.raid.lair, b.raid.town)}`)}</p>` : ''}`;
 }
 
 function renderReserves(b: Battle): string {

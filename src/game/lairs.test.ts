@@ -106,7 +106,7 @@ describe('the lair registry', () => {
     delete v13.lairs;
     v13.armies = v13.armies.filter((a: Army) => !['goblins', 'trolls', 'giants', 'titans'].includes(a.owner));
     const restored = parseSave(JSON.stringify(v13));
-    expect(restored.version).toBe(15);
+    expect(restored.version).toBe(16);
     expect(Object.keys(restored.lairs).sort()).toEqual(Object.keys(LAIRS).sort());
     expect(lairGarrison(restored, LAIRS.eldersanctum)!.troops.map((t) => t.type)).toEqual(['titan', 'giant', 'giant']);
     expect(() => reload(restored)).not.toThrow();
