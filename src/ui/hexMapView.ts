@@ -1,6 +1,7 @@
+import { relationWith, RELATION_LABEL } from '../game/diplomacy';
 import { FACTIONS } from '../content/factions';
 import type { Army, FactionId, GameState, HexWorld } from '../game/types';
-import { arrivalOutcome } from '../game/campaign';
+import { arrivalOutcome, nodeName } from '../game/campaign';
 import { hasRoad, hexLand, locationName, parseKey, type MarchStep } from '../game/world';
 import { pixelRects } from './pixelSprites';
 import { WESTERN_PLACE_ART } from './settlementSprites';
@@ -95,6 +96,54 @@ function symbolDefs(): string {
   return `<defs>${defs}</defs>`;
 }
 
+/**
+ * Ownership banners. Each kind has its own shape and glyph, so ownership reads in greyscale and doesn't rely on
+ * colour alone: a crowned, gold-bordered banner for yours; crossed swords for the enemy; a plain banner for a
+ * free town; a skull for a monster lair.
+ */
+export type BannerKind = 'player' | 'enemy' | 'free' | 'lair';
+
+export const BANNER_LABEL: Record<BannerKind, string> = {
+  player: 'Yours', enemy: 'Enemy-held', free: 'Free town', lair: 'Monster lair',
+};
+
+const BANNER_ART: Record<BannerKind, string> = {
+  player: `<rect x="2" y="0.5" width="9" height="7" fill="#2f4fc8" stroke="#ffd84a" stroke-width="1.3"/>
+    <path d="M3.8 5.6V2.6L5.3 4 6.5 2 7.7 4 9.2 2.6V5.6Z" fill="#ffd84a"/>`,
+  enemy: `<rect x="2" y="0.5" width="9" height="7" fill="#a51e1e" stroke="#1a0606" stroke-width="1"/>
+    <path d="M3.6 1.8 9.4 6.2M9.4 1.8 3.6 6.2" stroke="#f4ece0" stroke-width="1.2"/>`,
+  free: `<rect x="2" y="0.5" width="9" height="7" fill="#e9dfb8" stroke="#4a4535" stroke-width="0.8"/>`,
+  lair: `<rect x="2" y="0.5" width="9" height="7" fill="#262626" stroke="#0a0a0a" stroke-width="0.8"/>
+    <circle cx="6.5" cy="3.6" r="2.4" fill="#ece7d8"/><rect x="5.2" y="5.2" width="2.6" height="1.6" fill="#ece7d8"/>
+    <circle cx="5.6" cy="3.5" r="0.6" fill="#111"/><circle cx="7.4" cy="3.5" r="0.6" fill="#111"/>`,
+};
+
+function bannerDefs(): string {
+  return (Object.keys(BANNER_ART) as BannerKind[]).map((k) => `<symbol id="owner-banner-${k}" viewBox="0 0 12 13">
+    <path d="M1.4 0.2V12.8" stroke="#2a2217" stroke-width="1"/>${BANNER_ART[k]}</symbol>`).join('');
+}
+
+/** Which banner a settlement flies: a lair is always a lair; otherwise its owner decides. */
+export function bannerFor(state: GameState, townId: string): BannerKind {
+  const town = state.towns[townId];
+  if (!town || town.kind === 'lair') return 'lair';
+  return town.owner === 'player' ? 'player' : town.owner === 'neutral' ? 'free' : 'enemy';
+}
+
+/** The banner as an SVG fragment, for the map and its legend. */
+export function bannerSvg(kind: BannerKind, x: number, y: number, size = 12): string {
+  return `<use href="#owner-banner-${kind}" x="${x}" y="${y}" width="${size}" height="${size * 13 / 12}" class="owner-banner banner-${kind}"/>`;
+}
+
+/** A settlement's tooltip: name, owner (and relation), and who garrisons it. */
+function settlementTitle(state: GameState, townId: string, at: string): string {
+  const town = state.towns[townId];
+  const relation = relationWith(state, townId);
+  const owner = BANNER_LABEL[bannerFor(state, townId)] + (relation && relation !== 'self' && town?.owner === 'neutral' ? ` (${RELATION_LABEL[relation].toLowerCase()})` : '');
+  const garrison = state.armies.filter((a) => a.at === at).map((a) => armyTitle(a)).join('; ');
+  return `${nodeName(state, at)}: ${owner}. ${garrison ? `Garrison: ${garrison}.` : 'No garrison.'}`;
+}
+
 function use(name: string, owner: FactionId, cx: number, bottom: number): string {
   const rows = PLACE_SPRITES[name];
   const w = rows[0].length;
@@ -153,6 +202,11 @@ export function renderHexMap(
     const town = p.kind === 'town' ? state.towns[p.id] : undefined;
     const sprite = spriteFor(state, p.id, p.kind);
     if (sprite) places += use(sprite, town?.owner ?? 'neutral', cx, cy + 6);
+    if (town) {
+      const top = cy + 6 - (sprite ? PLACE_SPRITES[sprite].length : 12);
+      const half = sprite ? PLACE_SPRITES[sprite][0].length / 2 : 6;
+      places += `<g class="settlement-owner"><title>${esc(settlementTitle(state, p.id, `${p.col},${p.row}`))}</title>${bannerSvg(bannerFor(state, p.id), cx + half - 9, top - 18, 20)}</g>`;
+    }
     labels += `<text x="${cx}" y="${cy + 15}" class="${p.kind === 'town' ? 'place-label' : 'place-label landmark'}">${esc(p.name)}</text>`;
   }
 
@@ -186,7 +240,7 @@ export function renderHexMap(
 
   const image = terrainImage(world);
   return `<svg viewBox="0 0 ${width} ${height}" class="map overland" role="img" aria-label="Overland map">
-    ${symbolDefs()}<defs>
+    ${symbolDefs()}<defs>${bannerDefs()}
       <radialGradient id="overland-march-glow"><stop offset="0" stop-color="#f3e2a2" stop-opacity=".6"/>
         <stop offset="1" stop-color="#f3e2a2" stop-opacity="0"/></radialGradient>
       <radialGradient id="overland-danger-glow"><stop offset="0" stop-color="#e89270" stop-opacity=".75"/>

@@ -583,3 +583,13 @@ Validation: 385 tests pass, including 7 new ones (escape rules, hero command, cl
 - **Saves:** they check stances and layouts (cells in range, no two formations in one cell). Battles record each side's stance, so a saved battle keeps fighting the same way.
 
 Validation: 395 tests pass, including 10 new ones (cap on recruiting, hiring, marching and the Hold; each stance's setup; custom swap and battle placement; Defensive holding; plans travelling with a march; save checks; the panel). In the browser, the panel showed each stance's setup, and moving the spearmen to the top-front cell made the plan Custom.
+
+## Monster raids spec, step 1a: ownership banners
+
+From [monster raids and expanded battles](monster-raids-and-expanded-battles.md): every settlement on the overland map now shows who holds it without relying on colour alone.
+- **Banners:** a separate banner flies above each settlement, each with its own glyph: crowned and gold-bordered for yours, crossed swords for enemy-held, plain for a free town, a skull for a monster lair. The shapes stay distinct in greyscale.
+- **Tooltips:** hovering a banner gives the town, its owner (with the treaty relation for free towns, e.g. "Free town (allied)") and its garrison.
+- **Legend:** a legend under the map explains the four banners.
+- **Town panel:** already shows the owner and the armies there.
+
+The delivery plan for the rest of the spec is in `docs/backlog.md`. Validation: 3 new tests; 398 tests pass. In the browser, all four banners showed at default zoom (Harrowgate set to orc-held for the check).

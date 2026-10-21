@@ -529,3 +529,9 @@ button.travel-destination b { color: var(--gold); font-size: 11px; }
 .deploy-grid .cell.filled { background: #34405e; }
 .deploy-grid .cell.hero { background: #5a4a26; }
 .deploy-grid .cell.picked { outline: 2px solid var(--gold); }
+
+/* Ownership banners on the overland map and their legend: shape and glyph, not just colour. */
+.overland .settlement-owner { pointer-events: all; }
+.overland .owner-banner { filter: drop-shadow(0 0 0.6px #000); }
+.map-legend { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; margin: 6px 0 2px; font-size: 13px; }
+.map-legend span { display: inline-flex; align-items: center; gap: 5px; }
