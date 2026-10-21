@@ -57,8 +57,13 @@ export interface Spell {
 export interface HeroTraits {
   /** Morale bonus for every troop in the hero's army. */
   leadership: number;
-  /** Fighting weight in the damage formula; a hero's hit points don't make them hit harder. */
+  /** Fighting weight in the damage formula at level 1; a hero's hit points don't make them hit harder. */
   power: number;
+  /**
+   * Share of `power` gained per level after the first. Fighting classes grow fast and become very strong; casters
+   * grow slowly and rely on their spells.
+   */
+  growth: number;
   mana: number;
   spells: SpellId[];
 }

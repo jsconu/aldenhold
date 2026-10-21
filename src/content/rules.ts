@@ -21,17 +21,17 @@ export const UNIT_TYPES: Record<string, UnitType> = {
 
   // Heroes: `men` is base hit points, `cost` the hiring fee.
   lord: { id: 'lord', name: 'Lord', short: 'LRD', attack: 4, defense: 5, move: 4, range: 1, men: 30, cost: 0, upkeep: 0, recruit: null, march: 14,
-    hero: { leadership: 15, power: 12, mana: 0, spells: [] } },
+    hero: { leadership: 15, power: 12, growth: 0.2, mana: 0, spells: [] } },
   champion: { id: 'champion', name: 'Champion', short: 'CHM', attack: 5, defense: 5, move: 4, range: 1, men: 26, cost: 250, upkeep: 20, recruit: null, march: 14,
-    hero: { leadership: 10, power: 12, mana: 0, spells: [] } },
+    hero: { leadership: 10, power: 12, growth: 0.25, mana: 0, spells: [] } },
   priest: { id: 'priest', name: 'Priest', short: 'PRI', attack: 2, defense: 3, move: 3, range: 1, men: 18, cost: 300, upkeep: 20, recruit: null, march: 12,
-    hero: { leadership: 5, power: 8, mana: 12, spells: ['heal', 'rally'] } },
+    hero: { leadership: 5, power: 8, growth: 0.1, mana: 12, spells: ['heal', 'rally'] } },
   mage: { id: 'mage', name: 'Mage', short: 'MAG', attack: 1, defense: 2, move: 3, range: 1, men: 14, cost: 350, upkeep: 25, recruit: null, march: 12,
-    hero: { leadership: 0, power: 6, mana: 12, spells: [...MAGE_SPELLS] } },
+    hero: { leadership: 0, power: 6, growth: 0.05, mana: 12, spells: [...MAGE_SPELLS] } },
   warchief: { resistances: { arcane: 25 }, id: 'warchief', name: 'Orc Warchief', short: 'WAR', attack: 5, defense: 4, move: 3, range: 1, men: 26, cost: 0, upkeep: 0, recruit: null, march: 12,
-    hero: { leadership: 10, power: 12, mana: 0, spells: [] } },
+    hero: { leadership: 10, power: 12, growth: 0.2, mana: 0, spells: [] } },
   shaman: { resistances: { fire: 25 }, id: 'shaman', name: 'Orc Shaman', short: 'SHA', attack: 1, defense: 2, move: 3, range: 1, men: 14, cost: 0, upkeep: 0, recruit: null, march: 12,
-    hero: { leadership: 0, power: 6, mana: 12, spells: [...MAGE_SPELLS] } },
+    hero: { leadership: 0, power: 6, growth: 0.05, mana: 12, spells: [...MAGE_SPELLS] } },
 };
 
 const T = (t: Partial<TerrainType> & Pick<TerrainType, 'id' | 'name' | 'move' | 'text'>): TerrainType =>

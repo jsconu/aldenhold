@@ -167,8 +167,29 @@ export function unitAt(b: Battle, h: Hex): BattleUnit | undefined {
   return b.units.find((u) => u.men > 0 && !u.fled && !u.reserve && u.col === h.col && u.row === h.row);
 }
 
-export function attackOf(u: BattleUnit): number {
-  return (attackFor(u.type, u.xp) + kitBonus(u.kit).attack) * (u.gear.bow ? EQUIPMENT[u.gear.bow].attackFactor : 1);
+/** Attack value; with the battle given, a regular formation includes the command bonus of a hero nearby. */
+export function attackOf(u: BattleUnit, b?: Battle): number {
+  const base = (attackFor(u.type, u.xp) + kitBonus(u.kit).attack) * (u.gear.bow ? EQUIPMENT[u.gear.bow].attackFactor : 1);
+  return b ? base * (1 + commandOf(b, u)) : base;
+}
+
+/** How far a hero's command reaches: regular formations within this many hexes fight better. */
+export const COMMAND_RANGE = 2;
+
+/**
+ * Command: a regular formation within reach of a hero of its side gains attack equal to that hero's leadership
+ * (equipment included) plus 2 per hero level, in percent. Only the best hero nearby counts. Heroes themselves
+ * don't gain it.
+ */
+export function commandOf(b: Battle, u: BattleUnit): number {
+  if (isHero(u.type)) return 0;
+  let best = 0;
+  for (const h of b.units) {
+    if (h.side !== u.side || !isHero(h.type) || h.men <= 0 || h.fled || h.reserve || hexDistance(h, u) > COMMAND_RANGE) continue;
+    const lead = (UNIT_TYPES[h.type].hero!.leadership + kitBonus(h.kit).leadership + 2 * heroLevel(h.xp)) / 100;
+    best = Math.max(best, lead);
+  }
+  return best;
 }
 
 export function defenseOf(b: Battle, u: BattleUnit): number {
@@ -177,8 +198,10 @@ export function defenseOf(b: Battle, u: BattleUnit): number {
 }
 
 /** Fighting weight: men for a troop, a fixed value for a hero (wounds don't weaken their blows). */
-function powerOf(u: BattleUnit): number {
-  return UNIT_TYPES[u.type].hero?.power ?? u.men;
+/** Fighting weight: men for a formation; for a hero, the class's power, growing with level at the class's rate. */
+export function powerOf(u: Pick<BattleUnit, 'type' | 'xp' | 'men'>): number {
+  const hero = UNIT_TYPES[u.type].hero;
+  return hero ? hero.power * (1 + hero.growth * (heroLevel(u.xp) - 1)) : u.men;
 }
 
 function inBounds(b: Battle, h: Hex): boolean {
@@ -286,7 +309,7 @@ function takeLosses(b: Battle, u: BattleUnit, killed: number): string {
 function rollDamage(b: Battle, from: BattleUnit, to: BattleUnit, factor: number): number {
   const roll = 0.7 + random(b) * 0.6;
   const running = to.routing ? 1.5 : 1;
-  const raw = (powerOf(from) * attackOf(from) * roll * factor * running) / (defenseOf(b, to) * 4);
+  const raw = (powerOf(from) * attackOf(from, b) * roll * factor * running) / (defenseOf(b, to) * 4);
   return Math.min(to.men, Math.max(1, Math.round(raw)));
 }
 
@@ -459,6 +482,53 @@ export function retreat(b: Battle, side: Side) {
   b.retreated = side;
   b.outcome = other(side);
   b.log.push(`${side === playerSide(b) ? 'You fall' : 'The enemy falls'} back.`);
+}
+
+/**
+ * Running away (as in the original): an army that attacked can try after turn 4; an army that was attacked, or a
+ * party in a quest encounter, only after turn 8. Each try is a roll; enemies already at grips make it harder.
+ */
+export const ESCAPE_AFTER = { attacked: 4, defending: 8 } as const;
+
+export function escapeTurn(b: Battle, side: Side): number {
+  return side === 'attacker' && !b.encounter ? ESCAPE_AFTER.attacked : ESCAPE_AFTER.defending;
+}
+
+export interface EscapeQuote {
+  /** The last turn before running away is allowed (it is allowed from the turn after). */
+  after: number;
+  /** Chance a try succeeds now, 0–1. */
+  chance: number;
+  reason: string | null;
+}
+
+/** Whether `side` may try to run away now, and its chance: 75%, less 10% per enemy formation in contact, 20–90%. */
+export function escapeQuote(b: Battle, side: Side): EscapeQuote {
+  const after = escapeTurn(b, side);
+  const engaged = alive(b, other(side)).filter((e) => fighting(b, side).some((u) => hexDistance(u, e) === 1)).length;
+  const chance = Math.min(0.9, Math.max(0.2, 0.75 - 0.1 * engaged));
+  if (b.outcome) return { after, chance, reason: 'The battle is over.' };
+  if (b.active !== side) return { after, chance, reason: 'Wait for your turn.' };
+  if (b.round <= after) return { after, chance, reason: `You can try to run away after turn ${after}.` };
+  return { after, chance, reason: null };
+}
+
+/**
+ * Try to run away. On a success the side falls back (with the usual pursuit losses when the battle is applied);
+ * on a failure the enemy holds you and your turn is spent. Returns whether you got away, or null if not allowed.
+ */
+export function tryEscape(b: Battle, side: Side): boolean | null {
+  const quote = escapeQuote(b, side);
+  if (quote.reason) return null;
+  if (random(b) < quote.chance) {
+    b.log.push(`${side === playerSide(b) ? 'Your army breaks away' : 'The enemy breaks away'} (${Math.round(quote.chance * 100)}% chance).`);
+    retreat(b, side);
+    return true;
+  }
+  b.log.push(`${side === playerSide(b) ? 'You try to break away, but the enemy holds you' : 'The enemy tries to break away, but you hold them'} (${Math.round(quote.chance * 100)}% chance).`);
+  endSideTurn(b);
+  runAI(b);
+  return false;
 }
 
 /** Running troops head for their own edge of the field and leave it once they reach it. */

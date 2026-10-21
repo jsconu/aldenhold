@@ -235,7 +235,8 @@ describe('saved magic and auto-resolve', () => {
     autoResolve(b); autoResolve(restored.battle!);
     expect(restored.battle).toEqual(b);
     expect(parseSave(JSON.stringify(s))).toEqual(s);
-    expect(b.log.some((l) => l.includes('Lightning') || l.includes('Disintegrate') || l.includes('Firestorm'))).toBe(true);
+    // A level-9 mage reaches for high-level magic (level 4 and up).
+    expect(b.log.some((l) => ['Lightning', 'Quake', 'Disintegrate', 'Firestorm'].some((name) => l.includes(name)))).toBe(true);
   });
   it('keeps the catalog valid and exposes locked spells and remaining durations in battle UI', () => {
     expect(validateContent(CATALOG)).toEqual([]);

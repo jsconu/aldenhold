@@ -1,11 +1,11 @@
 import { EFFECTS } from '../content/spells';
 import {
-  attackOf, attackTargets, alive, defenseOf, isAI, knownSpells, playerSide, RALLY_AT, rangeOf, reachable, ROUT_AT, spellTargets,
+  attackOf, attackTargets, alive, commandOf, COMMAND_RANGE, defenseOf, escapeQuote, isAI, powerOf, knownSpells, playerSide, RALLY_AT, rangeOf, reachable, ROUT_AT, spellTargets,
   terrainAt, unitLabel, reserves, FIELD_LIMIT, movementOf, previewSpell, spellAffected, spellCost, teleportDestinations,
 } from '../game/battle';
 import { nodeName } from '../game/campaign';
 import { SPELLS, TERRAIN, UNIT_TYPES } from '../game/data';
-import { heroLevel, level } from '../game/units';
+import { heroLevel, kitBonus, level } from '../game/units';
 import { hexKey, hexDistance } from '../game/hex';
 import type { Battle, BattleUnit, GameState, Terrain } from '../game/types';
 import { pixelSprite, pixelSpriteDefs } from './pixelSprites';
@@ -111,7 +111,10 @@ export function renderBattle(state: GameState, ui: UIState): string {
     <span class="spacer"></span>
     ${b.outcome
       ? `<button data-action="battle-continue" class="primary">Back to the map</button>`
-      : `${me === 'attacker' ? `<button data-action="battle-retreat" class="ghost">Retreat</button>` : ''}
+      : `${me ? (() => {
+          const q = escapeQuote(b, me);
+          return `<button data-action="battle-retreat" class="ghost" ${q.reason ? `disabled title="${esc(q.reason)}"` : `title="Fails ${100 - Math.round(q.chance * 100)}% of the time and spends your turn; enemies next to your troops make it harder."`}>Run away${q.reason ? ` (after turn ${q.after})` : ` (${Math.round(q.chance * 100)}%)`}</button>`;
+        })() : ''}
          <button data-action="battle-auto" class="ghost">Auto-resolve</button>
          <button data-action="battle-end" class="primary">End turn</button>`}
   </header>
@@ -178,7 +181,9 @@ function renderUnit(b: Battle, u: BattleUnit, ui: UIState): string {
     <dl class="stats">
       <dt>${t.hero ? 'Health' : 'Men'}</dt><dd>${u.men} / ${u.maxMen}</dd>
       ${t.hero ? `<dt>Leadership</dt><dd>+${t.hero.leadership} morale to the army</dd>` : `<dt>Morale</dt><dd>${u.morale}${u.routing ? ' (running)' : ''}</dd>`}
-      <dt>Attack</dt><dd>${attackOf(u).toFixed(1)}</dd>
+      <dt>Attack</dt><dd>${attackOf(u, b).toFixed(1)}${commandOf(b, u) ? ` <small>(+${Math.round(commandOf(b, u) * 100)}% from a hero's command)</small>` : ''}</dd>
+      ${t.hero ? `<dt>Hitting power</dt><dd>${powerOf(u).toFixed(1)} <small>(grows ${Math.round(t.hero.growth * 100)}% a level)</small></dd>
+      <dt>Command</dt><dd>+${t.hero.leadership + kitBonus(u.kit).leadership + 2 * heroLevel(u.xp)}% attack to formations within ${COMMAND_RANGE} hexes</dd>` : ''}
       <dt>Defense</dt><dd>${defenseOf(b, u)}</dd>
       <dt>Move</dt><dd>${u.moved ? 'done' : movementOf(u)}</dd>
       ${t.range > 1 ? `<dt>Range</dt><dd>${rangeOf(b, u)} (not when an enemy is next to it)</dd>` : ''}
