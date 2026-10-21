@@ -1,6 +1,7 @@
+import { isHero } from './units';
 import { describe, expect, it } from 'vitest';
 import { stepTowardTarget } from './ai';
-import { alive, attackTargets, autoResolve, createBattle, reachable } from './battle';
+import { alive, attackTargets, autoResolve, createBattle, reachable, deploymentZone } from './battle';
 import {
   applyBattle, armyAt, endTurn, makeTroop, monthlyIncome, monthlyUpkeep, moveTroops, newGame, recruit,
 } from './campaign';
@@ -98,7 +99,8 @@ describe('marching', () => {
     expect(s.battle).toBeNull();
     expect(s.towns.fenwick.owner).toBe('player');
     expect(armyAt(s, 'fenwick', 'neutral')).toBeUndefined();
-    expect(armyAt(s, 'fenwick', 'player')!.troops.every((t) => t.xp === 1)).toBe(true);
+    // Every formation gains 1 XP; heroes gain more for their deeds.
+    expect(armyAt(s, 'fenwick', 'player')!.troops.every((t) => (isHero(t.type) ? t.xp >= 1 : t.xp === 1))).toBe(true);
   });
 
   it('a beaten attacker falls back to where it came from', () => {
@@ -147,13 +149,14 @@ describe('orc AI', () => {
 });
 
 describe('battle', () => {
-  it('deploys each army on its own edge', () => {
+  it('deploys each army in its own zone, the attacker west of the defender', () => {
     const s = newGame(1);
     const a = army(s, 'player', 'x', ['militia', 'archers']);
     const d = army(s, 'orcs', 'x', ['warband']);
     const b = createBattle('x', a, d, false, 7);
-    expect(alive(b, 'attacker').every((u) => u.col <= 2)).toBe(true);
-    expect(alive(b, 'defender').every((u) => u.col >= b.width - 3)).toBe(true);
+    expect(alive(b, 'attacker').every((u) => deploymentZone(b, 'attacker').cols.includes(u.col))).toBe(true);
+    expect(alive(b, 'defender').every((u) => deploymentZone(b, 'defender').cols.includes(u.col))).toBe(true);
+    expect(Math.max(...alive(b, 'attacker').map((u) => u.col))).toBeLessThan(Math.min(...alive(b, 'defender').map((u) => u.col)));
   });
 
   it('units cannot move through others and stop next to enemies', () => {
@@ -176,6 +179,7 @@ describe('battle', () => {
     const d = army(s, 'orcs', 'x', ['warband', 'warband']);
     const b = createBattle('x', a, d, false, 7);
     const archer = alive(b, 'attacker').find((u) => u.type === 'archers')!;
+    Object.assign(alive(b, 'attacker').find((u) => u.type === 'militia')!, { col: 0, row: 0 });
     archer.col = 5;
     archer.row = 4;
     const [far, near] = alive(b, 'defender');

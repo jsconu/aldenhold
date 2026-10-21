@@ -74,7 +74,8 @@ export function playQuestExpedition(seed: number, options: {
         partyIds.push(priestId);
         note('hire priest');
       }
-    } else if (fighterId === undefined && !(options.cityChoices && state.quests.Q01.status === 'available')) {
+    }
+    if (fighterId === undefined && !(options.cityChoices && state.quests.Q01.status === 'available')) {
       // Hire only once the time-limited granary decision is settled, so its gold isn't spent first.
       const offer = state.offers.find((o) => (o.type === 'champion' || o.type === 'mage') && !hireQuote(state, o).reason);
       if (offer) {
@@ -83,15 +84,12 @@ export function playQuestExpedition(seed: number, options: {
         note(`hire ${offer.type} ${offer.name}`);
       }
     }
-    // The fighter makes its own way to the Old Watchtower and joins the party there.
+    // The fighter joins the party when they meet (see the march below).
     const partyArmy = () => state.armies.find((a) => a.owner === 'player' && a.troops.some((t) => partyIds.includes(t.id)));
     if (fighterId !== undefined && !partyIds.includes(fighterId)) {
       if (partyArmy()?.troops.some((t) => t.id === fighterId)) {
         partyIds.push(fighterId);
         note('fighter joins the expedition');
-      } else {
-        const leg = marchParty(state, [fighterId], 'watchtower');
-        if (leg) note(`fighter toward watchtower: ${leg}`);
       }
     }
     if (state.quests.M01.status === 'available') {
@@ -156,6 +154,12 @@ export function playQuestExpedition(seed: number, options: {
       : caravan.status !== 'succeeded' ? 'mine' : state.quests.Q02.status !== 'succeeded' ? 'quarry' : 'watchtower';
     // A lost fight can strip the party of its soldiers. Like a player, rebuild before trying again: raise
     // replacements at the capital and march them to the party's next stop, where they join it.
+    // If the whole party fell, the reinforcements become the party.
+    if (!partyArmy() && reinforcementIds.some(alive)) {
+      partyIds.splice(0, partyIds.length, ...reinforcementIds.filter(alive));
+      reinforcementIds.length = 0;
+      note('reinforcements take over the expedition');
+    }
     for (const id of [...reinforcementIds]) {
       const party = state.armies.find((a) => a.owner === 'player' && a.troops.some((t) => partyIds.includes(t.id)));
       if (!alive(id)) reinforcementIds.splice(reinforcementIds.indexOf(id), 1);
@@ -173,6 +177,11 @@ export function playQuestExpedition(seed: number, options: {
         note('recruit spearmen to reinforce the expedition');
       }
     }
+    // The fighter makes its own way to wherever the party is heading and joins it there.
+    if (fighterId !== undefined && !partyIds.includes(fighterId)) {
+      const leg = marchParty(state, [fighterId], destination, destination === 'fenwick');
+      if (leg) note(`fighter toward ${destination}: ${leg}`);
+    }
     if (reinforcementIds.length) {
       const leg = marchParty(state, reinforcementIds, destination, destination === 'fenwick');
       if (leg) note(`reinforcements toward ${destination}: ${leg}`);
@@ -189,6 +198,8 @@ export function playQuestExpedition(seed: number, options: {
       if (quest === 'Q03' && !partyArmy()?.troops.some((t) => t.id === fighterId)) continue;
       // Don't take a monster or a goblin warren on without soldiers; wait for reinforcements.
       if ((choice === 'hunt' || choice === 'raid') && partyFormations() < 2) continue;
+      // The cyclops is a hero-led fight (docs/encounter-odds.md): wait for a hero rather than feed it soldiers.
+      if (choice === 'hunt' && !partyArmy()?.troops.some((t) => partyIds.includes(t.id) && UNIT_TYPES[t.type].hero)) continue;
       must(chooseQuest(state, quest, choice));
       note(`${quest}: ${choice}`);
       fight();

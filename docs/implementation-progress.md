@@ -583,3 +583,32 @@ Validation: 385 tests pass, including 7 new ones (escape rules, hero command, cl
 - **Saves:** they check stances and layouts (cells in range, no two formations in one cell). Battles record each side's stance, so a saved battle keeps fighting the same way.
 
 Validation: 395 tests pass, including 10 new ones (cap on recruiting, hiring, marching and the Hold; each stance's setup; custom swap and battle placement; Defensive holding; plans travelling with a march; save checks; the panel). In the browser, the panel showed each stance's setup, and moving the spearmen to the top-front cell made the plan Custom.
+
+## Monster raids spec, step 1b: bigger, scrollable battlefields
+
+**Field size by the fight** (`BATTLE_SIZES`):
+
+| Size | When | Field | Round limit |
+| --- | --- | --- | --- |
+| Skirmish | up to 6 formations in all | 18×12 | 20 |
+| Field | up to 14 | 24×16 | 22 |
+| Major | more than 14, or against town walls | 30×20 | 24 |
+
+These are smaller than the spec's suggested 24–64 square fields on purpose. With moves of 3–6 hexes, the 12-formation army cap and a 20-ish round limit, most of a fight on those fields would be walking. They're a starting point to tune after playtesting.
+
+- **Deployment:** the two 3×9 zones sit in the middle with their fronts 7 columns apart, so armies meet in two or three turns. The extra room is flanks and ground. Custom tactics placements map into the zone wherever it sits.
+- **Terrain:** generated from the overland land type, as before. On top of the scattered ground: groves, ridges, ruined hamlets, marsh pools and rock walls with gaps (chokepoints), varying by land; a stream winds between the armies; sometimes a holy spring. Deployment zones stay open. If rock cuts the armies off from each other, a gap is cleared, so the two zones are always connected.
+- **Camera:** the battlefield draws at a readable size in a scrolling frame.
+  - Drag to pan; a drag never counts as a click, so no accidental moves or attacks.
+  - Arrow keys pan; − and + zoom (0.5×–1.6×).
+  - "Centre" scrolls to the selected formation.
+  - The minimap shows the ground, both armies and the visible area; click it to look there.
+  - The view stays put between actions, and a new battle opens on your own troops.
+- **Saves:** they accept the new sizes and still load battles saved on the old 12×9 field.
+- **Balance:** see [encounter odds](encounter-odds.md). The cyclops was retuned for the longer approach, and fixes to the seeded expedition controller are listed there.
+
+Validation: 401 tests pass, including 6 new ones (sizing, zones, connected and varied terrain for every land, round limit, old saves, rendering). Codex's playthrough tests now use seeds that still produce the scenarios they cover. In the browser, on a 24×16 field:
+- dragging panned 100 px and moved no troops;
+- the arrow keys scrolled and zoom worked;
+- the minimap frame followed the view;
+- a plain click still moved a formation.

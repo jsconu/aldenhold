@@ -71,3 +71,23 @@ Sweep of the minotaur's strength before the decision (300 fights each):
 Over the 20 documented seeds:
 - **The expedition tour** finishes all three optional quests in 12–17 months for 19 seeds. Seed 8 is the rare case where the tower pair loses (both heroes die); its replacements don't arrive within the tour's 24 months.
 - **The full buy/convict chapter tour** wins with all 20 seeds, in 17–33 months. Seed 3's 33 months include losing the cyclops fight once, rebuilding and winning.
+
+## After the bigger battlefields (monster raids spec, step 1b)
+
+Encounters now fight on an 18×12 skirmish field instead of 12×9. The longer approach gives the cyclops more boulder throws: the priest expedition fell to 82% wins with 18% hero deaths. The cyclops now has **16 men (was 18) and its boulder does ×2 damage (was ×2.5)**:
+
+| Party | Wins | Hero died |
+| --- | --- | --- |
+| Lord with the starting army | 96% | 1% |
+| Priest with militia, spearmen and archers | 92% | 9% |
+| Militia, spearmen and archers (no hero) | 59% | 0% |
+
+The minotaur is unchanged. A champion and priest win 89% with 2% hero deaths; about one fight in ten now runs out of turns instead of ending.
+
+The seeded expedition controller now:
+- **Joins up:** sends its hired fighter to wherever the party is heading, rather than only to the tower.
+- **Needs a hero for the cyclops:** won't hunt it without one.
+- **Rebuilds a wiped-out party** from its reinforcements.
+- **Hires priests and fighters independently,** so replacing one never waits on the other.
+
+With those fixes, the full buy/convict chapter tours win on all 20 documented seeds in 20–33 months, and the plain expedition finishes all three optional quests in 13–23 months.

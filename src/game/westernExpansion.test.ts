@@ -4,7 +4,7 @@ import { WESTERN_ADDED_TOWNS } from '../content/campaigns/westernExpansion';
 import { WESTERN_REVISION_1_ROWS, WESTERN_REVISION_1_TOWNS } from '../content/campaigns/westernRevision1';
 import { validateContent } from '../content/validate';
 import { renderCampaign } from '../ui/campaignView';
-import { autoResolve, playerEndTurn, retreat } from './battle';
+import { autoResolve, playerEndTurn, retreat, deploymentZone } from './battle';
 import { advanceMonth, applyBattle, armyAt, makeTroop, moveTroops, neighborsOf, newGame, startLocation } from './campaign';
 import { advanceCities, buildCity, endowment } from './cities';
 import { beginRefit } from './equipment';
@@ -118,7 +118,10 @@ describe('additive Western map migration', () => {
     expect(chooseQuest(old, 'Q02', 'hunt')).toBeNull();
     const cyclops = old.battle!.units.find((u) => u.type === 'cyclops')!;
     const target = old.battle!.units.find((u) => u.side === 'attacker' && u.type === 'militia')!;
-    cyclops.col = 6; cyclops.row = 4; target.col = 3; target.row = 4;
+    // The target at the front of its zone, the cyclops 3 hexes out, everyone else back where they can't interfere.
+    const zone = deploymentZone(old.battle!, 'attacker');
+    old.battle!.units.filter((u) => u.side === 'attacker' && u !== target).forEach((u, i) => { u.col = zone.cols[2]; u.row = zone.top + 2 + i; });
+    target.col = zone.cols[0]; target.row = zone.top; cyclops.col = zone.cols[0] + 3; cyclops.row = zone.top;
     playerEndTurn(old.battle!); expect(cyclops.aim).toBeDefined();
     const current = migrate(old); preserved(old, current);
     autoResolve(old.battle!); autoResolve(current.battle!);
