@@ -44,17 +44,23 @@ export function renderBattle(state: GameState, ui: UIState): string {
   const destinations = sel && chosen && ui.battleSpell === 'teleport' ? new Set(teleportDestinations(b, sel, chosen).map(hexKey)) : new Set<string>();
 
   let ground = '';
+  let groundArt = '';
+  let highlights = '';
   let overlay = '';
   for (let col = 0; col < b.width; col++) {
     for (let row = 0; row < b.height; row++) {
       const [cx, cy] = center(col, row);
       const kind = b.terrain[col][row];
       const t = TERRAIN[kind];
-      ground += `<polygon points="${hexPoints(cx, cy)}" class="hex ${kind}"/>${terrainArt(kind, cx, cy, col * 31 + row * 7)}`;
+      ground += `<polygon points="${hexPoints(cx, cy, S + 1)}" class="hex ${kind}"/>`;
+      groundArt += terrainArt(kind, cx, cy, col * 31 + row * 7);
       // A transparent hit area on top of the art carries the click, the tooltip and the move highlight.
       const reachable = (reach.has(hexKey({ col, row })) && !casting) || destinations.has(hexKey({ col, row }));
       const area = !!(chosen && ui.battleSpell && SPELLS[ui.battleSpell].radius && hexDistance(chosen, { col, row }) <= SPELLS[ui.battleSpell].radius);
-      overlay += `<polygon points="${hexPoints(cx, cy)}" class="hit${reachable ? ' reach' : ''}${area ? ' spell-area' : ''}" data-action="hex" data-col="${col}" data-row="${row}">
+      // Circular glows communicate move/spell ranges without drawing the underlying hex lattice.
+      if (reachable || area) highlights += `<ellipse cx="${cx}" cy="${cy}" rx="21" ry="17"
+        class="battle-spot${reachable ? ' battle-spot-reach' : ''}${area ? ' battle-spot-spell' : ''}" />`;
+      overlay += `<polygon points="${hexPoints(cx, cy)}" class="hit" data-action="hex" data-col="${col}" data-row="${row}">
         <title>${t.name}: ${t.text}</title></polygon>`;
     }
   }
@@ -73,7 +79,7 @@ export function renderBattle(state: GameState, ui: UIState): string {
       const morale = hero ? 1 : u.morale / 100;
       return `<g class="${cls}" data-action="hex" data-col="${u.col}" data-row="${u.row}">
         <title>${esc(unitLabel(b, u))}: ${u.men} ${hero ? 'HP' : `men, morale ${u.morale}${u.routing ? ', running' : ''}`}</title>
-        <polygon points="${hexPoints(cx, cy, S - 3)}" class="mark"/>
+        <ellipse cx="${cx}" cy="${cy + 4}" rx="21" ry="17" class="mark"/>
         <ellipse cx="${cx}" cy="${cy + 9}" rx="15" ry="5" class="base"/>
         ${pixelSprite(u.type, mine ? 'mine' : 'foe', cx, cy + 10, 2.5, u.side === 'defender')}
         ${hero ? `<path d="m${cx + 15} ${cy - 23} 1.5 3 3.3.5-2.4 2.3.6 3.3-3-1.6-3 1.6.6-3.3-2.4-2.3 3.3-.5z" class="star"/>` : ''}
@@ -106,9 +112,30 @@ export function renderBattle(state: GameState, ui: UIState): string {
          <button data-action="battle-end" class="primary">End turn</button>`}
   </header>
   <main class="battle">
-    <section class="field-wrap"><svg viewBox="0 0 ${w.toFixed(0)} ${h.toFixed(0)}" class="field">${spriteDefs()}<defs>${pixelSpriteDefs()}</defs>${ground}${overlay}${units}</svg></section>
+    <section class="field-wrap"><svg viewBox="0 0 ${w.toFixed(0)} ${h.toFixed(0)}" class="field">
+      ${spriteDefs()}
+      <defs>${pixelSpriteDefs()}
+        <filter id="battle-terrain-blend" x="-5%" y="-5%" width="110%" height="110%">
+          <feGaussianBlur stdDeviation="8"/>
+        </filter>
+        <radialGradient id="battle-selection-glow">
+          <stop offset="0%" stop-color="#e7e0aa" stop-opacity=".45"/>
+          <stop offset="75%" stop-color="#e4d18f" stop-opacity=".2"/>
+          <stop offset="100%" stop-color="#e4d18f" stop-opacity="0"/>
+        </radialGradient>
+        <radialGradient id="battle-spell-glow">
+          <stop offset="0%" stop-color="#f7a254" stop-opacity=".5"/>
+          <stop offset="100%" stop-color="#f7a254" stop-opacity="0"/>
+        </radialGradient>
+      </defs>
+      <rect x="0" y="0" width="${w}" height="${h}" class="battle-earth"/>
+      <g class="battle-terrain-wash" filter="url(#battle-terrain-blend)">${ground}</g>
+      <g class="battle-surface-details" pointer-events="none">${groundArt}</g>
+      <g class="battle-move-highlights" pointer-events="none">${highlights}</g>
+      ${overlay}${units}
+    </svg></section>
     <aside class="side">
-      ${b.outcome ? renderOutcome(b) : sel ? renderUnit(b, sel, ui) : '<p class="hint">Click one of your units (blue), then a highlighted hex to move or a red-ringed enemy to attack. Each unit may move, then attack, once a turn. Heroes (★) can cast spells instead of attacking.</p>'}
+      ${b.outcome ? renderOutcome(b) : sel ? renderUnit(b, sel, ui) : '<p class="hint">Click one of your units (blue), then a glowing location to move or a marked enemy to attack. Each unit may move, then attack, once a turn. Heroes (★) can cast spells instead of attacking.</p>'}
       <p class="sub">The thin bar under each troop is its morale. Below ${ROUT_AT} it breaks and runs for its own edge of the field; at ${RALLY_AT} it may rally.</p>
       ${b.walls ? `<p class="sub">${me === 'defender' ? 'You fight behind town walls: +1 defense.' : 'The enemy is behind walls: +1 defense.'}</p>` : ''}
       ${renderReserves(b)}
@@ -156,7 +183,7 @@ function renderUnit(b: Battle, u: BattleUnit, ui: UIState): string {
       ${spells.length ? `<dt>Mana</dt><dd>${u.mana}</dd>` : ''}
     </dl>
     ${spells.length ? `<div class="spells">${spellButtons}</div>
-      <p class="sub">${ui.battleSpell ? `${esc(SPELLS[ui.battleSpell].text)} Select a highlighted formation${ui.battleSpell === 'teleport' ? ', then a highlighted empty hex' : ''}, review the effect and confirm.` : 'Choose a spell, then select a target. Locked spells show their required level. Level 10 reduces mana cost by one (minimum two).'}</p>
+      <p class="sub">${ui.battleSpell ? `${esc(SPELLS[ui.battleSpell].text)} Select a highlighted formation${ui.battleSpell === 'teleport' ? ', then a highlighted empty location' : ''}, review the effect and confirm.` : 'Choose a spell, then select a target. Locked spells show their required level. Level 10 reduces mana cost by one (minimum two).'}</p>
       ${renderSpellPreview(b, u, ui)}` : ''}`;
 }
 
