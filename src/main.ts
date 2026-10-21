@@ -1,6 +1,6 @@
 import './style.css';
 import {
-  attack, attackTargets, autoResolve, castSpell, moveUnit, playerEndTurn, playerSide, reachable, retreat, spellTargets, teleportDestinations, unitAt,
+  attack, attackTargets, autoResolve, castSpell, escapeQuote, moveUnit, playerEndTurn, playerSide, reachable, spellTargets, teleportDestinations, tryEscape, unitAt,
 } from './game/battle';
 import { applyBattle, armyAt, campaignOf, endTurn, hireHero, moveTroops, newGame, recruit, setTax } from './game/campaign';
 import { townLocation } from './game/world';
@@ -275,9 +275,13 @@ function onAction(action: string, data: DOMStringMap) {
     case 'battle-auto':
       autoResolve(state.battle!);
       break;
-    case 'battle-retreat':
-      retreat(state.battle!, playerSide(state.battle!)!);
+    case 'battle-retreat': {
+      const b = state.battle!;
+      const got = tryEscape(b, playerSide(b)!);
+      ui.message = got === null ? escapeQuote(b, playerSide(b)!).reason ?? '' : got ? '' : 'The enemy held you; your turn is spent.';
+      if (got === false) { ui.battleUnit = null; ui.battleSpell = null; }
       break;
+    }
     case 'battle-continue':
       applyBattle(state, state.battle!);
       ui.battleUnit = null;

@@ -534,3 +534,28 @@ Validation: a new render test; 377 tests pass. In the browser, the spell was cho
 - **Results over 20 seeds:** full chapter tours win with all 20 seeds in 17–33 months. Expedition tours finish in 12–17 months for 19 seeds; seed 8 loses the tower fight and runs out of time.
 
 Validation: 377 tests pass, including a minotaur difficulty guard.
+
+## Running away, hero command and class power (owner requests)
+
+**Running away (as in the original).**
+- **When:** an army that attacked can try after turn 4; an army that was attacked, or a party in a quest encounter, only after turn 8. Defenders can now run too; before, only attackers could withdraw, at any time.
+- **The roll:** each try succeeds with a chance shown on the button: 75%, less 10% per enemy formation in contact with yours, never below 20% or above 90%. A failed try spends the turn ("the enemy holds you"). A success falls back with the usual pursuit losses.
+- **Not stored:** the turn rule comes from who attacked and whether it's an encounter, so saves need nothing new.
+
+**Hero command.** Each regular formation within 2 hexes of one of its heroes gains attack equal to that hero's leadership (equipment included) plus 2 per hero level, in percent. Only the best hero nearby counts, a fallen hero commands no one, and heroes don't command each other. For example: lord +17% at level 1 and +35% at level 10; champion +12%; priest +7%; mage +2%. The battle panel shows the bonus on each formation and the command on each hero.
+
+**Hero hitting power by class.** A hero's fighting weight is now the class's power at level 1, growing each level by the class rate. That is on top of the existing +10% attack per level.
+
+| Class | Power at level 1 | Growth per level | Power at level 10 |
+| --- | --- | --- | --- |
+| Champion | 12 | 25% | 39 |
+| Lord (Knight) | 12 | 20% | 33.6 |
+| Orc Warchief | 12 | 20% | 33.6 |
+| Priest | 8 | 10% | 15.2 |
+| Mage / Orc Shaman | 6 | 5% | 8.7 |
+
+A level-10 champion out-hits three times a formation of veteran knights. Casters stay light hitters and rely on spells.
+
+**Effect on balance:** at level 1 the change is small. Encounter odds are within a point of before and all seeded playthroughs pass. The difference grows as heroes level. One magic test expected the AI to cast Lightning, Disintegrate or Firestorm; with harder-hitting heroes the battle went differently and the mage opened with Quake (level 6), which the test now also accepts.
+
+Validation: 385 tests pass, including 7 new ones (escape rules, hero command, class power). In the browser, the run-away button stayed disabled through turn 4, then offered 75% on turn 5 and got away. The lord's panel showed its power and command, and a spearmen formation in range showed +17% attack.
