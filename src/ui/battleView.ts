@@ -107,6 +107,7 @@ export function renderBattle(state: GameState, ui: UIState): string {
     <h1>Battle at ${esc(nodeName(state, b.at))}</h1>
     <span class="date">Round ${Math.min(b.round, 20)} of 20</span>
     <span class="turn ${myTurn ? 'mine' : ''}">${turnText}</span>
+    ${sel ? renderCastBar(b, sel, ui) : ''}
     <span class="spacer"></span>
     ${b.outcome
       ? `<button data-action="battle-continue" class="primary">Back to the map</button>`
@@ -207,6 +208,25 @@ function renderReserves(b: Battle): string {
   return `<details class="log reserves" open><summary>Reserves (${held.length} formations)</summary>
     <p class="sub">Only the first ${FIELD_LIMIT} formations in each army deploy. Reserves stay off-field for the entire battle: no attacks, spells, combat losses or experience. They retreat with the army and share pursuit losses; if cut off, they scatter with it.</p>
     <ul>${held.map((u) => `<li>${esc(unitLabel(b, u))}: ${u.men} ${UNIT_TYPES[u.type].hero ? 'HP' : 'men'} — reserve (field full)</li>`).join('')}</ul></details>`;
+}
+
+/**
+ * The spell being aimed, in the always-visible top bar: what to click, then what the cast will do and a Cast
+ * button. The full preview also sits in the side panel, which on smaller screens is below the field.
+ */
+function renderCastBar(b: Battle, caster: BattleUnit, ui: UIState): string {
+  const id = ui.battleSpell;
+  if (!id) return '';
+  const target = b.units.find((u) => u.id === ui.battleTarget);
+  const preview = target ? previewSpell(b, caster, id, target, ui.battleDestination ?? undefined) : null;
+  if (!preview) {
+    const step = id === 'teleport' && target ? 'click an empty highlighted hex to send them to' : 'click a highlighted target';
+    return `<span class="cast-bar">${SPELLS[id].name}: ${step}.</span>`;
+  }
+  const damage = preview.impacts.reduce((n, hit) => n + hit.damage, 0);
+  const effect = damage ? `${damage} damage` : preview.impacts.some((hit) => hit.healing) ? 'healing' : 'effect shown below';
+  return `<span class="cast-bar">${SPELLS[id].name} on ${esc(unitLabel(b, target!))}: ${effect}.
+    <button data-action="spell-confirm" class="primary">Cast ${SPELLS[id].name}</button> <small>or click the target again</small></span>`;
 }
 
 function renderSpellPreview(b: Battle, caster: BattleUnit, ui: UIState): string {
