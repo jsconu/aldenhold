@@ -3,7 +3,7 @@ import { autoResolve, createBattle, isAI, runAI } from './battle';
 import { getCampaign } from '../content';
 import { hasPassage, relationWith } from './diplomacy';
 import { newTreasury, recordPurchase, settleTreasury, type CashFlow } from './economy';
-import { advanceQuests, endEncounter, newQuestState, onTownOwnershipChange, unlockQuests } from './quests';
+import { settleHeldQuests, advanceQuests, endEncounter, newQuestState, onTownOwnershipChange, unlockQuests } from './quests';
 import { advanceCities, cityMaintenance, startingCities, type CityPhaseResult } from './cities';
 import { basicLoadout, finishRefits, troopUpkeep } from './equipment';
 import { HERO_NAMES, HIREABLE_HEROES, UNIT_TYPES } from './data';
@@ -19,6 +19,8 @@ const MAX_TAX = 50;
 const MIN_POP_AFTER_RECRUIT = 500;
 const OFFER_CHANCE = 0.3;
 const MAX_OFFERS = 2;
+/** Prevent a mid-phase victory from cancelling attacks that belong to the same month. */
+const runningMonths = new WeakSet<GameState>();
 const OFFER_MONTHS = 3;
 
 export function newGame(seed = Math.floor(Math.random() * 2 ** 31), campaignId: CampaignId = 'valley-quickplay'): GameState {
@@ -409,6 +411,8 @@ export function startBattle(state: GameState, attackerId: number, defenderId: nu
 /** Write the battle's losses back to the armies, move the loser out, and hand over the town. */
 export function applyBattle(state: GameState, b: Battle) {
   if (!b.outcome) return;
+  // Optional encounters always belong to the active battle; settling a stale copy must not repeat XP.
+  if (b.encounter && state.battle !== b) return;
   const attacker = findArmy(state, b.attackerId);
   const defender = findArmy(state, b.defenderId);
   for (const army of [attacker, defender]) {
@@ -443,8 +447,7 @@ export function applyBattle(state: GameState, b: Battle) {
   // A quest encounter: nobody falls back or takes the site; the quest decides what follows.
   if (b.encounter) {
     endEncounter(state, b);
-    checkStatus(state);
-    startNextPending(state);
+    finishBattles(state);
     return;
   }
 
@@ -455,8 +458,16 @@ export function applyBattle(state: GameState, b: Battle) {
   } else if (b.outcome === 'defender' && survives(attacker)) {
     fallBack(state, attacker);
   }
+  finishBattles(state);
+}
+
+function finishBattles(state: GameState) {
   checkStatus(state);
   startNextPending(state);
+  if (!runningMonths.has(state) && !state.battle && !state.pending.length) {
+    settleHeldQuests(state);
+    checkStatus(state);
+  }
 }
 
 /** Survivors of a lost battle: attackers go back where they came from; defenders to a safe neighbor. */
@@ -505,6 +516,7 @@ export function endingReason(state: GameState): GameState['endingReason'] {
   const { capital, lair } = campaignOf(state);
   if (state.towns[capital].owner !== 'player') return 'capital-lost';
   if (!lordOf(state)?.men) return 'lord-dead';
+  if (state.battle || state.pending.length || runningMonths.has(state)) return null;
   if (state.towns[lair].owner === 'player') return 'lair-captured';
   const chapter = campaignOf(state).chapter;
   if (chapter && state.quests[chapter.finale]?.status === 'succeeded') return 'chapter-complete';
@@ -674,14 +686,18 @@ export function advanceMonth(state: GameState): MonthReport | null {
   if (state.battle || state.status !== 'playing') return null;
   const report: MonthReport = { month: state.turn, phases: [], ledger: null, battlePending: false };
   const ctx: MonthContext = { maintenance: [], cities: null, ledger: null };
-  for (const phase of MONTH_PHASES) {
-    const notes = phase.run(state, ctx);
-    for (const note of notes) {
-      if (note.deed) deed(state, note.deed.kind, note.text, note.deed.place);
-      else log(state, note.text);
+  runningMonths.add(state);
+  try {
+    for (const phase of MONTH_PHASES) {
+      const notes = phase.run(state, ctx);
+      for (const note of notes) {
+        if (note.deed) deed(state, note.deed.kind, note.text, note.deed.place);
+        else log(state, note.text);
+      }
+      report.phases.push({ id: phase.id, notes });
     }
-    report.phases.push({ id: phase.id, notes });
-  }
+  } finally { runningMonths.delete(state); }
+  finishBattles(state);
   report.ledger = ctx.ledger;
   report.battlePending = state.battle !== null || state.pending.length > 0;
   return report;

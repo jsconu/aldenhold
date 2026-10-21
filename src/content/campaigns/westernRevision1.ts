@@ -1,0 +1,33 @@
+/** Immutable coordinates/terrain of the released Western Realm revision 1, used to verify additive migration. */
+export const WESTERN_REVISION_1_ROWS = ['..fffff..hh~~~~~.f...........mmmbb.bb.b.',
+  'fFFFFFfhhh~~~~~fffff......h.mmm.bbbbmmmb',
+  'FFFFFFfhhhh~~~~ffffff....hhhmmm.bbb.mmm.',
+  'FFFFFFfhhhhh~~.fffff....hhhhmmm.bbbmmmmm',
+  'fFFFFFffffh..~......,,...hhhmmm.bbbmmmmb',
+  'fFFFFFfffff..~....,,,,,...h..mmmbbb.mmmb',
+  'ffffffffff...~...,,,,,,,....mmm.bb.bbb..',
+  'ffffffff,f..~..fff,,,,hhhh..mmm..bb.b.bb',
+  '.~fffff,f,..~..fff..,hhhhhh.mmm.bbbbb.bb',
+  '~~~.....,...~..fff....hhhhhhmmm.bb.bbb.b',
+  '~~~.........~..ffff,..hhhhh..mmmbbb..bbb',
+  '~~~.,,......~..fff,,,.hhhh..mmm..bhhhb.b',
+  '~~~~,,,....~~...f.,,,...h..hhhhhhbhhhhbb',
+  '~~~,,,,,...~......,,,.......mmm.bbhhhbb.',
+  '~~~,,,,,...~...........hhh..mmm.b.bb..bb',
+  '~~~,,,,....~........f..hhhh..mmmbbb..bb.',
+  '.~,,,,,.h..~......fffffffh..mmm..bbbbbb.',
+  '..ff,..hhh.~......fffffff...mmm.bbb.bbb.',
+  '.ffff...h..~......ffffFfff..mmm..bffb.b.',
+  'ffffff,.....~.....ffFFFFf...mmm.bbfbbbbb',
+  'ffffff,,,...~......fffFff....mmmbbb.bbbb',
+  'fffffff,,...~sssss..f......hhhhhhbbbbbbb',
+  'fffffff,,...~~.........s...hhhhhhbb.bmmm',
+  'fffff.,......~....ssssss~~~hhhhhh.bbmmmm',
+  'ffsssss.......~..ssssss~~~~.mmm.bbb.mmmm',
+  '.ssssss.......~~ssssssss~~~..mmmbbbbbmmm',
+  '..sssss.........~ssssssssss.mmm.bbb.bmmm',
+  '...s............~~ssssssssssmmm.bbbb.bbb'];
+
+export const WESTERN_REVISION_1_TOWNS = [
+  'aldenhold', 'millbrook', 'fenwick', 'greenveil', 'harrowgate', 'westmere', 'duskwater', 'reedhaven', 'gharzak',
+] as const;

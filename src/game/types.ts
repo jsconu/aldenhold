@@ -261,6 +261,8 @@ export interface CampaignDefinition {
   /** Present on hex campaigns: the walkable map. Town ids are then place ids, and locations are hex keys. */
   hex?: HexWorld;
   towns: Town[];
+  /** Static local economic context; mechanics use the town's actual resource endowment. */
+  settlementProfiles?: Record<string, { region: string; role: string }>;
   /** Start locations are node ids on the valley and place ids on a hex map. */
   armies: { owner: FactionId; at: string; troops: StartTroop[] }[];
   offers: HeroOffer[];
@@ -406,7 +408,7 @@ export interface QuestStage {
   /** What happens in the world as the stage begins (applied once, on entering it). */
   onStart?: QuestEvent[];
   /** Months after the stage begins before it ends this way (a failure, or for "hold out" goals a success). */
-  deadline?: { months: number; outcome: QuestResolution };
+  deadline?: { months: number; outcome: QuestResolution; afterBattles?: boolean };
 }
 
 export interface QuestDefinition {

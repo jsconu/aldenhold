@@ -78,6 +78,9 @@ function validateCampaign(catalog: Catalog, c: CampaignDefinition, err: (msg: st
     if (c.hex && c.hex.places.find((p) => p.id === t.id)?.kind !== 'town') err(`town "${t.id}" is not a town place`);
   }
   if (c.hex) for (const p of c.hex.places) if (p.kind === 'town' && !towns.has(p.id)) err(`town place "${p.id}" has no town record`);
+  for (const [id, profile] of Object.entries(c.settlementProfiles ?? {})) {
+    if (!towns.has(id) || !profile.region.trim() || !profile.role.trim()) err(`invalid settlement profile "${id}"`);
+  }
   const capital = towns.get(c.capital);
   if (capital?.kind !== 'capital' || capital.owner !== 'player') err(`capital "${c.capital}" must be a player-owned capital town`);
   const lair = towns.get(c.lair);
@@ -242,6 +245,7 @@ function validateQuests(catalog: Catalog, err: (msg: string) => void) {
       if (stage.id === 'locked' || stage.id === 'resolved') err(`${where}: stage id "${stage.id}" is reserved`);
       if (!stage.choices.length && !stage.deadline && !stage.objectives?.length) err(`${where}: stage "${stage.id}" has no way to end`);
       if (stage.deadline && (!Number.isInteger(stage.deadline.months) || stage.deadline.months < 1)) err(`${where}: stage "${stage.id}" has an invalid deadline`);
+      if (stage.deadline?.afterBattles && stage.deadline.outcome.status !== 'succeeded') err(`${where}: deferred hold-out deadline must succeed`);
       const choiceIds = new Set<string>();
       for (const c of stage.choices) {
         if (choiceIds.has(c.id)) err(`${where}: duplicate choice "${c.id}" in stage "${stage.id}"`);

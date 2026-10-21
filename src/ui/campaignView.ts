@@ -175,6 +175,8 @@ function renderNodePanel(state: GameState, ui: UIState, at: string): string {
   let html = `<h2>${esc(nodeName(state, at))}</h2>`;
   const world = worldOf(state);
   if (town) {
+    const profile = campaignOf(state).settlementProfiles?.[id];
+    if (profile) html += `<p class="sub"><b>${esc(profile.region)}</b> · ${esc(profile.role)}</p>`;
     html += `<p class="sub">${town.kind === 'lair' ? 'Orc stronghold' : town.kind === 'capital' ? 'Your capital' : 'Town'} · ${OWNER_LABEL(town.owner)}${(() => {
       const relation = relationWith(state, id);
       return relation && relation !== 'self' && town.kind !== 'lair' ? ` · ${RELATION_LABEL[relation]}` : '';
