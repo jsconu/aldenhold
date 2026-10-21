@@ -179,6 +179,14 @@ function armyTitle(a: Army): string {
   return `${who}: ${a.troops.length} ${a.troops.length === 1 ? 'troop' : 'troops'}, ${men} men`;
 }
 
+/** Map zoom steps: screen pixels per map pixel. A hex is 24 map pixels wide. */
+export const HEX_ZOOMS = [1, 1.5, 2, 2.5, 3] as const;
+export const DEFAULT_HEX_ZOOM = 2;
+
+export function hexZoom(ui: UIState): number {
+  return HEX_ZOOMS.includes(ui.hexZoom as (typeof HEX_ZOOMS)[number]) ? ui.hexZoom! : DEFAULT_HEX_ZOOM;
+}
+
 export function renderHexMap(
   state: GameState, ui: UIState, world: HexWorld, targets: Map<string, MarchStep>, arrivals: Map<string, number> = new Map(),
 ): string {
@@ -229,13 +237,18 @@ export function renderHexMap(
   const byHex = new Map<string, Army[]>();
   // Monsters in a lair nobody has found stay hidden.
   for (const a of state.armies) if (!hiddenLairAt(state, a.at)) byHex.set(a.at, [...(byHex.get(a.at) ?? []), a]);
+  // Armies sit on their own hex: centred, or nudged down-right of a settlement they share it with, so clicking
+  // the banner always picks the hex it stands on.
+  const placed = new Set(world.places.map((p) => `${p.col},${p.row}`));
   for (const [key, list] of byHex) {
     const { centre: [cx, cy] } = cell(key);
+    const shared = placed.has(key);
     list.forEach((a, i) => {
-      const x = cx + 6 + i * 7;
+      const hx = cx + (shared ? 5 : 0) - (list.length - 1) * 3.5 + i * 7;
+      const hy = cy + (shared ? 3 : 0);
       armies += `<g class="map-army owner-${a.owner}"><title>${esc(armyTitle(a))}</title>
-        <ellipse cx="${x + 6}" cy="${cy - 5}" rx="11" ry="9" class="army-halo"/>${use('banner', a.owner, x + 3, cy - 1)}
-        <text x="${x + 6}" y="${cy - 3}" class="army-count">${a.troops.length}</text></g>`;
+        <ellipse cx="${hx}" cy="${hy}" rx="9" ry="7.5" class="army-halo"/>${use('banner', a.owner, hx - 3, hy + 4)}
+        <text x="${hx}" y="${hy + 2}" class="army-count">${a.troops.length}</text></g>`;
     });
   }
 
@@ -255,7 +268,8 @@ export function renderHexMap(
   });
 
   const image = terrainImage(world);
-  return `<svg viewBox="0 0 ${width} ${height}" class="map overland" role="img" aria-label="Overland map">
+  const zoom = hexZoom(ui);
+  return `<svg viewBox="0 0 ${width} ${height}" width="${Math.round(width * zoom)}" height="${Math.round(height * zoom)}" class="map overland" role="img" aria-label="Overland map">
     ${symbolDefs()}<defs>${bannerDefs()}
       <radialGradient id="overland-march-glow"><stop offset="0" stop-color="#f3e2a2" stop-opacity=".6"/>
         <stop offset="1" stop-color="#f3e2a2" stop-opacity="0"/></radialGradient>

@@ -302,7 +302,9 @@ export function moveTroops(state: GameState, from: string, troopIds: number[], t
   const moving = src.troops.filter((t) => quote.troopIds.includes(t.id));
   src.troops = src.troops.filter((t) => !moving.includes(t));
   if (!src.troops.length) removeArmy(state, src);
-  for (const t of moving) t.mp -= quote.cost;
+  // Troops marching together keep to the slowest one's pace, so the group stays together for the rest of the month.
+  const left = sharedMp(moving) - quote.cost;
+  for (const t of moving) t.mp = left;
   // The marching troops keep their army's battle plan; formations without a custom place set up automatically.
   const army: Army = { id: state.nextId++, owner: 'player', at: from, from: null, troops: moving, ...(src.tactics ? { tactics: structuredClone(src.tactics) } : {}) };
   state.armies.push(army);

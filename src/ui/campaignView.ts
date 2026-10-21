@@ -7,7 +7,7 @@ import {
   recruitQuote, startLocation, townGrowth, townIncome,
 } from '../game/campaign';
 import { hasRoad, hexLand, marchRate, placeAt, townAt, townLocation, worldOf, type MarchStep } from '../game/world';
-import { BANNER_LABEL, bannerSvg, renderHexMap, type BannerKind } from './hexMapView';
+import { BANNER_LABEL, bannerSvg, HEX_ZOOMS, hexZoom, renderHexMap, type BannerKind } from './hexMapView';
 import { SPELLS, UNIT_TYPES } from '../game/data';
 import { heroLevel, heroMaxHp, heroMaxMana, level } from '../game/units';
 import { EQUIPMENT, refitQuote, equipmentUpkeep, usesBow } from '../game/equipment';
@@ -516,8 +516,19 @@ function renderOfferNotice(state: GameState, ui: UIState): string {
 function renderHexSection(state: GameState, ui: UIState): string {
   const world = worldOf(state);
   if (world.kind !== 'hex') return '';
+  const zoom = hexZoom(ui);
+  const step = HEX_ZOOMS.indexOf(zoom as (typeof HEX_ZOOMS)[number]);
   return `<section class="map-wrap">
-    ${renderHexMap(state, ui, world, moveTargets(state, ui), ui.selected ? arrivalEstimates(state, ui.selected, [...ui.checked]) : new Map())}
+    <div class="map-toolbar" role="toolbar" aria-label="Map display">
+      <div class="map-zoom-group">
+        <button data-action="hex-zoom" data-zoom="out" title="Zoom out" aria-label="Zoom out" ${step <= 0 ? 'disabled' : ''}>−</button>
+        <output aria-label="Map zoom">${Math.round(zoom * 100)}%</output>
+        <button data-action="hex-zoom" data-zoom="in" title="Zoom in" aria-label="Zoom in" ${step >= HEX_ZOOMS.length - 1 ? 'disabled' : ''}>+</button>
+        <button data-action="hex-center" class="ghost" title="Scroll to the selected hex" ${ui.selected ? '' : 'disabled'}>Centre</button>
+      </div>
+      <span class="sub">Drag or scroll to look around.</span>
+    </div>
+    <div class="hex-scroll">${renderHexMap(state, ui, world, moveTargets(state, ui), ui.selected ? arrivalEstimates(state, ui.selected, [...ui.checked]) : new Map())}</div>
     <div class="map-legend" aria-label="Map legend">${(['player', 'enemy', 'free', 'lair', 'cleared'] as BannerKind[]).map((k) =>
       `<span><svg viewBox="0 0 12 13" width="14" height="15" aria-hidden="true">${bannerSvg(k, 0, 0)}</svg>${BANNER_LABEL[k]}</span>`).join('')}</div>
     <p class="atlas-caption">Every hex can be walked. Roads cost 1 movement; plains and farmland 2; forest, hills and badlands 3; deep woods and swamp 4. Rivers are crossed only at bridges and mountains only at Grey Pass or the southern trail. Hover a hex for its cost and how many months it takes to reach.</p>

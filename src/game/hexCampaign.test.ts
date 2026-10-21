@@ -92,6 +92,26 @@ describe('Western Realm: movement', () => {
     expect(moveTroops(s, from, [lord.id, troll.id], bridge)).toMatch(/can’t reach/);
   });
 
+  it('a mixed army marches together: the faster troops keep only the slowest one’s movement, so it never splits', () => {
+    const s = freshRealm();
+    const from = keyOf('aldenhold');
+    const home = armyAt(s, from, 'player')!;
+    const ids = home.troops.map((t) => t.id);
+    expect(new Set(home.troops.map((t) => t.mp)).size).toBeGreaterThan(1);
+    const slowest = Math.min(...home.troops.map((t) => t.mp));
+    const bridge = keyOf('bridge');
+    const cost = marchOptions(s, from, 'player', slowest).get(bridge)!.cost;
+    expect(moveTroops(s, from, ids, bridge)).toBeNull();
+    const army = armyAt(s, bridge, 'player')!;
+    expect(army.troops.map((t) => t.id).sort()).toEqual([...ids].sort());
+    expect(new Set(army.troops.map((t) => t.mp))).toEqual(new Set([slowest - cost]));
+    // Marching on with everyone who still can moves the whole army, not just the fastest.
+    const onward = [...marchOptions(s, bridge, 'player', slowest - cost).keys()].find((k) => k !== bridge && k !== from)!;
+    expect(moveTroops(s, bridge, army.troops.filter((t) => t.mp > 0).map((t) => t.id), onward)).toBeNull();
+    expect(armyAt(s, bridge, 'player')).toBeUndefined();
+    expect(armyAt(s, onward, 'player')!.troops).toHaveLength(ids.length);
+  });
+
   it('marching into a defended town stops there and fights on ground shaped like the land', () => {
     const s = freshRealm();
     const from = keyOf('aldenhold');

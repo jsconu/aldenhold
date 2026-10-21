@@ -551,3 +551,9 @@ button.travel-destination b { color: var(--gold); font-size: 11px; }
 .raid-threat h3 { margin-bottom: 4px; }
 .raid-warning { border-left: 3px solid #e05a3a; padding-left: 8px; }
 .overland .raid-alert { font: bold 14px ui-monospace, monospace; fill: #ff5a3a; paint-order: stroke; stroke: #1a0a06; stroke-width: 2.5px; }
+
+/* The Western Realm map: a scrolling, zoomable frame, so hexes are big enough to aim at. */
+.hex-scroll { max-height: 72vh; overflow: auto; border-radius: 6px; background: #44543c; cursor: grab; overscroll-behavior: contain; }
+.hex-scroll svg.map.overland { width: auto; max-width: none; height: auto; display: block; border-radius: 0; }
+.hex-scroll .terrain { image-rendering: pixelated; }
+.overland .cell:hover { fill: rgba(255, 246, 210, 0.2); stroke: #fff1c2 !important; stroke-width: 0.8; }
