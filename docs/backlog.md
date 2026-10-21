@@ -28,7 +28,7 @@ These came out of a planning review with the owner. They govern order and releas
 | Done (#34) | #9 — 9b map growth | Six new settlements, 52×38 geography, routes, resource roles and revision-1 save migration; distinct artwork and local stories remain. See [map growth](western-map-growth.md) |
 | Done (#32); follow-ups remain | #9 — 9c encounters | Q02 cyclops/boulder and noncombat mining choice, Q03 hero-only trial, Q05 caravan tracking/ransom. Remaining: unique shield, later merchant effects and balance |
 | 4 | #9 — 9d city quests | Q01 The Empty Granary, Q06 The Miller on Trial; consumable rewards |
-| Partial | #9 — 9e balance and art | Seeded real-command chapter and optional-expedition controllers delivered; [60-run baseline and longer tours](chapter-playthroughs.md). Remaining: owner playthrough, agreed pacing window, optional encounter tuning, chapter art and final title |
+| Partial | #9 — 9e balance and art | Current-stage encounter navigation and seeded real-command chapter/expedition controllers delivered; [60-run baseline and longer tours](chapter-playthroughs.md). Remaining: owner playthrough, agreed pacing window, optional encounter tuning, chapter art and final title |
 | After the chapter | [#15](https://github.com/jsconu/aragon/issues/15) remainder | Fog, scouting, pan/zoom, minimap, saved multi-month orders, next regions |
 | After the chapter | [#6 City economy](https://github.com/jsconu/aragon/issues/6) | Commerce, transport, markets, governors and realm forecasts |
 | After the chapter | [#7 Veteran equipment](https://github.com/jsconu/aragon/issues/7) | Full equipment tree, services, salvage and reinforcement rules |

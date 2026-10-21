@@ -13,7 +13,7 @@ import { loadGame, MAX_SAVE_BYTES, parseSave, saveGame } from './game/saves';
 import { CATALOG } from './content';
 import { chooseQuest } from './game/quests';
 import { discardItem, sellItem, useItem } from './game/items';
-import { QUESTS } from './content/quests';
+import { questFocus } from './ui/questNavigation';
 import { buildCity, BUILDINGS } from './game/cities';
 import { beginRefit, EQUIPMENT } from './game/equipment';
 import { log } from './game/campaign';
@@ -135,10 +135,10 @@ function onAction(action: string, data: DOMStringMap) {
       ui.mapZoom = Math.max(1, Math.min(2, (ui.mapZoom ?? 1) + (data.zoom === 'in' ? 0.5 : -0.5)));
       break;
     case 'view-quest': {
-      const quest = QUESTS[data.quest ?? ''];
-      if (quest) {
+      const destination = questFocus(state, data.quest ?? '');
+      if (destination) {
         ui.view = 'map';
-        selectNode(townLocation(state, quest.at));
+        selectNode(destination);
       }
       break;
     }

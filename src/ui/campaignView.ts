@@ -13,6 +13,7 @@ import { FACTIONS } from '../content/factions';
 import type { Army, CampaignId, FactionId, GameState, QuestDefinition, Town } from '../game/types';
 import { renderJournal } from './journalView';
 import { renderTreasury } from './treasuryView';
+import { questFocus, questSites } from './questNavigation';
 import { BUILDING_IDS, BUILDINGS, cityMaintenance, constructionQuote, developmentSites, endowment, totalCityMaintenance } from '../game/cities';
 import { conditionHolds, conditionText, isOpen, questQuote, questsAt, questsAtSite, questSummary, stageOf, trackedQuests } from '../game/quests';
 import { esc, type UIState } from './shared';
@@ -41,7 +42,7 @@ export function renderCampaign(state: GameState, ui: UIState): string {
     <span class="gold" title="Taxes ${income}, troop wages ${upkeep}, city maintenance ${operating}">Gold <b>${state.gold}</b>
       <em class="${net < 0 ? 'neg' : 'pos'}">${net >= 0 ? '+' : ''}${net}/month</em></span>
     <span class="spacer"></span>
-    ${trackedQuests(state).map((q) => `<button data-action="view-quest" data-quest="${q.id}" class="ghost" title="Go to ${esc(nodeName(state, q.at))}">${q.kind === 'main' ? 'Objective' : 'Quest'}: ${esc(q.name)}</button>`).join('')}
+    ${trackedQuests(state).map((q) => `<button data-action="view-quest" data-quest="${q.id}" class="ghost" title="Show ${esc(nodeName(state, questFocus(state, q.id)!))} on the map">${q.kind === 'main' ? 'Objective' : 'Quest'}: ${esc(q.name)}</button>`).join('')}
     <button data-action="treasury" class="ghost">${ui.view === 'treasury' ? 'Back to the map' : 'Treasury'}</button>
     <button data-action="journal" class="ghost">${ui.view === 'journal' ? 'Back to the map' : `Journal (${state.journal.length})`}</button>
     <button data-action="new-game" class="ghost">New game</button>
@@ -268,11 +269,13 @@ function renderQuests(state: GameState, defs: QuestDefinition[]): string {
     const deadline = !due ? '' : stage.deadline!.outcome.status === 'succeeded'
       ? `<p class="sub">Hold until ${esc(due)}.</p>`
       : `<p class="sub">${stage.choices.length ? 'Decide' : 'Finish'} by ${esc(due)}, or this ends on its own.</p>`;
+    const destinations = questSites(state, def.id).filter((site) => site !== def.at);
+    const siteLinks = destinations.length ? `<p class="quest-sites">Encounter site${destinations.length > 1 ? 's' : ''}: ${destinations.map((site) => `<button class="link" data-action="goto" data-node="${startLocation(state, site)}">Show ${esc(nodeName(state, site))}</button>`).join(' · ')}</p>` : '';
     const goals = stage.objectives?.length ? `<ul class="objectives">${stage.objectives.map((o) => {
       const met = o.when.every((c) => conditionHolds(state, c));
       return `<li class="${met ? 'met' : ''}">${met ? '✓' : '○'} ${o.when.map((c) => esc(conditionText(state, c))).join('; ')}</li>`;
     }).join('')}</ul><p class="sub">Goals are checked at the end of each month.</p>` : '';
-    return `${head}<p>${esc(def.summary)}</p><p class="sub">${esc(stage.text)}</p>${goals}${deadline}
+    return `${head}<p>${esc(def.summary)}</p><p class="sub">${esc(stage.text)}</p>${siteLinks}${goals}${deadline}
       ${shared ? `<p class="hint">${esc(shared)}</p>` : ''}
       ${quotes.length ? `<div class="quest-actions">${quotes.map(({ c, quote }) => `<button data-action="quest-choice" data-quest="${def.id}" data-choice="${c.id}"
         ${quote.reason ? `disabled title="${esc(quote.reason)}"` : ''}>${esc(c.label)}${quote.gold ? ` · ${quote.gold}g` : ''}${'encounter' in c.then ? ` · battle at ${esc(nodeName(state, startLocation(state, c.then.encounter.site)))}` : ''}</button>`).join('')}</div>` : ''}</div>`;

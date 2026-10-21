@@ -1,4 +1,4 @@
-import { dateLabel, nodeName } from '../game/campaign';
+import { dateLabel, nodeName, startLocation } from '../game/campaign';
 import type { DeedKind, GameState, JournalEntry } from '../game/types';
 import { esc } from './shared';
 import { ITEMS } from '../content/items';
@@ -6,6 +6,7 @@ import { campaignQuests, questSummary, trackedQuests } from '../game/quests';
 import { townLocation } from '../game/world';
 import { discardQuote, heldQty, sellQuote, useQuote } from '../game/items';
 import { isHero } from '../game/units';
+import { questSites } from './questNavigation';
 
 const KIND_LABEL: Record<DeedKind, string> = {
   story: 'Story',
@@ -65,7 +66,8 @@ function renderQuestLedger(state: GameState): string {
     const list = quests.filter((d) => d.kind === kind);
     if (!list.length) return '';
     return `<h3>${title}</h3><ul>${list.map((def) => `<li><b>${esc(def.name)}</b>${tracked.has(def.id) ? ' <small class="tag">Tracked</small>' : ''}: ${esc(questSummary(state, def.id))}.
-      <button class="link" data-action="goto" data-node="${townLocation(state, def.at)}">View ${esc(nodeName(state, def.at))}</button></li>`).join('')}</ul>`;
+      <button class="link" data-action="goto" data-node="${townLocation(state, def.at)}">View ${esc(nodeName(state, def.at))}</button>
+      ${questSites(state, def.id).filter((site) => site !== def.at).map((site) => `<button class="link" data-action="goto" data-node="${startLocation(state, site)}">Show ${esc(nodeName(state, site))}</button>`).join(' ')}</li>`).join('')}</ul>`;
   };
   return `<section class="quest-ledger"><h2>Quests</h2>
     ${quests.length ? group('main', 'Main objectives') + group('side', 'Side quests') : '<p class="sub">No quests offered yet.</p>'}
