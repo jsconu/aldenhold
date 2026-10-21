@@ -132,6 +132,9 @@ function onAction(action: string, data: DOMStringMap) {
       ui.routeDestination = null;
       ui.routePreference = 'shortest';
       break;
+    case 'locate-army':
+      if (data.node && armyAt(state, data.node, 'player')) selectNode(data.node);
+      break;
     case 'route-clear':
       ui.routeOrigin = null;
       ui.routeDestination = null;

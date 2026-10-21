@@ -44,20 +44,20 @@ export function tilePolygon(col: number, row: number): string {
 type RGB = [number, number, number];
 const hex = (h: string): RGB => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
 
-/** Muted EGA-style palette per land: base, light and dark ground, plus feature colours. */
+/** Earth, woodland and water colours shared in spirit with the softer battle landscape. */
 const PAL = {
-  outline: hex('#10200c'),
-  plains: { base: hex('#4c8c3c'), light: hex('#5ea64a'), dark: hex('#3e7832'), flower: hex('#ffff55') },
-  farmland: { base: hex('#7a9a3a'), wheat: hex('#c8a848'), wheatDark: hex('#a8883a'), furrow: hex('#8a6a30'), crop: hex('#5e8a2e') },
-  forest: { base: hex('#3a6e2e'), light: hex('#447a34'), canopy: hex('#1e5a1e'), canopyLight: hex('#2e7a2e'), trunk: hex('#6a4a20') },
-  deepwood: { base: hex('#2a4e22'), light: hex('#305a26'), canopy: hex('#144214'), canopyLight: hex('#1e5a1e'), trunk: hex('#4a3418') },
-  hills: { base: hex('#5e8a3a'), light: hex('#6a964a'), hill: hex('#8a8a4a'), hillLight: hex('#b0aa66'), hillDark: hex('#5e5a2e') },
-  mountains: { base: hex('#5a5a52'), light: hex('#6a6a60'), rock: hex('#8a8a84'), rockLight: hex('#b4b4ae'), rockDark: hex('#44443e'), snow: hex('#ffffff') },
-  swamp: { base: hex('#4a5a3a'), light: hex('#56663e'), pool: hex('#2e4a4a'), poolLight: hex('#3e6060'), reed: hex('#a4a050') },
-  water: { base: hex('#2850b0'), light: hex('#3a64c4'), wave: hex('#88aaff'), dark: hex('#1e3e8c') },
-  badlands: { base: hex('#8a6a4a'), light: hex('#9e7c56'), dark: hex('#6a4a30'), rock: hex('#7a7a74'), rockLight: hex('#a0a098') },
-  road: { dirt: hex('#a88048'), edge: hex('#6a4a20') },
-  bridge: { plank: hex('#9a7a4a'), rail: hex('#4a3418') },
+  outline: hex('#27382f'),
+  plains: { base: hex('#596d4e'), light: hex('#71805b'), dark: hex('#4d6247'), flower: hex('#d7c781') },
+  farmland: { base: hex('#777659'), wheat: hex('#ac9c68'), wheatDark: hex('#92855b'), furrow: hex('#6b694e'), crop: hex('#74845d') },
+  forest: { base: hex('#385744'), light: hex('#48684a'), canopy: hex('#254632'), canopyLight: hex('#56815b'), trunk: hex('#574b37') },
+  deepwood: { base: hex('#294733'), light: hex('#38543a'), canopy: hex('#1b3929'), canopyLight: hex('#416447'), trunk: hex('#4b4232') },
+  hills: { base: hex('#667354'), light: hex('#788562'), hill: hex('#89896a'), hillLight: hex('#aaa783'), hillDark: hex('#515d48') },
+  mountains: { base: hex('#676b63'), light: hex('#797e72'), rock: hex('#898c80'), rockLight: hex('#b0b2a1'), rockDark: hex('#4c534d'), snow: hex('#c9cbbd') },
+  swamp: { base: hex('#4b6256'), light: hex('#5b7260'), pool: hex('#3f6970'), poolLight: hex('#619098'), reed: hex('#a19e70') },
+  water: { base: hex('#3b6878'), light: hex('#53818c'), wave: hex('#9ac2c2'), dark: hex('#345665') },
+  badlands: { base: hex('#826e5c'), light: hex('#98816b'), dark: hex('#6c5b4e'), rock: hex('#87867b'), rockLight: hex('#aaa99b') },
+  road: { dirt: hex('#ab9874'), edge: hex('#5c5747') },
+  bridge: { plank: hex('#a18c68'), rail: hex('#534a3b') },
 };
 
 /** Deterministic noise in [0, 1) from integer coordinates and a salt. */
@@ -123,7 +123,6 @@ function stamp(c: Canvas, ox: number, oy: number, sx: number, sy: number, name: 
 /** Paint one tile: dithered ground, then the land's features. */
 function paintTile(c: Canvas, col: number, row: number, land: Land) {
   const [ox, oy] = tileOrigin(col, row);
-  const seed = col * 131 + row * 977;
   const r = (i: number) => noise(col, row, i + 1);
   const ground = (base: RGB, light: RGB, dark?: RGB, lightOdds = 0.12, darkOdds = 0.1) => {
     for (let y = 0; y < TILE_H; y++) {
@@ -145,14 +144,14 @@ function paintTile(c: Canvas, col: number, row: number, land: Land) {
     }
     case 'farmland': {
       const p = PAL.farmland;
-      // Field strips, a different crop per hex, with darker furrows.
-      const wheat = r(1) < 0.6;
+      // Furrows follow map coordinates so neighboring fields do not form a tile checkerboard.
       for (let y = 0; y < TILE_H; y++) {
         for (let x = 0; x < TILE_W; x++) {
           if (!inHex(x, y)) continue;
-          const strip = Math.floor((x + (seed % 3)) / 4) % 2 === 0;
-          const furrow = (y + col) % 3 === 0;
-          const colour = furrow ? p.furrow : strip ? (wheat ? p.wheat : p.crop) : wheat ? p.wheatDark : p.base;
+          const gx = ox + x, gy = oy + y;
+          const furrow = (gy + Math.floor(gx / 32)) % 8 === 0;
+          const grain = noise(gx, gy, 7);
+          const colour = furrow ? p.furrow : grain < .08 ? p.crop : grain > .84 ? p.wheatDark : p.wheat;
           put(c, ox + x, oy + y, colour);
         }
       }
@@ -166,23 +165,26 @@ function paintTile(c: Canvas, col: number, row: number, land: Land) {
       const spots = land === 'forest'
         ? [[3, 2], [11, 1], [16, 6], [6, 9], [13, 11]]
         : [[2, 1], [8, 0], [14, 1], [17, 6], [4, 6], [10, 6], [7, 11], [13, 12]];
-      spots.forEach(([sx, sy], i) => stamp(c, ox, oy, sx + at(-1, 1, 10 + i), sy + at(0, 1, 20 + i), r(30 + i) < 0.4 ? 'pine' : 'tree', colour));
+      spots.forEach(([sx, sy], i) => {
+        if (r(50 + i) < (land === 'forest' ? .56 : .68))
+          stamp(c, ox, oy, sx + at(-1, 1, 10 + i), sy + at(0, 1, 20 + i), r(30 + i) < 0.4 ? 'pine' : 'tree', colour);
+      });
       break;
     }
     case 'hills': {
       const p = PAL.hills;
       ground(p.base, p.light);
       const colour = (ch: string) => (ch === 'H' ? p.hill : ch === 'L' ? p.hillLight : ch === 'D' ? p.hillDark : null);
-      stamp(c, ox, oy, at(1, 4, 1), at(4, 6, 2), 'hill', colour);
-      stamp(c, ox, oy, at(9, 12, 3), at(11, 13, 4), 'hill', colour);
+      if (r(5) < .65) stamp(c, ox, oy, at(1, 4, 1), at(4, 6, 2), 'hill', colour);
+      if (r(6) < .36) stamp(c, ox, oy, at(9, 12, 3), at(11, 13, 4), 'hill', colour);
       break;
     }
     case 'mountains': {
       const p = PAL.mountains;
       ground(p.base, p.light, p.rockDark);
       const colour = (ch: string) => (ch === 'R' ? p.rock : ch === 'L' ? p.rockLight : ch === 'D' ? p.rockDark : ch === 'W' ? p.snow : null);
-      stamp(c, ox, oy, at(4, 7, 1), at(3, 5, 2), 'peak', colour);
-      if (r(3) < 0.7) stamp(c, ox, oy, at(13, 15, 4), at(10, 12, 5), 'peakSmall', colour);
+      if (r(6) < .72) stamp(c, ox, oy, at(4, 7, 1), at(3, 5, 2), 'peak', colour);
+      if (r(3) < .24) stamp(c, ox, oy, at(13, 15, 4), at(10, 12, 5), 'peakSmall', colour);
       break;
     }
     case 'swamp': {
@@ -218,9 +220,9 @@ function paintTile(c: Canvas, col: number, row: number, land: Land) {
 }
 
 /**
- * Diffuse only a few pixels around tile seams, before roads are painted.
- * The terrain remains rendered at crisp native pixel resolution, but transitions
- * no longer advertise the shape of every movement cell.
+ * Diffuse the broad terrain transition around tile seams, before roads are painted.
+ * The texture retains its native resolution while transitions no longer
+ * advertise the shape of every movement cell.
  *
  * Never alter alpha outside the world or change land IDs / movement costs.
  */
@@ -234,15 +236,15 @@ export function softenHexSeams(c: Canvas, world: HexWorld) {
         const inset = HEX_INSET[y];
         for (let x = inset; x < TILE_W - inset; x++) {
           const edge = Math.min(y, TILE_H - 1 - y, x - inset, TILE_W - 1 - inset - x);
-          if (edge >= 4) continue;
+          if (edge >= 6) continue;
           const px = ox + x, py = oy + y;
           const i = (py * c.width + px) * 4;
           if (original[i + 3] !== 255) continue;
           let total = 0, red = 0, green = 0, blue = 0;
-          for (let dy = -3; dy <= 3; dy++) {
+          for (let dy = -4; dy <= 4; dy++) {
             const yy = py + dy;
             if (yy < 0 || yy >= c.height) continue;
-            for (let dx = -3; dx <= 3; dx++) {
+            for (let dx = -4; dx <= 4; dx++) {
               const xx = px + dx;
               if (xx < 0 || xx >= c.width) continue;
               const at = (yy * c.width + xx) * 4;
@@ -256,7 +258,7 @@ export function softenHexSeams(c: Canvas, world: HexWorld) {
             }
           }
           if (total <= 0) continue;
-          const blend = (4 - edge) * 0.17; // stronger next to the seam, zero in the interior
+          const blend = (6 - edge) * 0.12; // strongest at the boundary, zero in the interior
           c.data[i] = Math.round(original[i] * (1 - blend) + (red / total) * blend);
           c.data[i + 1] = Math.round(original[i + 1] * (1 - blend) + (green / total) * blend);
           c.data[i + 2] = Math.round(original[i + 2] * (1 - blend) + (blue / total) * blend);
@@ -266,6 +268,22 @@ export function softenHexSeams(c: Canvas, world: HexWorld) {
     }
   }
   return touched;
+}
+
+/** A slow, continuous lighting change across the province, independent of the game hexes. */
+function landscapeLight(c: Canvas) {
+  const scale = 58;
+  const smooth = (v: number) => v * v * (3 - 2 * v);
+  for (let y = 0; y < c.height; y++) for (let x = 0; x < c.width; x++) {
+    const i = (y * c.width + x) * 4;
+    if (c.data[i + 3] !== 255) continue;
+    const gx = Math.floor(x / scale), gy = Math.floor(y / scale);
+    const u = smooth(x / scale - gx), v = smooth(y / scale - gy);
+    const top = noise(gx, gy, 81) * (1 - u) + noise(gx + 1, gy, 81) * u;
+    const bottom = noise(gx, gy + 1, 81) * (1 - u) + noise(gx + 1, gy + 1, 81) * u;
+    const light = .89 + .2 * (top * (1 - v) + bottom * v);
+    for (let channel = 0; channel < 3; channel++) c.data[i + channel] = Math.round(c.data[i + channel] * light);
+  }
 }
 
 /** Draw a thick line between two pixel points (Bresenham), clipped to the canvas. */
@@ -320,6 +338,7 @@ export function paintTerrain(world: HexWorld): Canvas {
   });
   // Paint across tile boundaries before laying down sharp, continuous roads.
   softenHexSeams(c, world);
+  landscapeLight(c);
   paintRoads(c, world);
   return c;
 }

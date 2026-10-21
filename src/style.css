@@ -402,15 +402,18 @@ button.travel-destination b { color: var(--gold); font-size: 11px; }
 .spell-preview { border: 1px solid var(--gold); padding: 10px; margin-top: 10px; }
 .spell-preview ul { padding-left: 20px; }
 
-/* Western Realm hex map: pixel terrain under an SVG layer, all in native pixels and scaled up crisply. */
-.map.overland { width: 100%; height: auto; background: #10100c; border-radius: 6px; image-rendering: pixelated; }
-.overland .terrain { image-rendering: pixelated; image-rendering: crisp-edges; }
+/* Western Realm: softened landscape under interactive SVG places and movement cues. */
+.map.overland { width: 100%; height: auto; background: #44543c; border-radius: 6px; }
+.overland .terrain { image-rendering: auto; }
 .overland use, .overland .map-army, .overland .place-label, .overland .army-count { pointer-events: none; }
 .overland .cell { fill: transparent; cursor: pointer; }
 .overland .cell:hover { fill: rgba(255, 255, 255, 0.14); }
-.overland .reach { fill: #ffec99; opacity: .44; filter: drop-shadow(0 0 2px #fff1ab); }
-.overland .reach.ends { fill: #f18a6d; opacity: .7; stroke: none; }
-.overland .selected { fill: #ffdb78; opacity: .52; stroke: none; filter: drop-shadow(0 0 3px #ffdd55); }
+.overland .reach { fill: url(#overland-march-glow); opacity: 1; }
+.overland .reach.ends { fill: url(#overland-danger-glow); opacity: 1; stroke: none; }
+.overland .selected { fill: none; stroke: #ffe6a2; stroke-width: 2; filter: drop-shadow(0 0 3px #ffdd55); }
+.overland .army-halo { fill: #293d7b; fill-opacity: .75; stroke: #9dc6eb; stroke-width: 1.5; }
+.overland .owner-orcs .army-halo { fill: #6b302c; stroke: #e0a28b; }
+.overland .owner-neutral .army-halo { fill: #514d42; stroke: #b9b1a1; }
 .overland .place-label { font: bold 7px ui-monospace, Consolas, monospace; fill: #ffffff; text-anchor: middle; paint-order: stroke; stroke: #10100c; stroke-width: 2.4px; }
 .overland .place-label.landmark { font-weight: normal; font-style: italic; fill: #ece0b4; }
 .overland .army-count { font: bold 7px ui-monospace, Consolas, monospace; fill: #ffffff; paint-order: stroke; stroke: #10100c; stroke-width: 2.4px; }
@@ -449,8 +452,14 @@ button.travel-destination b { color: var(--gold); font-size: 11px; }
 .atlas-river-sheen { fill: none; stroke: #87afb0; stroke-opacity: .48; stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 19 12; }
 .atlas-terrain-details { pointer-events: none; }
 .atlas-terrain-details .atlas-feature { opacity: .8; }
-.overland .reach, .overland .selected { stroke: none !important; }
+.overland .reach { stroke: none !important; }
 .overland .cell { stroke: none !important; }
+
+.march-guide { border: 1px solid #8b805e; border-left: 4px solid #d5b96e; background: #302f29; border-radius: 7px; padding: 10px 12px; margin-bottom: 12px; }
+.march-guide h3 { margin: 0 0 6px; color: #e5d39e; }
+.march-guide p { margin: 5px 0; font-size: 13px; line-height: 1.45; }
+.march-guide .march-tip { color: var(--muted); }
+.march-guide button { margin: 5px 0; }
 
 
 /* Environmental ribbons connect adjacent patches across tactical cells. */
