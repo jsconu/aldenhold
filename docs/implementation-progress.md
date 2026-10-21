@@ -527,3 +527,10 @@ Reported: casting Fireball didn't damage the opponent. The rules were fine (a le
 - **Click again to cast:** clicking the chosen target a second time casts the spell, the same as the Cast button. Teleport still asks for a destination. The full preview stays in the side panel.
 
 Validation: a new render test; 377 tests pass. In the browser, the spell was chosen, aimed and cast with two clicks on the orcs, and they took the 6 damage.
+## Minotaur tuning and expedition controller update (#9, 9e)
+
+- **The minotaur:** 8 men → 14 (owner decision). A lone champion or mage now wins about 70%, a champion and priest together 98%, and a lone priest can't win. Details are in [encounter odds](encounter-odds.md).
+- **The seeded expedition controller:** it hires a fighting hero for the tower (after the granary choice), never sends the priest in alone, replaces fallen heroes, and rebuilds with reinforcements instead of attacking without formations. Codex's tests now expect a priest-plus-fighter tower party. Their seed-9 retry test became "never enters alone"; tower retries are still covered by the encounter tests.
+- **Results over 20 seeds:** full chapter tours win with all 20 seeds in 17–33 months. Expedition tours finish in 12–17 months for 19 seeds; seed 8 loses the tower fight and runs out of time.
+
+Validation: 377 tests pass, including a minotaur difficulty guard.
