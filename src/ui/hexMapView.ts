@@ -98,7 +98,7 @@ function use(name: string, owner: FactionId, cx: number, bottom: number): string
   const rows = PLACE_SPRITES[name];
   const w = rows[0].length;
   const h = rows.length;
-  return `<use href="#map-${name}-${owner}" x="${cx - w / 2}" y="${bottom - h}" width="${w}" height="${h}"/>`;
+  return `<use href="#map-${name}-${owner}" x="${cx - w / 2}" y="${bottom - h}" width="${w}" height="${h}" class="map-place-sprite"/>`;
 }
 
 const terrainCache = new WeakMap<HexWorld, string>();
