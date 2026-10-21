@@ -82,6 +82,39 @@ export function settleTreasury(state: GameState, taxes: CashFlow[], payroll: Cas
 }
 
 export function currentMonthSpending(state: GameState): number {
-  return -state.treasury.pending.filter((e) => e.amount < 0 && e.category !== 'balance-correction')
-    .reduce((sum, e) => sum + e.amount, 0);
+  return Math.max(0, -state.treasury.pending.filter((e) => e.amount < 0 && e.category !== 'balance-correction')
+    .reduce((sum, e) => sum + e.amount, 0));
+}
+
+export interface CashTotals {
+  receipts: number;
+  payments: number;
+  adjustments: number;
+  net: number;
+}
+
+/** Summarize posted money only: goods, forecasts and unpaid bills never become cash movements. */
+export function cashReport(entries: readonly LedgerEntry[]) {
+  const empty = (): CashTotals => ({ receipts: 0, payments: 0, adjustments: 0, net: 0 });
+  const total = empty();
+  const categories = new Map<LedgerCategory, number>();
+  const locations = new Map<string | null, CashTotals>();
+  const post = (sum: CashTotals, entry: LedgerEntry) => {
+    sum.net += entry.amount;
+    if (entry.category === 'balance-correction') sum.adjustments += entry.amount;
+    else if (entry.amount > 0) sum.receipts += entry.amount;
+    else sum.payments -= entry.amount;
+  };
+  for (const entry of entries) {
+    post(total, entry);
+    categories.set(entry.category, (categories.get(entry.category) ?? 0) + entry.amount);
+    const local = locations.get(entry.city) ?? empty();
+    post(local, entry);
+    locations.set(entry.city, local);
+  }
+  return {
+    ...total,
+    categories: [...categories].map(([category, amount]) => ({ category, amount })),
+    locations: [...locations].map(([city, totals]) => ({ city, ...totals })),
+  };
 }
