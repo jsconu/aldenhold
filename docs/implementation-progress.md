@@ -822,3 +822,7 @@ Owner supplied visual references for battle reports, terrain-specific evolving c
 ## Rich scene artwork (October 21, 2026)
 
 Generated five original raster panoramas through the built-in image-generation tool: Aldenhold capital, goblin camp, troll den, giant stronghold and titan sanctuary. Runtime images live in `public/assets/scenes/`, with a source/description manifest. Aldenhold uses the rich backdrop with its existing state-driven development overlays; other cities retain their terrain-aware vector scenes pending additional artwork. Discovered monster lairs use their species panorama; cleared status retains its caption and desaturation. These are scenery, not tactical map tiles or changes to raid/combat rules. Owner visual approval and richer matching building overlays remain.
+
+## Rich overland terrain (October 21, 2026)
+
+Added original generated terrain and transparent settlement atlases under `public/assets/overland/`. Nine terrain samples are mapped to the actual hex geometry; roads and bridge strokes follow `roadsOf`, preserving passable crossings and movement. Capital, town, hostile stronghold and woodland village miniatures replace small settlement stamps. Ownership banners, names, armies, selection and movement hit targets remain separate live layers. This is a detailed terrain rendering pass, not a flattened painted replacement map. Atlas tiling and terrain-edge blending require visual review.

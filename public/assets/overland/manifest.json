@@ -1,0 +1,32 @@
+{
+  "source": "OpenAI built-in image_gen",
+  "date": "2026-10-21",
+  "review": "Owner visual review pending",
+  "terrain": {
+    "file": "terrain-atlas-v1.png",
+    "layout": "3x3 row-major",
+    "cells": [
+      "plains",
+      "farmland",
+      "forest",
+      "deepwood",
+      "hills",
+      "mountains",
+      "swamp",
+      "water",
+      "badlands"
+    ],
+    "prompt": "Detailed crisp pixel-art terrain texture atlas, elevated near-top-down view, natural earth palette, no text, UI or hex grid; nine terrain types in equal cells."
+  },
+  "settlements": {
+    "file": "settlements-atlas-v1.png",
+    "layout": "2x2 row-major with transparency",
+    "cells": [
+      "capital",
+      "town",
+      "fortress",
+      "woodland village"
+    ],
+    "prompt": "Original richly detailed isometric medieval map sprite atlas, stone and russet timber architecture, transparent background, consistent lighting, no labels, banners or UI."
+  }
+}

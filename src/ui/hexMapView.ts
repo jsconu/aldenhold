@@ -1,3 +1,4 @@
+import { richOverland, richSettlement } from './richOverland';
 import { SPECIES } from '../content/lairs';
 import { hiddenLairAt, lairAt, lairGarrison } from '../game/lairs';
 import { relationWith, RELATION_LABEL } from '../game/diplomacy';
@@ -214,7 +215,8 @@ export function renderHexMap(
     const [cx, cy] = tileCenter(p.col, p.row);
     const town = p.kind === 'town' ? state.towns[p.id] : undefined;
     const sprite = spriteFor(state, p.id, p.kind);
-    if (sprite) places += use(sprite, town?.owner ?? 'neutral', cx, cy + 6);
+    if (town) places += richSettlement(town.kind, ['forest','deepwood'].includes(hexLand(world, p.col+','+p.row).id), cx, cy);
+    else if (sprite) places += use(sprite, 'neutral', cx, cy + 6);
     if (town) {
       const top = cy + 6 - (sprite ? PLACE_SPRITES[sprite].length : 12);
       const half = sprite ? PLACE_SPRITES[sprite][0].length / 2 : 6;
@@ -277,6 +279,6 @@ export function renderHexMap(
         <stop offset="1" stop-color="#e89270" stop-opacity="0"/></radialGradient>
     </defs>
     ${image ? `<image href="${image}" x="0" y="0" width="${width}" height="${height}" class="terrain"/>` : ''}
-    ${reach}${selection}${places}${armies}${labels}${hits}
+    ${richOverland(world)}${reach}${selection}${places}${armies}${labels}${hits}
   </svg>`;
 }
