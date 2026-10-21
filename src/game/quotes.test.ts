@@ -5,7 +5,7 @@ import type { UIState } from '../ui/shared';
 import {
   armyAt, arrivalOutcome, hireHero, hireQuote, marchQuote, moveTroops, newGame, playerMarchOptions, recruit, recruitQuote,
 } from './campaign';
-import { charterQuote, decideFenwickCharter } from './quests';
+import { chooseQuest, questQuote } from './quests';
 import { getCampaign } from '../content';
 import { neighbors, stepCost, townLocation } from './world';
 
@@ -55,11 +55,11 @@ describe('action quotes: each command refuses with exactly its quote’s reason'
   it('the Fenwick charter: envoy range comes from the quote, for the command and the panel alike', () => {
     const s = newGame(1);
     s.armies = s.armies.filter((a) => a.at !== 'aldenhold');
-    const far = charterQuote(s);
+    const far = questQuote(s, 'Q00', 'sign');
     expect(far.reason).toMatch(/Send an army to Fenwick/);
-    expect(decideFenwickCharter(s, 'sign')).toBe(far.reason);
+    expect(chooseQuest(s, 'Q00', 'sign')).toBe(far.reason);
     const html = renderCampaign(s, ui('fenwick'));
-    expect(html).toMatch(/data-action="fenwick-sign" disabled/);
+    expect(html).toMatch(/data-action="quest-choice" data-quest="Q00" data-choice="sign"\s+disabled/);
     expect(html).toContain(far.reason!);
   });
 });
@@ -68,7 +68,7 @@ describe('arrival outcome: one rule for the march quote and the map highlight', 
   it('an allied Fenwick is neither a battle nor a capture after the charter is signed', () => {
     const s = newGame(1);
     expect(arrivalOutcome(s, 'fenwick')).toBe('battle');
-    expect(decideFenwickCharter(s, 'sign')).toBeNull();
+    expect(chooseQuest(s, 'Q00', 'sign')).toBeNull();
     expect(arrivalOutcome(s, 'fenwick')).toBeNull();
     const ids = armyAt(s, 'aldenhold', 'player')!.troops.map((t) => t.id);
     expect(marchQuote(s, 'aldenhold', ids, 'fenwick').ends).toBeNull();
@@ -86,7 +86,7 @@ describe('arrival outcome: one rule for the march quote and the map highlight', 
     const before = red();
     // Bring an envoy next to Fenwick and sign: the same hex stops being marked as a fight.
     s.armies.find((a) => a.at === capital)!.at = neighbors(s, fenwick).find((k) => stepCost(s, k) < Infinity)!;
-    expect(decideFenwickCharter(s, 'sign')).toBeNull();
+    expect(chooseQuest(s, 'Q00', 'sign')).toBeNull();
     expect(arrivalOutcome(s, fenwick)).toBeNull();
     expect(red()).toBe(before - 1);
   });

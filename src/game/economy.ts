@@ -5,9 +5,15 @@ export function newTreasury(opening: number): Treasury {
 }
 
 /** Records an expense already deducted by a rules action; no second charge happens here. */
-export function recordPurchase(state: GameState, city: string, category: 'recruitment' | 'hero-hire' | 'construction' | 'refit', price: number, actionId: string, counterparty: string) {
+export function recordPurchase(state: GameState, city: string, category: 'recruitment' | 'hero-hire' | 'construction' | 'refit' | 'quest', price: number, actionId: string, counterparty: string) {
   if (price <= 0) return;
   state.treasury.pending.push({ turn: state.turn, city, category, amount: -price, counterparty, actionId });
+}
+
+/** Records a one-time receipt (a quest reward) already added to gold by a rules action. Not tax income. */
+export function recordReceipt(state: GameState, city: string, amount: number, actionId: string, counterparty: string) {
+  if (amount <= 0) return;
+  state.treasury.pending.push({ turn: state.turn, city, category: 'quest-reward', amount, counterparty, actionId });
 }
 
 export interface CashFlow {
@@ -64,7 +70,7 @@ export function settleTreasury(state: GameState, taxes: CashFlow[], payroll: Cas
   const unpaidMaintenance = maintenanceDue - maintenancePaid;
   state.gold = available;
   const income = entries.filter((e) => e.category === 'tax').reduce((s, e) => s + e.amount, 0);
-  const expenses = Math.max(0, -entries.filter((e) => ['wages', 'recruitment', 'hero-hire', 'construction', 'maintenance', 'refit'].includes(e.category)).reduce((s, e) => s + e.amount, 0));
+  const expenses = Math.max(0, -entries.filter((e) => ['wages', 'recruitment', 'hero-hire', 'construction', 'maintenance', 'refit', 'quest'].includes(e.category)).reduce((s, e) => s + e.amount, 0));
   const closing = opening + entries.reduce((sum, movement) => sum + movement.amount, 0);
   if (closing !== state.gold) throw new Error('Treasury did not reconcile.');
   const row: MonthlyLedger = { turn: state.turn, opening, closing, income, expenses, unpaidUpkeep, unpaidMaintenance, entries };

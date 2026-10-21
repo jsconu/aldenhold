@@ -6,7 +6,7 @@ import { parseSave } from './saves';
 describe('city development and conservation', () => {
   it('starts with local physical stocks and a grandfathered farm', () => {
     const s = newGame(1);
-    expect(s.version).toBe(10);
+    expect(s.version).toBe(11);
     expect(s.cityEconomies.aldenhold.buildings).toEqual({ farm: 1, lumber: 0, mine: 0, forge: 0 });
     expect(s.cityEconomies.aldenhold.goods.food).toBeGreaterThan(0);
     expect(developmentSites(s.cityEconomies.aldenhold)).toBe(1);
@@ -136,7 +136,7 @@ describe('city development and conservation', () => {
     const before = { ...old, version: 6, treasury: structuredClone(s.treasury) };
     for (const row of before.treasury.history) delete (row as { unpaidMaintenance?: number }).unpaidMaintenance;
     const migrated = parseSave(JSON.stringify(before));
-    expect(migrated.version).toBe(10);
+    expect(migrated.version).toBe(11);
     expect(migrated.treasury.history[0].unpaidMaintenance).toBe(0);
     expect(migrated.treasury.history[0].closing).toBe(s.treasury.history[0].closing);
     expect(migrated.cityEconomies.aldenhold.project).toBeNull();

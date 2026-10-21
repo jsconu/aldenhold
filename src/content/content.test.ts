@@ -78,7 +78,8 @@ describe('content validator', () => {
 describe('quest and item content references', () => {
   it('resolves the charter quest and its unique evidence object', () => {
     expect(validateContent(CATALOG)).toEqual([]);
-    expect(CATALOG.quests.Q00.rewardItem).toBe('fenwick-charter');
+    const sign = CATALOG.quests.Q00.stages[0].choices.find((c) => c.id === 'sign')!;
+    expect('stage' in sign.then ? [] : sign.then.effects).toContainEqual({ kind: 'item', item: 'fenwick-charter' });
     expect(CATALOG.items['fenwick-charter'].questIds).toContain('Q00');
   });
   it('rejects item references to missing quests', () => {
