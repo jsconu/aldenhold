@@ -559,3 +559,27 @@ A level-10 champion out-hits three times a formation of veteran knights. Casters
 **Effect on balance:** at level 1 the change is small. Encounter odds are within a point of before and all seeded playthroughs pass. The difference grows as heroes level. One magic test expected the AI to cast Lightning, Disintegrate or Firestorm; with harder-hitting heroes the battle went differently and the mage opened with Quake (level 6), which the test now also accepts.
 
 Validation: 385 tests pass, including 7 new ones (escape rules, hero command, class power). In the browser, the run-away button stayed disabled through turn 4, then offered 75% on turn 5 and got away. The lord's panel showed its power and command, and a spearmen formation in range showed +17% attack.
+
+## Army cap and tactics (owner requests)
+
+**Army cap: 12 formations per army, heroes included.**
+- **Why 12:** each side's deployment zone holds 27 formations, so an army of 12 always deploys whole with room to manoeuvre.
+- **Refused moves:** recruiting or hiring into a full garrison, and marching troops into a friendly army that would go over 12. Each is refused with the reason.
+- **Falling back:** an army beaten back prefers a hex where it fits, and only overflows when the alternative is being cut off.
+- **Orcs:** the Hold stops growing its garrison at 12.
+- **Saves:** older saves with bigger armies load as they are and can't grow until they're back under the cap. Reserves remain only as a fallback.
+
+**Tactics: each army has a battle plan** (army panel, "Battle plan").
+
+| Stance | Setup | How the AI fights it (auto-resolve, the orcs) |
+| --- | --- | --- |
+| Offensive (default) | Melee and fighting heroes in front, archers and casters behind (the old setup) | Advance at once |
+| Defensive | Melee line in front, archers behind it, heroes and casters at the back | Hold until the enemy is within 3 hexes; shoot and cast from position |
+| Skirmish | Archers out front on the flanks, melee in the middle column, casters at the back | Melee holds until the enemy closes; archers keep their distance |
+| Custom | Your own cell for each formation; unplaced ones set up as Offensive | Advance |
+
+- **The deployment grid:** a 3×9 grid (Back, Middle, Front, with the front facing the enemy) shows exactly where each formation will start, from the same planner the battle uses (`planDeployment`). Click a formation, then a cell, to move it; that makes the plan Custom, and a formation already in that cell swaps places.
+- **Plans travel with the army:** marching troops keep their army's plan. When they join another army, that army's plan applies and the newcomers set up automatically.
+- **Saves:** they check stances and layouts (cells in range, no two formations in one cell). Battles record each side's stance, so a saved battle keeps fighting the same way.
+
+Validation: 395 tests pass, including 10 new ones (cap on recruiting, hiring, marching and the Hold; each stance's setup; custom swap and battle placement; Defensive holding; plans travelling with a march; save checks; the panel). In the browser, the panel showed each stance's setup, and moving the spearmen to the top-front cell made the plan Custom.

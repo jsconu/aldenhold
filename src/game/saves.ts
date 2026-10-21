@@ -90,6 +90,18 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
     useId(a.id);
     requireValue(oneOf(a.owner, factions) && loc(a.at) && (a.from === null || loc(a.from)), 'army location or owner');
     requireValue(a.target === undefined || (a.owner === 'orcs' && text(a.target) && Object.hasOwn(towns, a.target)), 'army target');
+    if (a.tactics !== undefined) {
+      const tactics = object(a.tactics);
+      requireValue(oneOf(tactics.stance, ['offensive', 'defensive', 'skirmish', 'custom']), 'army stance');
+      if (tactics.layout !== undefined) {
+        const cells = new Set<string>();
+        for (const [troopId, raw] of Object.entries(object(tactics.layout))) {
+          const c = object(raw);
+          requireValue(/^[1-9][0-9]*$/.test(troopId) && integer(c.depth, 0, 2) && integer(c.row, 0, BATTLE_H - 1) && !cells.has(`${c.depth},${c.row}`), 'custom layout');
+          cells.add(`${c.depth},${c.row}`);
+        }
+      }
+    }
     requireValue(array(a.troops).length > 0, 'empty army');
     for (const item of array(a.troops)) {
       const t = object(item);
@@ -365,6 +377,9 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
       }
     }
     requireValue(deployed.attacker <= FIELD_LIMIT && deployed.defender <= FIELD_LIMIT, 'field capacity');
+    if (b.stances !== undefined) {
+      requireValue(Object.entries(object(b.stances)).every(([side, st]) => oneOf(side, sides) && oneOf(st, ['defensive', 'skirmish', 'custom'])), 'battle stances');
+    }
     if (b.encounter !== undefined) {
       // A quest encounter: the guardians defend; your army (or its hero party) attacks; the quest is waiting on it.
       const e = object(b.encounter);

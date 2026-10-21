@@ -3,7 +3,7 @@ import { LAND, SPELLS, TERRAIN, UNIT_TYPES } from './data';
 import { hexDistance, hexKey, hexNeighbors, hexLine, type Hex } from './hex';
 import { random } from './rng';
 import { FACTIONS } from '../content/factions';
-import type { Army, Battle, BattleUnit, Land, Side, SpellId, Terrain, EffectId } from './types';
+import type { Army, Battle, BattleUnit, DeployCell, Land, Side, SpellId, Stance, Terrain, EffectId } from './types';
 import { attackFor, heroLevel, heroMaxHp, isHero, kitBonus, level } from './units';
 import { EQUIPMENT } from './equipment';
 
@@ -44,6 +44,11 @@ export function createBattle(at: string, attacker: Army, defender: Army, walls: 
   b.terrain = generateTerrain(b, land);
   deploy(b, attacker, 'attacker', [2, 1, 0]);
   deploy(b, defender, 'defender', [BATTLE_W - 3, BATTLE_W - 2, BATTLE_W - 1]);
+  const stances: Partial<Record<Side, Stance>> = {};
+  for (const [side, army] of [['attacker', attacker], ['defender', defender]] as const) {
+    if (army.tactics && army.tactics.stance !== 'offensive') stances[side] = army.tactics.stance;
+  }
+  if (Object.keys(stances).length) b.stances = stances;
   return b;
 }
 
@@ -97,18 +102,61 @@ function startingMorale(b: Battle, side: Side, type: string, xp: number, leaders
   return Math.min(100, 60 + 8 * (level(xp) - 1) + leadership + walls);
 }
 
-function deploy(b: Battle, army: Army, side: Side, cols: number[]) {
-  // Melee fill from the front column; missile troops and spellcasters from the second column back.
-  const front = cols.flatMap((col) => ROW_ORDER.map((row) => ({ col, row })));
-  const rear = [...front.slice(ROW_ORDER.length), ...front.slice(0, ROW_ORDER.length)];
+/** Rows from the flanks inward: skirmishers spread wide. */
+const FLANK_ORDER = [0, 8, 1, 7, 2, 6, 3, 5, 4];
+
+/** Where a formation of this kind prefers to start under a stance, as zone cells in order of preference. */
+export function preferredCells(stance: Stance, type: string): DeployCell[] {
+  const t = UNIT_TYPES[type];
+  const missile = t.range > 1 && !t.hero;
+  const caster = (t.hero?.spells.length ?? 0) > 0;
+  const zone = (depths: number[], rows = ROW_ORDER) => depths.flatMap((depth) => rows.map((row) => ({ depth, row })));
+  if (stance === 'skirmish') {
+    // Archers out front on the flanks, melee in the middle column guarding them, casters at the back.
+    return missile ? zone([0, 1, 2], FLANK_ORDER) : caster ? zone([2, 1, 0]) : zone([1, 0, 2]);
+  }
+  if (stance === 'defensive') {
+    // A solid melee line in front, missiles behind it, heroes and casters safe at the back.
+    return missile ? zone([1, 2, 0]) : caster || t.hero ? zone([2, 1, 0]) : zone([0, 1, 2]);
+  }
+  // Offensive (and Custom formations without a place): melee front, missiles and casters behind.
+  return missile || caster ? zone([1, 2, 0]) : zone([0, 1, 2]);
+}
+
+/**
+ * Where each formation of an army starts in its side's deployment zone, by troop id: Custom placements first,
+ * then every other formation in its stance's preferred free cell. Formations that don't fit are left out (they
+ * become reserves). The tactics screen shows exactly this plan.
+ */
+export function planDeployment(army: Army): Map<number, DeployCell> {
+  const stance = army.tactics?.stance ?? 'offensive';
+  const plan = new Map<number, DeployCell>();
   const taken = new Set<string>();
-  const place = (order: Hex[]) => order.find((h) => !taken.has(hexKey(h)));
+  const key = (c: DeployCell) => `${c.depth},${c.row}`;
+  const custom = stance === 'custom' ? army.tactics?.layout ?? {} : {};
+  for (const t of army.troops) {
+    const cell = custom[String(t.id)];
+    if (!cell || taken.has(key(cell))) continue;
+    taken.add(key(cell));
+    plan.set(t.id, cell);
+  }
+  for (const t of army.troops) {
+    if (plan.has(t.id)) continue;
+    const cell = preferredCells(stance === 'custom' ? 'offensive' : stance, t.type).find((c) => !taken.has(key(c)));
+    if (!cell) continue;
+    taken.add(key(cell));
+    plan.set(t.id, cell);
+  }
+  return plan;
+}
+
+function deploy(b: Battle, army: Army, side: Side, cols: number[]) {
+  const plan = planDeployment(army);
   const leadership = leadershipOf(army);
   army.troops.forEach((t) => {
     const type = UNIT_TYPES[t.type];
-    const behind = type.range > 1 || (type.hero?.spells.length ?? 0) > 0;
-    const slot = place(behind ? rear : front);
-    if (slot) taken.add(hexKey(slot));
+    const cell = plan.get(t.id);
+    const slot = cell ? { col: cols[cell.depth], row: cell.row } : undefined;
     b.units.push({
       id: b.units.length + 1,
       effects: [],
@@ -712,9 +760,33 @@ function aiBoulder(b: Battle, u: BattleUnit, boulder: NonNullable<(typeof UNIT_T
   return true;
 }
 
+/** How close the enemy must come before a holding formation moves. */
+export const HOLD_RANGE = 3;
+
+/**
+ * Whether this formation holds its ground this turn under its side's stance: Defensive armies hold until the
+ * enemy is within HOLD_RANGE; Skirmish melee hold the same way to guard the archers, whose own fire keeps them
+ * at a distance. Offensive and Custom armies advance.
+ */
+export function holdsGround(b: Battle, u: BattleUnit): boolean {
+  const stance = b.stances?.[u.side] ?? 'offensive';
+  const missile = UNIT_TYPES[u.type].range > 1 && !isHero(u.type);
+  if (stance === 'defensive' || (stance === 'skirmish' && !missile)) {
+    return nearestEnemyDistance(b, u, u.side) > HOLD_RANGE;
+  }
+  return false;
+}
+
 function aiUnit(b: Battle, u: BattleUnit) {
   const boulder = UNIT_TYPES[u.type].boulder;
   if (boulder && aiBoulder(b, u, boulder)) return;
+  if (holdsGround(b, u)) {
+    // Hold: cast or shoot from where they stand, but don't advance.
+    if (knownSpells(u).length > 0 && u.mana >= 2 && aiSpell(b, u)) return;
+    const inReach = attackTargets(b, u);
+    if (inReach.length) attack(b, u.id, inReach.reduce((a, c) => ((c.routing ? 0 : c.men) < (a.routing ? 0 : a.men) ? c : a)).id);
+    return;
+  }
   const caster = knownSpells(u).length > 0 && u.mana >= 2;
   if (caster && aiSpell(b, u)) return;
   // Casters with mana hang back at spell range; archers at bow range; everyone else closes in.
