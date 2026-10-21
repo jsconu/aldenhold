@@ -1,6 +1,7 @@
 import type { CampaignDefinition, CampaignId } from '../game/types';
 import { VALLEY_QUICKPLAY } from './campaigns/valleyQuickplay';
 import { WESTERN_REALM } from './campaigns/westernRealm';
+import { ENCOUNTERS } from './encounters';
 import { FACTIONS } from './factions';
 import { ITEMS } from './items';
 import { QUESTS } from './quests';
@@ -15,6 +16,7 @@ export const CATALOG = {
   factions: FACTIONS,
   items: ITEMS,
   quests: QUESTS,
+  encounters: ENCOUNTERS,
   hireableHeroes: HIREABLE_HEROES,
   heroNames: HERO_NAMES,
   campaigns: { 'western-realm': WESTERN_REALM, 'valley-quickplay': VALLEY_QUICKPLAY } as Record<CampaignId, CampaignDefinition>,

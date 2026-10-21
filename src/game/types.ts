@@ -177,7 +177,23 @@ export interface BattleUnit {
   acted: boolean;
 }
 
+export type EncounterStatus = 'active' | 'won' | 'lost' | 'withdrawn';
+/** The committed expedition and its permanent one-attempt outcome. */
+export interface EncounterProgress {
+  status: EncounterStatus;
+  startedTurn: number;
+  resolvedTurn: number | null;
+  seed: number;
+  sourceArmyId: number;
+  armyId: number;
+  enemyArmyId: number;
+  participantIds: number[];
+  waitingIds: number[];
+}
+
 export interface Battle {
+  /** Only set for an optional, quest-started site expedition. */
+  encounterId?: string;
   at: string;
   attackerId: number;
   defenderId: number;
@@ -306,6 +322,7 @@ export type QuestCondition =
   | { kind: 'quest'; quest: string; status: ResolvedQuestStatus }
   | { kind: 'town-owner'; town: string; owner: FactionId }
   | { kind: 'flag'; flag: string }
+  | { kind: 'encounter'; encounter: string; status: 'won' | 'lost' | 'withdrawn' }
   | { kind: 'month'; atLeast: number }
   /** Towns (not lairs) you rule. */
   | { kind: 'towns-ruled'; atLeast: number }
@@ -359,6 +376,8 @@ export interface QuestResolution {
 
 export interface QuestChoice {
   id: string;
+  /** Commit the army at this site to its one-attempt battle. */
+  encounter?: string;
   label: string;
   /** Gold the choice costs, paid when chosen. */
   gold?: number;
@@ -470,7 +489,7 @@ export interface CityEconomy {
 }
 
 export interface GameState {
-  version: 12;
+  version: 13;
   campaignId: CampaignId;
   campaignRevision: number;
   endingReason: EndingReason | null;
@@ -491,6 +510,7 @@ export interface GameState {
   journal: JournalEntry[];
   /** Quest state is separate from immutable quest content. */
   quests: Record<string, QuestProgress>;
+  encounters: Record<string, EncounterProgress>;
   /** Unique non-consumable campaign-held objects; future equipment is kept separately. */
   /** Campaign inventory by item id. See game/items.ts. */
   items: Record<string, ItemHolding>;

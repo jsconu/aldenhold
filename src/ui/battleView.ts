@@ -1,3 +1,4 @@
+import { ENCOUNTERS } from '../content/encounters';
 import { EFFECTS } from '../content/spells';
 import {
   attackOf, attackTargets, alive, defenseOf, isAI, knownSpells, playerSide, RALLY_AT, rangeOf, reachable, ROUT_AT, spellTargets,
@@ -102,7 +103,7 @@ export function renderBattle(state: GameState, ui: UIState): string {
 
   return `
   <header class="bar">
-    <h1>Battle at ${esc(nodeName(state, b.at))}</h1>
+    <h1>${b.encounterId ? esc(ENCOUNTERS[b.encounterId].name) : `Battle at ${esc(nodeName(state, b.at))}`}</h1>
     <span class="date">Round ${Math.min(b.round, 20)} of 20</span>
     <span class="turn ${myTurn ? 'mine' : ''}">${turnText}</span>
     <span class="spacer"></span>
@@ -137,6 +138,7 @@ export function renderBattle(state: GameState, ui: UIState): string {
       ${overlay}${units}
     </svg></section>
     <aside class="side">
+      ${b.encounterId ? `<p class="sub">One-attempt expedition. ${esc(ENCOUNTERS[b.encounterId].warning)}</p>` : ''}
       ${b.outcome ? renderOutcome(b) : sel ? renderUnit(b, sel, ui) : '<p class="hint">Click one of your units (blue), then a glowing location to move or a marked enemy to attack. Each unit may move, then attack, once a turn. Heroes (★) can cast spells instead of attacking.</p>'}
       <p class="sub">The thin bar under each troop is its morale. Below ${ROUT_AT} it breaks and runs for its own edge of the field; at ${RALLY_AT} it may rally.</p>
       ${b.walls ? `<p class="sub">${me === 'defender' ? 'You fight behind town walls: +1 defense.' : 'The enemy is behind walls: +1 defense.'}</p>` : ''}

@@ -14,6 +14,10 @@ import type { Army, CampaignId, FactionId, GameState, Town } from '../game/types
 import { renderJournal } from './journalView';
 import { renderTreasury } from './treasuryView';
 import { BUILDING_IDS, BUILDINGS, cityMaintenance, constructionQuote, developmentSites, endowment, totalCityMaintenance } from '../game/cities';
+import { QUESTS } from '../content/quests';
+import { ENCOUNTERS } from '../content/encounters';
+import { startLocation } from '../game/campaign';
+import { encounterQuote } from '../game/encounters';
 import { conditionHolds, conditionText, isOpen, questQuote, questsAt, questSummary, stageOf, trackedQuests } from '../game/quests';
 import { esc, type UIState } from './shared';
 import { renderOverland } from './overlandMap';
@@ -202,6 +206,11 @@ function renderNodePanel(state: GameState, ui: UIState, at: string): string {
     html += `<p class="sub">Open country</p>`;
   }
   if (town) html += renderQuests(state, town.id);
+  else for (const def of Object.values(QUESTS)) {
+    if (!def.campaignIds.includes(state.campaignId) || !isOpen(state.quests[def.id])) continue;
+    const stage = stageOf(def, state.quests[def.id].stage);
+    if (stage?.choices.some((c) => c.encounter && startLocation(state, ENCOUNTERS[c.encounter].at) === id)) html += renderQuests(state, def.at, def.id);
+  }
   for (const a of armies) html += renderArmy(state, ui, a);
   if (!armies.length) html += `<p class="sub">No troops here.</p>`;
   return html;
@@ -246,8 +255,8 @@ function renderCityDevelopment(state: GameState, id: string): string {
 }
 
 /** Cards for every quest offered at this town: the current stage and one button per choice, from its quote. */
-function renderQuests(state: GameState, townId: string): string {
-  return questsAt(state, townId).map((def) => {
+function renderQuests(state: GameState, townId: string, only?: string): string {
+  return questsAt(state, townId).filter((q) => !only || q.id === only).map((def) => {
     const q = state.quests[def.id];
     if (q.status === 'unavailable') return '';
     const head = `<div class="quest-card"><h3>${esc(def.name)} <small>${def.kind === 'main' ? 'Main objective' : 'Side quest'} · ${esc(def.giver)}</small></h3>`;
@@ -268,7 +277,13 @@ function renderQuests(state: GameState, townId: string): string {
       const met = o.when.every((c) => conditionHolds(state, c));
       return `<li class="${met ? 'met' : ''}">${met ? '✓' : '○'} ${o.when.map((c) => esc(conditionText(state, c))).join('; ')}</li>`;
     }).join('')}</ul><p class="sub">Goals are checked at the end of each month.</p>` : '';
-    return `${head}<p>${esc(def.summary)}</p><p class="sub">${esc(stage.text)}</p>${goals}${deadline}
+    const encounters = stage.choices.filter((c) => c.encounter).map((c) => {
+      const e = ENCOUNTERS[c.encounter!], quote = encounterQuote(state, e.id);
+      return `<p class="sub"><b>${esc(e.name)}:</b> ${esc(e.warning)}<br>
+        ${quote.participantIds.length ? `${quote.participantIds.length} formations enter; ${quote.waitingIds.length} stay outside.` : ''}
+        <button class="link" data-action="goto" data-node="${startLocation(state, e.at)}">View ${esc(nodeName(state, startLocation(state, e.at)))}</button></p>`;
+    }).join('');
+    return `${head}<p>${esc(def.summary)}</p>${encounters}<p class="sub">${esc(stage.text)}</p>${goals}${deadline}
       ${shared ? `<p class="hint">${esc(shared)}</p>` : ''}
       ${quotes.length ? `<div class="quest-actions">${quotes.map(({ c, quote }) => `<button data-action="quest-choice" data-quest="${def.id}" data-choice="${c.id}"
         ${quote.reason ? `disabled title="${esc(quote.reason)}"` : ''}>${esc(c.label)}${quote.gold ? ` · ${quote.gold}g` : ''}</button>`).join('')}</div>` : ''}</div>`;

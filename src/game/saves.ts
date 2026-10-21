@@ -1,3 +1,4 @@
+import { validateEncounterSaves } from './encounterSaves';
 import { EFFECTS } from '../content/spells';
 import { BATTLE_H, BATTLE_W, createBattle, FIELD_LIMIT } from './battle';
 import { CATALOG, getCampaign } from '../content';
@@ -48,7 +49,7 @@ const ledgerCategories: LedgerCategory[] = ['tax', 'wages', 'recruitment', 'hero
 /** Validate both shape and references before exposing a save to rules or rendering. */
 function validate(value: unknown, allowMissingBattleTroops = false): asserts value is GameState {
   const s = object(value);
-  requireValue(s.version === 12, 'unsupported schema version');
+  requireValue(s.version === 13, 'unsupported schema version');
   requireValue(text(s.campaignId) && Object.hasOwn(CATALOG.campaigns, s.campaignId), 'unknown campaign');
   const def = getCampaign(s.campaignId as CampaignId);
   requireValue(s.campaignRevision === def.revision, 'unsupported campaign revision');
@@ -339,6 +340,7 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
     if (!allowMissingBattleTroops) requireValue([...a.troops, ...d.troops].every((t) => troopIds.has(t.id)), 'missing battle formations');
   }
   const state = value as GameState;
+  validateEncounterSaves(state);
   const reason = endingReason(state);
   requireValue(state.status === 'playing' ? state.endingReason === null && reason === null : state.endingReason === reason && (state.status === 'won' ? reason === 'lair-captured' || reason === 'chapter-complete' : reason === 'lord-dead' || reason === 'capital-lost'), 'inconsistent campaign ending');
 }
@@ -491,9 +493,15 @@ function upgradeToV12(value: Record<string, unknown>) {
  * quest ids in the save are still rejected by validation.
  */
 function addNewQuests(value: Record<string, unknown>) {
-  if (value.version !== 12 || typeof value.quests !== 'object' || value.quests === null) return;
+  if (value.version !== 13 || typeof value.quests !== 'object' || value.quests === null) return;
   const quests = value.quests as Record<string, unknown>;
   for (const id of Object.keys(QUESTS)) if (!Object.hasOwn(quests, id)) quests[id] = lockedProgress();
+}
+
+/** Existing campaigns and active ordinary battles gain no invented expedition. */
+function upgradeToV13(value: Record<string, unknown>) {
+  value.encounters = {};
+  value.version = 13;
 }
 
 /** Migration runs on parsed JSON only; it never edits the legacy storage entry. */
@@ -525,6 +533,7 @@ export function parseSave(raw: string): GameState {
     upgradeToV10(value);
     upgradeToV11(value);
     upgradeToV12(value);
+    upgradeToV13(value);
     validate(value, true);
     if (value.battle) {
       const b = value.battle;
@@ -546,6 +555,7 @@ export function parseSave(raw: string): GameState {
   if (value.version === 9) upgradeToV10(value);
   if (value.version === 10) upgradeToV11(value);
   if (value.version === 11) upgradeToV12(value);
+  if (value.version === 12) upgradeToV13(value);
   addNewQuests(value);
   validate(value);
   return value;

@@ -1,3 +1,4 @@
+import { validateEncounters } from './validateEncounters';
 import { hexKey, hexNeighbors } from '../game/hex';
 import type { CampaignDefinition, HexWorld, QuestCondition } from '../game/types';
 import { hexLand, parseKey, placeKey, roadsOf } from '../game/world';
@@ -51,6 +52,7 @@ export function validateContent(catalog: Catalog): string[] {
     if (item.use && !(item.use.hp ?? 0) && !(item.use.mana ?? 0)) err(`item ${id}: its use restores nothing`);
   }
   validateQuests(catalog, err);
+  errors.push(...validateEncounters(catalog));
   for (const type of catalog.hireableHeroes) {
     if (!catalog.units[type]?.hero) err(`hireable hero "${type}" is not a hero unit`);
     if (!catalog.heroNames[type]?.length) err(`hireable hero "${type}" has no names`);
@@ -105,6 +107,9 @@ function validateCampaign(catalog: Catalog, c: CampaignDefinition, err: (msg: st
   // Every named location must be reachable from the capital, so every town can be taken and the lair attacked.
   const reached = named.reachableFrom(c.capital);
   for (const id of named.ids) if (!reached.has(id)) err(`location "${id}" cannot be reached from the capital`);
+  for (const encounter of Object.values(catalog.encounters)) {
+    if (encounter.campaignIds.includes(c.id) && !reached.has(encounter.at)) err(`encounter ${encounter.id}: site is unreachable`);
+  }
   for (const quest of Object.values(catalog.quests)) {
     if (!(quest.campaignIds as readonly string[]).includes(c.id)) continue;
     known(quest.at, `quest "${quest.id}"`);
@@ -236,6 +241,7 @@ function validateQuests(catalog: Catalog, err: (msg: string) => void) {
       for (const c of stage.choices) {
         if (choiceIds.has(c.id)) err(`${where}: duplicate choice "${c.id}" in stage "${stage.id}"`);
         choiceIds.add(c.id);
+        if (c.encounter && !catalog.encounters[c.encounter]) err(`${where}: unknown encounter "${c.encounter}"`);
         if (c.gold !== undefined && (!Number.isInteger(c.gold) || c.gold < 0)) err(`${where}: choice "${c.id}" has an invalid cost`);
         for (const item of c.requires ?? []) if (!catalog.items[item]) err(`${where}: choice "${c.id}" requires unknown item "${item}"`);
       }
@@ -276,6 +282,7 @@ function validateQuests(catalog: Catalog, err: (msg: string) => void) {
       }
     }
     function checkCondition(c: QuestCondition, at: string) {
+      if (c.kind === 'encounter' && (!catalog.encounters[c.encounter] || !['won', 'lost', 'withdrawn'].includes(c.status))) err(`${at}: unknown encounter or outcome`);
       if (c.kind === 'quest' && !quests[c.quest]) err(`${at}: requires unknown quest "${c.quest}"`);
       if ((c.kind === 'town-owner' || c.kind === 'food') && !q.campaignIds.every((cid) => catalog.campaigns[cid]?.towns.some((t) => t.id === c.town))) err(`${at}: requires unknown town "${c.town}"`);
       if ('atLeast' in c && (!Number.isInteger(c.atLeast) || c.atLeast < 0)) err(`${at}: invalid count`);

@@ -305,3 +305,16 @@ Validation: 272 tests pass, including 12 new chapter tests:
 - save and content rejections
 
 The build passes. In the browser I raised two militia, ended the month and saw M01 complete and M02 offered the same month, with both goals' progress shown. No console errors.
+
+
+## Codex: optional site expeditions, part 9c (#9)
+
+The owner asked Codex to work outside Claude's current changes. On finding Claude's merged quest engine, Q04, faction/item policies and chapter spine, Codex set aside its overlapping local quest prototype and built this increment on the latest main. It changes gameplay integration and small quest/battle text controls, preserving the map, terrain, settlement and unit artwork.
+
+- Added saved, one-attempt encounters launched from quest choices. The quote shows actual participants, excluded troops, risk and refusal reasons, and the quest is actionable at its site.
+- First playable Q02 Quarry, Q03 Old Tower and Q05 Missing Caravan variants use existing opponents and counted consumable rewards. Q05 includes a three-month deadline, paid ransom and recorded rescue/loss choices.
+- Hero-only encounters detach eligible heroes into an expedition army; ordinary formations remain outside, untouched by tactical losses, XP or pursuit. Ruler death still loses the game. Survivors use normal merge/retreat/cut-off rules.
+- Battle settlement records the result, removes temporary enemies and resolves its sponsoring quest once. Repeated settlement cannot duplicate XP, gold or inventory. Campaign time does not advance during the encounter.
+- Schema v13 stores committed participants, initial seed, army identities and outcome. Validation binds choice history, quest stage, battle, roster and waiting army; v2–v12 migration gives no retroactive encounter or loot.
+- 288 tests and the production build pass. Compiled-app DOM smoke covers site navigation, previews, hero-only launch, mid-combat reload, retreat and the saved outcome. Canvas is stubbed for this nonvisual check; actual browser visual checks remain outstanding.
+- **Remaining 9c:** Q02 cyclops/boulder telegraph and mining/noncombat paths; Q03 minotaur and equippable shield; Q05 final tracking/camp and later merchant effects. This is not completion of all original quest briefs or automatic surprise battles. See [encounter specification](encounters.md).

@@ -1,3 +1,5 @@
+import { ENCOUNTERS } from '../content/encounters';
+import { encounterQuote, launchEncounter } from './encounters';
 import { QUESTS } from '../content/quests';
 import { armyAt, deed, makeTroop, nodeName, neighborsOf, startLocation } from './campaign';
 import { relationWith } from './diplomacy';
@@ -82,6 +84,7 @@ export function conditionHolds(state: GameState, c: QuestCondition): boolean {
     case 'quest': return state.quests[c.quest]?.status === c.status;
     case 'town-owner': return state.towns[c.town]?.owner === c.owner;
     case 'flag': return state.flags.includes(c.flag);
+    case 'encounter': return state.encounters[c.encounter]?.status === c.status;
     case 'month': return state.turn >= c.atLeast;
     case 'any': return c.of.some((x) => conditionHolds(state, x));
     default: return (measure(state, c) ?? 0) >= c.atLeast;
@@ -96,6 +99,7 @@ export function conditionText(state: GameState, c: QuestCondition): string {
     case 'quest': return `${QUESTS[c.quest]?.name ?? c.quest} ends ${c.status}`;
     case 'town-owner': return c.owner === 'player' ? `Take ${nodeName(state, c.town)}` : `${nodeName(state, c.town)} falls to the ${c.owner}`;
     case 'flag': return `Event: ${c.flag}`;
+    case 'encounter': return `${ENCOUNTERS[c.encounter]?.name ?? c.encounter}: ${c.status === 'won' ? 'victory' : c.status === 'withdrawn' ? 'withdrawal' : 'defeat'}`;
     case 'month': return `Month ${c.atLeast} arrives`;
     case 'towns-ruled': return `Rule ${c.atLeast} towns${progress}`;
     case 'standing': return `Rule or ally with ${c.atLeast} towns${progress}`;
@@ -143,6 +147,12 @@ function checkObjectives(state: GameState, def: QuestDefinition) {
   }
 }
 
+/** Battle completion checks only this expedition's sponsoring quest, without advancing campaign time. */
+export function resolveEncounterQuest(state: GameState, questId: string) {
+  const def = QUESTS[questId];
+  if (def) checkObjectives(state, def);
+}
+
 /**
  * Unlock every quest of this campaign whose prerequisites now hold. Returns news lines for the newly unlocked
  * quests (at the start of a game the opening quests simply begin available).
@@ -183,6 +193,7 @@ export function questQuote(state: GameState, questId: string, choiceId: string):
     const inRange = state.armies.some((a) => a.owner === 'player' && (a.at === at || neighborsOf(state, at).includes(a.at)));
     if (!inRange) return refuse(def.refusals?.envoy ?? `Bring an army to ${nodeName(state, def.at)} or next to it first.`);
   }
+  if (choice.encounter) { const encounter = encounterQuote(state, choice.encounter); if (encounter.reason) return refuse(encounter.reason); }
   if (state.gold < gold) return refuse(`You need ${gold} gold.`);
   return { gold, reason: null };
 }
@@ -194,6 +205,7 @@ export function chooseQuest(state: GameState, questId: string, choiceId: string)
   const def = QUESTS[questId];
   const progress = state.quests[questId];
   const choice = stageOf(def, progress.stage)!.choices.find((c) => c.id === choiceId) as QuestChoice;
+  const expedition = choice.encounter ? encounterQuote(state, choice.encounter) : null;
   if (quote.gold > 0) {
     state.gold -= quote.gold;
     recordPurchase(state, def.at, 'quest', quote.gold, `quest:${def.id}:${progress.stage}:${choice.id}`, def.name);
@@ -203,6 +215,7 @@ export function chooseQuest(state: GameState, questId: string, choiceId: string)
   if ('stage' in choice.then) {
     progress.status = 'active';
     enterStage(state, def, choice.then.stage);
+    if (choice.encounter && expedition) launchEncounter(state, choice.encounter, expedition);
   } else {
     resolveQuest(state, def, choice.then, 'choice');
   }

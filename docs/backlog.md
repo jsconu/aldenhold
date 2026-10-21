@@ -24,9 +24,9 @@ These came out of a planning review with the owner. They govern order and releas
 | Order | GitHub issue | Next deliverable |
 | --- | --- | --- |
 | Done | #21, #22, #17 | Action quotes (#24), month pipeline (#25), quest engine (#27), Q04 Woodland Accord (#29), faction registry and item policies (#30) |
-| 1 | [#9 Western chapter](https://github.com/jsconu/aragon/issues/9) — 9a chapter spine | Objective stages that advance on world state, stage-start events (the M04 incursion), M01–M04, and finishing Act I as the chapter's victory |
+| Done (#31) | [#9 Western chapter](https://github.com/jsconu/aragon/issues/9) — 9a chapter spine | Objective stages that advance on world state, stage-start events (the M04 incursion), M01–M04, and finishing Act I as the chapter's victory |
 | 2 | #9 — 9b map growth | The six missing R01–R02 settlements (Oakcross, Bellwater, Thornwatch, Redford, Saltwick, Ironbridge) and their geography; validator checks every objective is reachable. Map art heavy: a good Codex turn |
-| 3 | #9 — 9c encounters | Authored battles started from quest choices, hero-only encounters; Q02 One Eye at the Quarry, Q03 Beneath the Old Tower, Q05 The Missing Caravan |
+| 3 (first increment delivered) | #9 — 9c encounters | Saved quest-started battles and hero-only expeditions; first playable Q02/Q03/Q05. Remaining: cyclops/boulder mechanics and mining route, minotaur/unique shield, caravan tracking/camp and later merchant consequences. See [encounters](encounters.md) |
 | 4 | #9 — 9d city quests | Q01 The Empty Granary, Q06 The Miller on Trial; consumable rewards |
 | 5 | #9 — 9e balance and art | Seeded playthrough bot for M01–M04 on Normal, incursion and economy tuning, chapter art pass, final title |
 | After the chapter | [#15](https://github.com/jsconu/aragon/issues/15) remainder | Fog, scouting, pan/zoom, minimap, saved multi-month orders, next regions |

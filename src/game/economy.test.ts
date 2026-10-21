@@ -96,7 +96,7 @@ describe('reconciled treasury', () => {
     const { treasury: _old, ...before } = s;
     const v5 = { ...before, version: 5 };
     const restored = parseSave(JSON.stringify(v5));
-    expect(restored.version).toBe(12);
+    expect(restored.version).toBe(13);
     expect(restored.treasury).toEqual({ opening: s.gold, pending: [], history: [] });
   });
 

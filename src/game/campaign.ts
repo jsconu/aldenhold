@@ -1,9 +1,11 @@
+import { recordEncounterOutcome } from './encounters';
+import { ENCOUNTERS } from '../content/encounters';
 import { orcTurn } from './ai';
 import { autoResolve, createBattle, isAI, runAI } from './battle';
 import { getCampaign } from '../content';
 import { hasPassage, relationWith } from './diplomacy';
 import { newTreasury, recordPurchase, settleTreasury, type CashFlow } from './economy';
-import { advanceQuests, newQuestState, onTownOwnershipChange, unlockQuests } from './quests';
+import { advanceQuests, resolveEncounterQuest, newQuestState, onTownOwnershipChange, unlockQuests } from './quests';
 import { advanceCities, cityMaintenance, startingCities, type CityPhaseResult } from './cities';
 import { basicLoadout, finishRefits, troopUpkeep } from './equipment';
 import { HERO_NAMES, HIREABLE_HEROES, UNIT_TYPES } from './data';
@@ -24,7 +26,7 @@ const OFFER_MONTHS = 3;
 export function newGame(seed = Math.floor(Math.random() * 2 ** 31), campaignId: CampaignId = 'valley-quickplay'): GameState {
   const def = getCampaign(campaignId);
   const state: GameState = {
-    version: 12,
+    version: 13,
     campaignId: def.id,
     campaignRevision: def.revision,
     endingReason: null,
@@ -44,6 +46,7 @@ export function newGame(seed = Math.floor(Math.random() * 2 ** 31), campaignId: 
     log: [],
     journal: [],
     quests: newQuestState(),
+    encounters: {},
     items: {},
     treaties: {},
     flags: [],
@@ -409,6 +412,8 @@ export function startBattle(state: GameState, attackerId: number, defenderId: nu
 /** Write the battle's losses back to the armies, move the loser out, and hand over the town. */
 export function applyBattle(state: GameState, b: Battle) {
   if (!b.outcome) return;
+  // Reapplying an already recorded expedition must not repeat XP, loot or quest effects.
+  if (b.encounterId && state.encounters[b.encounterId]?.status !== 'active') return;
   const attacker = findArmy(state, b.attackerId);
   const defender = findArmy(state, b.defenderId);
   for (const army of [attacker, defender]) {
@@ -442,6 +447,17 @@ export function applyBattle(state: GameState, b: Battle) {
   }
 
   const survives = (a: Army | undefined): a is Army => !!a && !!findArmy(state, a.id);
+  if (b.encounterId) {
+    recordEncounterOutcome(state, b);
+    if (survives(attacker)) {
+      if (b.outcome === 'attacker') settle(state, attacker);
+      else fallBack(state, attacker);
+    }
+    resolveEncounterQuest(state, ENCOUNTERS[b.encounterId].quest);
+    checkStatus(state);
+    startNextPending(state);
+    return;
+  }
   if (b.outcome === 'attacker' && survives(attacker)) {
     if (survives(defender)) fallBack(state, defender);
     settle(state, attacker);

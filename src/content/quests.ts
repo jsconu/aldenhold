@@ -1,3 +1,4 @@
+import { ENCOUNTER_QUESTS } from './encounterQuests';
 import type { QuestDefinition, QuestResolution } from '../game/types';
 
 /**
@@ -224,6 +225,7 @@ export const M04_INCURSION: QuestDefinition = {
 };
 
 export const QUESTS: Record<string, QuestDefinition> = {
+  ...ENCOUNTER_QUESTS,
   [FENWICK_CHARTER.id]: FENWICK_CHARTER,
   [WOODLAND_ACCORD.id]: WOODLAND_ACCORD,
   [M01_INHERITANCE.id]: M01_INHERITANCE,
