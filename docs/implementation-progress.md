@@ -508,3 +508,13 @@ Validation: 362 tests pass, including 7 new merchant tests:
 - content checks
 
 The build passes. In the browser, after a ransom, Fenwick showed the stall at 60 g and 75 g, and buying one left one in stock, with the gold shortfall stated. No console errors.
+
+## Encounter odds and first tuning pass (#9, 9e)
+
+- **Odds harness:** `npm run simulate:encounters -- [runs]` fights every quest encounter against the parties a player plausibly brings, and reports wins, hero deaths, losses and rounds (`src/game/testing/encounterOdds.ts`). Results and the proposed targets are in [encounter odds](encounter-odds.md).
+- **Before tuning:** every encounter was won about 100% of the time by almost any party.
+- **Fearless monsters:** quest monsters can now be `fearless`. The cyclops and the minotaur never lose morale or run, and Terror can't target them.
+- **The cyclops** goes from 10 men to 18. The priest expedition now wins 95% (4% hero deaths) and a band without a hero 32%. Codex's seeded tours still pass.
+- **Open:** the minotaur is still too easy (any lone hero wins 98%). Tuning it to 14 makes a lone fighter or mage a roughly 70% gamble, but a lone priest can't win, which breaks the priest-only tower route Codex's expedition controller and its tests rely on. The owner decides.
+
+Validation: 375 tests pass, including 3 new ones (fearless cyclops, the cyclops's difficulty band, report coverage). Build passes.

@@ -90,6 +90,8 @@ export interface UnitType {
    * next if the target is still within `range`. Damage is multiplied by `factor` and can't be struck back.
    */
   boulder?: { range: number; factor: number };
+  /** Never loses morale or runs (quest monsters): it fights until it falls. */
+  fearless?: boolean;
   /** Present for heroes. For heroes, `men` is base hit points and `cost` the hiring fee. */
   hero?: HeroTraits;
 }

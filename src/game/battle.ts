@@ -92,7 +92,7 @@ export function terrainAt(b: Battle, h: Hex) {
 }
 
 function startingMorale(b: Battle, side: Side, type: string, xp: number, leadership: number): number {
-  if (isHero(type)) return 100;
+  if (isHero(type) || UNIT_TYPES[type].fearless) return 100;
   const walls = b.walls && side === 'defender' ? 10 : 0;
   return Math.min(100, 60 + 8 * (level(xp) - 1) + leadership + walls);
 }
@@ -259,7 +259,7 @@ export function unitLabel(b: Battle, u: BattleUnit): string {
 
 /** Lower a troop's morale; it breaks if morale falls below ROUT_AT. Heroes never break. */
 function shake(b: Battle, u: BattleUnit, amount: number) {
-  if (isHero(u.type) || u.men <= 0 || u.fled) return;
+  if (isHero(u.type) || UNIT_TYPES[u.type].fearless || u.men <= 0 || u.fled) return;
   u.morale = Math.max(0, Math.min(100, u.morale - amount));
   if (!u.routing && u.morale < ROUT_AT) {
     u.routing = true;
@@ -357,7 +357,7 @@ export function spellTargets(b: Battle, u: BattleUnit, spellId: SpellId): Battle
   return pool.filter((t) => {
     if (hexDistance(u, t) > spell.range || (spell.lineOfSight && !spellLineOfSight(b, u, t))) return false;
     if (spellId === 'heal') return t.men < t.maxMen;
-    if (spellId === 'rally' || spellId === 'terror') return !isHero(t.type) && (spellId === 'terror' || t.morale < 100);
+    if (spellId === 'rally' || spellId === 'terror') return !isHero(t.type) && !UNIT_TYPES[t.type].fearless && (spellId === 'terror' || t.morale < 100);
     if (spellId === 'dispel') return dispellable(u, t).length > 0;
     if (spellId === 'teleport') return !t.routing && teleportDestinations(b, u, t).length > 0;
     if (spellId === 'ward' || spellId === 'haste' || spellId === 'slow') return !t.effects.some((e) => e.id === spellId && e.turns === EFFECTS[spellId].turns);
