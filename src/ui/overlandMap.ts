@@ -93,6 +93,9 @@ function routePath(a: MapNode, b: MapNode): string {
 function atlasDefs(): string {
   return `<defs>
     <clipPath id="atlas-clip"><rect x="3" y="3" width="834" height="494" rx="9"/></clipPath>
+    <filter id="atlas-landscape-soften" x="-3%" y="-3%" width="106%" height="106%">
+      <feGaussianBlur stdDeviation="5"/>
+    </filter>
     <pattern id="atlas-grain" width="43" height="43" patternUnits="userSpaceOnUse">
       <circle cx="5" cy="8" r="0.8" fill="#e5d4a0" opacity=".15"/>
       <path d="M17 27l3 -2 M35 9l2 2 M7 37l3 1" stroke="#271f16" stroke-width=".8" opacity=".24"/>
@@ -228,12 +231,22 @@ function mapViewBox(state: GameState, ui: UIState): string {
 export function renderOverland(state: GameState, ui: UIState, targets: string[], planned: readonly string[] = []): string {
   const tiles = atlasTiles(state);
   const mode = ui.mapLayer === 'political' ? 'political' : 'terrain';
-  const grid = tiles.map(({ col, row, x, y, terrain }) => {
-    const motif = terrain === 'grass' ? '' : `<use href="#atlas-${terrain}" x="${(x - 13).toFixed(1)}" y="${(y - 13).toFixed(1)}"
-      width="26" height="26" class="atlas-feature"/>`;
-    return `<g class="atlas-tile biome-${terrain}" data-tile="${col}:${row}">
-      <polygon points="${hexPoints(x, y)}" class="atlas-ground"/>${motif}</g>`;
+  const grid = tiles.map(({ col, row, x, y, terrain }) =>
+    `<g class="atlas-tile biome-${terrain}" data-tile="${col}:${row}">
+      <polygon points="${hexPoints(x, y)}" class="atlas-ground"/></g>`).join('');
+  // Terrain stamps stay sharp while the underlying land colours blend into continuous regions.
+  const motifs = tiles.map(({ col, row, x, y, terrain }) => {
+    if (terrain === 'grass' || (hash(col + 67, row - 19) < 0.22 && terrain !== 'river')) return '';
+    const turn = Math.floor(hash(col + 9, row + 13) * 4) * 90;
+    const scale = 0.81 + hash(col - 13, row + 23) * 0.27;
+    return `<use href="#atlas-${terrain}" x="-13" y="-13" width="26" height="26"
+      transform="translate(${x.toFixed(1)} ${y.toFixed(1)}) rotate(${turn}) scale(${scale.toFixed(2)})"
+      class="atlas-feature"/>`;
   }).join('');
+  const river = Array.from({ length: 27 }, (_, i) => {
+    const y = i * 20;
+    return `${i ? 'L' : 'M'}${(357 + 23 * Math.sin((y + 12) / 62)).toFixed(1)} ${y}`;
+  }).join(' ');
   const politics = state.nodes.filter((n) => state.towns[n.id]).map((n) => {
     const town = state.towns[n.id];
     return `<circle cx="${n.x}" cy="${n.y}" r="100" fill="url(#own-glow-${town.owner})"/>`;
@@ -245,7 +258,13 @@ export function renderOverland(state: GameState, ui: UIState, targets: string[],
     ${atlasDefs()}
     <g clip-path="url(#atlas-clip)">
       <rect width="840" height="500" fill="#52664b"/>
-      <g class="atlas-terrain">${grid}</g>
+      <g class="atlas-terrain" filter="url(#atlas-landscape-soften)">${grid}</g>
+      <g class="atlas-watercourse" pointer-events="none">
+        <path d="${river}" class="atlas-river-bank"/>
+        <path d="${river}" class="atlas-river-water"/>
+        <path d="${river}" class="atlas-river-sheen"/>
+      </g>
+      <g class="atlas-terrain-details" pointer-events="none">${motifs}</g>
       <rect width="840" height="500" fill="url(#atlas-grain)" pointer-events="none"/>
       <g class="atlas-political-fields" pointer-events="none">${politics}</g>
       <g class="atlas-roads" pointer-events="none">${roads}</g>
