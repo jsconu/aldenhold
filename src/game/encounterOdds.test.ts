@@ -33,6 +33,17 @@ describe('encounter odds (automated tactics, guard rails for tuning)', () => {
     expect(band.winRate).toBeLessThanOrEqual(0.6);
   }, 60_000);
 
+  it('the minotaur is a gamble for one fighting hero, safe for a pair, and beyond a lone priest', () => {
+    const pair = encounterOdds('Q03', 'enter', PARTIES.pair, 80);
+    const champion = encounterOdds('Q03', 'enter', PARTIES.champion, 80);
+    const priest = encounterOdds('Q03', 'enter', PARTIES.priest, 40);
+    expect(pair.winRate).toBeGreaterThanOrEqual(0.85);
+    expect(pair.heroDeathRate).toBeLessThanOrEqual(0.1);
+    expect(champion.winRate).toBeGreaterThanOrEqual(0.4);
+    expect(champion.winRate).toBeLessThanOrEqual(0.9);
+    expect(priest.winRate).toBeLessThanOrEqual(0.2);
+  }, 60_000);
+
   it('reports every encounter against its plausible parties', () => {
     const rows = encounterReport(2);
     expect(rows.map((r) => `${r.quest}/${r.party}`)).toEqual([

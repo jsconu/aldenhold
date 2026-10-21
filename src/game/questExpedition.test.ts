@@ -46,14 +46,16 @@ describe('optional quests through a paid campaign expedition', () => {
     expect(result.actions.some((a) => a.includes('Q00: sign after expedition'))).toBe(true);
   }, 15_000);
 
-  it('can recover from an unsuccessful tower attempt on the next campaign month', () => {
+  it('never sends the priest into the vault alone: it waits for a hired fighter (tower retries are covered in encounters.test)', () => {
     const result = playQuestExpedition(9);
     const attempts = result.encounters.filter((e) => e.quest === 'Q03');
-    expect(attempts.map((e) => e.won)).toEqual([false, true]);
+    expect(attempts).toHaveLength(1);
+    expect(attempts[0].won).toBe(true);
+    expect(attempts[0].participants).toContain('priest');
+    expect(attempts[0].participants.some((p) => p === 'champion' || p === 'mage')).toBe(true);
     expect(result).toMatchObject({ priestAlive: true, rulerAlive: true, resolutions: { Q03: 'succeeded' }, draughts: 3 });
-    const entries = result.actions.filter((a) => a.includes('Q03: enter'));
-    expect(entries).toHaveLength(2);
-    expect(Number(entries[1].split(':')[0])).toBeGreaterThan(Number(entries[0].split(':')[0]));
+    const month = (pattern: RegExp) => Number(result.actions.find((a) => pattern.test(a))!.split(':')[0]);
+    expect(month(/Q03: enter/)).toBeGreaterThan(month(/hire (champion|mage)/));
   }, 15_000);
 
   for (const seed of [1, 42, 2026]) {
@@ -71,7 +73,11 @@ describe('optional quests through a paid campaign expedition', () => {
       expect(result.priestXp).toBeGreaterThan(0);
       expect(result.casualties).toBeGreaterThan(0);
       expect(result.encounters.map((e) => [e.quest, e.won])).toEqual([['Q05', true], ['Q02', true], ['Q03', true]]);
-      expect(result.encounters.find((e) => e.quest === 'Q03')!.participants).toEqual(['priest']);
+      // The minotaur is beyond a lone priest (docs/encounter-odds.md): a hired champion or mage goes in with them.
+      const tower = result.encounters.find((e) => e.quest === 'Q03')!.participants;
+      expect(tower).toHaveLength(2);
+      expect(tower).toContain('priest');
+      expect(tower.some((p) => p === 'champion' || p === 'mage')).toBe(true);
       expect(result.encounters.every((e) => !e.participants.includes('lord'))).toBe(true);
       expect(result.actions.some((a) => a.includes('hire priest'))).toBe(true);
     }, 15_000);

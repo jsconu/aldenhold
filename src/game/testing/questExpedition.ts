@@ -21,6 +21,8 @@ export function playQuestExpedition(seed: number, options: {
   const partyIds = [party.find((t) => t.type === 'militia')!.id,
     party.find((t) => t.type === 'spearmen')!.id, party.find((t) => t.type === 'archers')!.id];
   let priestId: number | undefined;
+  // The vault's minotaur is beyond a lone priest: a hired champion or mage joins the party for the tower.
+  let fighterId: number | undefined;
   let woodlandEnvoyId: number | undefined;
   let woodlandCompleted: number | undefined;
   let months = 0;
@@ -48,7 +50,18 @@ export function playQuestExpedition(seed: number, options: {
     if (result.battles) note(`resolved ${result.battles} battles`);
   };
   const allDone = () => ['Q02', 'Q03', 'Q05'].every((id) => state.quests[id].status === 'succeeded');
+  let heroesLost = 0;
+  const alive = (id: number) => state.armies.some((a) => a.owner === 'player' && a.troops.some((t) => t.id === id));
   for (; months < maxMonths && state.status === 'playing' && (!allDone() || options.finishChapter); months++) {
+    // A hero who fell (say, in a lost tower fight) leaves the party; the tour hires another when one is offered.
+    for (const id of [priestId, fighterId]) {
+      if (id === undefined || alive(id)) continue;
+      heroesLost++;
+      if (partyIds.includes(id)) partyIds.splice(partyIds.indexOf(id), 1);
+      if (id === priestId) priestId = undefined;
+      if (id === fighterId) fighterId = undefined;
+      note('a hero fell; seeking a replacement');
+    }
     if (priestId === undefined) {
       const offer = state.offers.find((o) => o.type === 'priest' && !hireQuote(state, o).reason);
       if (offer) {
@@ -56,6 +69,25 @@ export function playQuestExpedition(seed: number, options: {
         priestId = armyAt(state, townLocation(state, offer.town), 'player')!.troops.find((t) => t.type === 'priest')!.id;
         partyIds.push(priestId);
         note('hire priest');
+      }
+    } else if (fighterId === undefined && !(options.cityChoices && state.quests.Q01.status === 'available')) {
+      // Hire only once the time-limited granary decision is settled, so its gold isn't spent first.
+      const offer = state.offers.find((o) => (o.type === 'champion' || o.type === 'mage') && !hireQuote(state, o).reason);
+      if (offer) {
+        must(hireHero(state, offer));
+        fighterId = armyAt(state, townLocation(state, offer.town), 'player')!.troops.find((t) => t.name === offer.name)!.id;
+        note(`hire ${offer.type} ${offer.name}`);
+      }
+    }
+    // The fighter makes its own way to the Old Watchtower and joins the party there.
+    const partyArmy = () => state.armies.find((a) => a.owner === 'player' && a.troops.some((t) => partyIds.includes(t.id)));
+    if (fighterId !== undefined && !partyIds.includes(fighterId)) {
+      if (partyArmy()?.troops.some((t) => t.id === fighterId)) {
+        partyIds.push(fighterId);
+        note('fighter joins the expedition');
+      } else {
+        const leg = marchParty(state, [fighterId], 'watchtower');
+        if (leg) note(`fighter toward watchtower: ${leg}`);
       }
     }
     if (state.quests.M01.status === 'available') {
@@ -126,6 +158,8 @@ export function playQuestExpedition(seed: number, options: {
     }
     for (const [quest, choice] of [['Q05', 'track'], ['Q05', 'raid'], ['Q02', 'hunt'], ['Q03', 'enter']]) {
       if (questQuote(state, quest, choice).reason) continue;
+      // Wait at the tower for the fighter rather than sending the priest in alone.
+      if (quest === 'Q03' && !partyArmy()?.troops.some((t) => t.id === fighterId)) continue;
       must(chooseQuest(state, quest, choice));
       note(`${quest}: ${choice}`);
       fight();
@@ -145,7 +179,7 @@ export function playQuestExpedition(seed: number, options: {
   const priest = state.armies.filter((a) => a.owner === 'player').flatMap((a) => a.troops).find((t) => t.id === priestId);
   return {
     seed, months, status: state.status, gold: state.gold, minimumGold, unpaid, foodShortages, corrections,
-    battles, casualties, rulerAlive: (lordOf(state)?.men ?? 0) > 0, priestAlive: (priest?.men ?? 0) > 0,
+    battles, casualties, heroesLost, rulerAlive: (lordOf(state)?.men ?? 0) > 0, priestAlive: (priest?.men ?? 0) > 0,
     priestXp: priest?.xp ?? 0, draughts: heldQty(state, 'healing-draught'), quarryYield: yieldFactor(state, 'aldenhold', 'mine'),
     completed, encounters, actions,
     cityCompleted, cityResolutions: Object.fromEntries(['Q01', 'Q06'].map((id) => [id, state.quests[id].status])),
