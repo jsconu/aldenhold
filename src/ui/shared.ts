@@ -23,6 +23,8 @@ export interface UIState {
   /** Ephemeral map presentation; deliberately not part of the saved campaign. */
   mapLayer?: 'terrain' | 'political';
   mapZoom?: number;
+  /** Western Realm hex map zoom (see HEX_ZOOMS); absent means the default. */
+  hexZoom?: number;
   /** Planning is a preview, not a saved army order. */
   routeOrigin?: string | null;
   routeDestination?: string | null;

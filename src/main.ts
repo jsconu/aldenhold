@@ -1,4 +1,5 @@
 import './style.css';
+import { HEX_ZOOMS, hexZoom } from './ui/hexMapView';
 import {
   attack, attackTargets, autoResolve, castSpell, escapeQuote, moveUnit, planDeployment, playerEndTurn, playerSide, reachable, spellTargets, teleportDestinations, tryEscape, unitAt,
 } from './game/battle';
@@ -102,6 +103,20 @@ function battleScroll(): HTMLElement | null {
   return app.querySelector<HTMLElement>('.battle-scroll');
 }
 
+/** The Western Realm map's scrolling frame, if it is on screen. */
+function hexScroll(): HTMLElement | null {
+  return app.querySelector<HTMLElement>('.hex-scroll');
+}
+
+/** Scroll the map so the selected hex (or failing that, one of your armies) is in the middle. */
+function centreHexMap(behavior: ScrollBehavior = 'auto') {
+  const frame = hexScroll();
+  const target = frame?.querySelector<SVGGraphicsElement>('.overland .selected') ?? frame?.querySelector<SVGGraphicsElement>('.overland .owner-player .army-halo');
+  if (!frame || !target) return;
+  const box = target.getBoundingClientRect(), view = frame.getBoundingClientRect();
+  frame.scrollTo({ left: frame.scrollLeft + box.left + box.width / 2 - view.left - frame.clientWidth / 2, top: frame.scrollTop + box.top + box.height / 2 - view.top - frame.clientHeight / 2, behavior });
+}
+
 /** Keep the minimap's frame on what the battle view shows. */
 function syncMinimap() {
   const frame = battleScroll();
@@ -117,10 +132,20 @@ function syncMinimap() {
 }
 
 function render() {
-  // The page is redrawn after every action: keep the battlefield where the player was looking.
+  // The page is redrawn after every action: keep the battlefield and the map where the player was looking.
   const before = battleScroll();
   const scroll = before ? { left: before.scrollLeft, top: before.scrollTop, width: before.scrollWidth, height: before.scrollHeight } : null;
+  const mapBefore = hexScroll();
+  const mapScroll = mapBefore ? { x: (mapBefore.scrollLeft + mapBefore.clientWidth / 2) / Math.max(1, mapBefore.scrollWidth), y: (mapBefore.scrollTop + mapBefore.clientHeight / 2) / Math.max(1, mapBefore.scrollHeight) } : null;
   draw();
+  const mapAfter = hexScroll();
+  if (mapAfter && mapScroll) {
+    // Keep the same point of the map in the middle, also across a zoom.
+    mapAfter.scrollLeft = mapScroll.x * mapAfter.scrollWidth - mapAfter.clientWidth / 2;
+    mapAfter.scrollTop = mapScroll.y * mapAfter.scrollHeight - mapAfter.clientHeight / 2;
+  } else if (mapAfter) {
+    centreHexMap();
+  }
   const after = battleScroll();
   if (after && scroll) {
     // After a zoom, keep the same point of the field in view.
@@ -198,6 +223,11 @@ function onAction(action: string, data: DOMStringMap) {
     case 'map-layer':
       if (data.layer === 'terrain' || data.layer === 'political') ui.mapLayer = data.layer;
       break;
+    case 'hex-zoom': {
+      const step = HEX_ZOOMS.indexOf(hexZoom(ui) as (typeof HEX_ZOOMS)[number]) + (data.zoom === 'in' ? 1 : -1);
+      ui.hexZoom = HEX_ZOOMS[Math.max(0, Math.min(HEX_ZOOMS.length - 1, step))];
+      break;
+    }
     case 'map-zoom':
       ui.mapZoom = Math.max(1, Math.min(2, (ui.mapZoom ?? 1) + (data.zoom === 'in' ? 0.5 : -0.5)));
       break;
@@ -381,13 +411,15 @@ function onHex(col: number, row: number) {
 // Drag to pan the battlefield. A drag that moved never counts as a click (no accidental moves or attacks).
 let drag: { x: number; y: number; left: number; top: number; moved: boolean } | null = null;
 let swallowClick = false;
+let dragFrame: HTMLElement | null = null;
 app.addEventListener('pointerdown', (e) => {
-  const frame = (e.target as Element).closest<HTMLElement>('.battle-scroll');
+  const frame = (e.target as Element).closest<HTMLElement>('.battle-scroll, .hex-scroll');
   if (!frame || e.button !== 0) return;
+  dragFrame = frame;
   drag = { x: e.clientX, y: e.clientY, left: frame.scrollLeft, top: frame.scrollTop, moved: false };
 });
 app.addEventListener('pointermove', (e) => {
-  const frame = battleScroll();
+  const frame = dragFrame;
   if (!drag || !frame || !(e.buttons & 1)) return;
   const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
   if (!drag.moved && Math.hypot(dx, dy) < 6) return;
@@ -429,6 +461,10 @@ app.addEventListener('click', (e) => {
       const fx = (e.clientX - box.left) / box.width, fy = (e.clientY - box.top) / box.height;
       frame.scrollTo({ left: fx * field.clientWidth - frame.clientWidth / 2, top: fy * field.clientHeight - frame.clientHeight / 2 });
     }
+    return;
+  }
+  if (el.dataset.action === 'hex-center') {
+    centreHexMap('smooth');
     return;
   }
   if (el.dataset.action === 'battle-center') {
