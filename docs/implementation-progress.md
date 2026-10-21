@@ -191,3 +191,12 @@ Each phase returns its notes (chronicle news, or deeds that also go to the journ
 **Interruption rule:** only the `ai` phase can start a battle, and every economic phase has already run by then, so a month never has to resume halfway and no save change is needed. Battles the AI queues are fought after the month closes; the ending check runs again after each battle, and the month is never re-run.
 
 Validation: 218 tests pass, including 5 new month tests (documented order, notes written in phase order, deeds in the journal, no work during a battle or after the ending, an orc attack fought after the month closes without re-running it, and deterministic reports for a seed). All earlier seeded campaign tests pass unchanged, so month results are identical. Checked in the browser: four month-ends on the Western Realm.
+
+
+## Seamless overland and battle artwork
+
+- Both playable map types hide permanent hex borders. The short valley atlas now blends the underlying land-colour polygons, while terrain motifs remain crisp; its watercourse is drawn as a continuous meandering river beneath roads and site art.
+- The Western Realm's real 40×28 hex map still uses its unchanged integer coordinates, map contents, movement costs, fog/hazard rules and click geometry. Its pixel-art painter now diffuses only a narrow band at neighboring terrain seams before overlaying sharp roads and bridges. Tactical reach and selection show soft circular highlights rather than hex-shaped outlines.
+- Battlefield painting is separated into soft-edged ground colours, deterministic connected forests/creeks/hill shading, crisp SVG vegetation/ruins and pixel-art formation tokens. Click hitboxes retain exact hex geometry invisibly; reachable and spell-affected cells use round glows. Unit selection/ring indicators are ellipses rather than permanent hex borders.
+- Artwork is generated deterministically from the existing world and battle state. No schema migration, world data changes, movement rebalancing, or added copyrighted assets.
+- Next art pass still needed: review actual screenshots in a browser; larger hand-authored settlement sprites, forests and mountain slope layering, more organic river/road junctions and tile transition quality at the Western Realm's current native pixel resolution.
