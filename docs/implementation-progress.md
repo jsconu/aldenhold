@@ -430,3 +430,11 @@ Validation: 300 tests pass, including 13 new city-quest tests:
 - a forged early ledger is rejected; content checks for spoilage, evidence events, goods towns, needs and bans
 
 The build passes. In the browser: the granary rotted on schedule, rationing blocked Aldenhold's recruit buttons with the reason, and the trial brought the ledger into the inventory, then archived it on conviction. No console errors.
+
+## Codex: treasury cash reports (#6)
+
+The treasury's old “Revenue” summary counted taxes but omitted quest rewards and item sales. Reports now derive all receipts/payments directly from posted entries and show a complete opening-to-closing cash equation, with balance adjustments separate. Each period includes category and location breakdowns plus individual transactions with readable category labels. Mobile army costs stay under Field / realm; the location view does not invent separate city bank balances.
+
+The current-month section is now activity rather than “purchases,” so a reward posted after month-end is correctly shown as a receipt. It distinguishes unsettled payroll/taxes from posted cash. Unpaid wages/maintenance remain reported shortfalls and are not counted as money paid. Tables scroll on narrow screens. Months without payments show 0g rather than negative zero.
+
+Validation: all 328 tests and the production build pass. Four new tests cover mixed receipts/adjustments, per-location/category conservation, real M01 reward timing, actual field payroll, unpaid bills and a legacy import without invented history. A compiled DOM check opens the report after a real month closure, verifies its cash equation and category/location tables, returns to the map and confirms the ledger is unchanged, with no runtime errors. Canvas was stubbed; visual browser review remains outstanding. No economic rules, transactions, private-goods conversion, commerce system or save schema changed.

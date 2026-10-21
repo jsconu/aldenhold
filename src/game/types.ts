@@ -468,6 +468,7 @@ export interface MonthlyLedger {
   turn: number;
   opening: number;
   closing: number;
+  /** Tax receipts only. All posted receipts (including rewards/sales) are derived by cashReport. */
   income: number;
   expenses: number;
   /** Liability omitted from paid wages due to an empty treasury. */

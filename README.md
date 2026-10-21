@@ -24,3 +24,5 @@ The chapter simulation uses normal player commands, monthly save/import checkpoi
 Use the Journal’s **Show** links to locate an active encounter on the map. Tracked quest shortcuts also open the current encounter site; movement and battles still require your commands.
 
 At an encounter site, expand **Expedition** to inspect the troops that will deploy, remain in reserve or wait outside. Hero-only trials leave your ruler and formations outside.
+
+The **Treasury** shows posted receipts and payments by category and location, the cash reconciliation, and unpaid bills. Quest rewards and item sales appear alongside taxes; current-month activity remains separate from closed months.

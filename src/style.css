@@ -483,3 +483,7 @@ button.travel-destination b { color: var(--gold); font-size: 11px; }
 .encounter-party { min-width: 0; padding: 8px; border: 1px solid var(--line); border-radius: 6px; overflow-wrap: anywhere; }
 .encounter-party summary { cursor: pointer; font-weight: 600; }
 .encounter-party p { margin: 8px 0 0; }
+.finance-scroll { max-width: 100%; overflow-x: auto; }
+.finance-table caption { text-align: left; font-weight: 700; padding: 12px 8px 4px; }
+.finance-table tbody th { font-weight: 500; }
+.finance-reconciliation { font-variant-numeric: tabular-nums; }
