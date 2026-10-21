@@ -5,7 +5,8 @@ A browser remake of *Sword of Aragon* (SSI, 1989): run your towns, raise troops,
 ```bash
 npm install
 npm run dev     # play at http://localhost:5173
-npm test        # rules tests
+npm test        # rules tests, including seeded chapter playthroughs
+npm run simulate:chapter -- 1 42 2026 # chapter economy/combat report
 npm run build   # type-check and build to dist/
 ```
 
@@ -16,3 +17,5 @@ The game autosaves to your browser after every action. Use **Export save** for a
 Battles field the first 27 formations per army. Additional formations appear in the reserve list and remain off-field for that battle. They earn no combat XP or combat losses, but share their army's retreat, pursuit losses and dispersal if cut off. Deployment selection and reinforcement waves are planned for a later increment.
 
 The Western Realm has grown to **52×38 hexes**, with 12 core regional settlements and three border towns/strongholds. Existing Western saves expand automatically while retaining their armies and development. See [map growth and save migration](docs/western-map-growth.md).
+
+The chapter simulation uses normal player commands, monthly save/import checkpoints and auto-resolved battles. See [the reproducible balance baseline](docs/chapter-playthroughs.md) for policies, metrics and limits.

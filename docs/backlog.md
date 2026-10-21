@@ -25,10 +25,10 @@ These came out of a planning review with the owner. They govern order and releas
 | --- | --- | --- |
 | Done | #21, #22, #17 | Action quotes (#24), month pipeline (#25), quest engine (#27), Q04 Woodland Accord (#29), faction registry and item policies (#30) |
 | Done (#31) | [#9 Western chapter](https://github.com/jsconu/aragon/issues/9) — 9a chapter spine | Objective stages that advance on world state, stage-start events (the M04 incursion), M01–M04, and finishing Act I as the chapter's victory |
-| Done in this increment | #9 — 9b map growth | Six new settlements, 52×38 geography, routes, resource roles and revision-1 save migration; distinct artwork and local stories remain. See [map growth](western-map-growth.md) |
+| Done (#34) | #9 — 9b map growth | Six new settlements, 52×38 geography, routes, resource roles and revision-1 save migration; distinct artwork and local stories remain. See [map growth](western-map-growth.md) |
 | Done (#32); follow-ups remain | #9 — 9c encounters | Q02 cyclops/boulder and noncombat mining choice, Q03 hero-only trial, Q05 caravan tracking/ransom. Remaining: unique shield, later merchant effects and balance |
 | 4 | #9 — 9d city quests | Q01 The Empty Granary, Q06 The Miller on Trial; consumable rewards |
-| 5 | #9 — 9e balance and art | Seeded playthrough bot for M01–M04 on Normal, incursion and economy tuning, chapter art pass, final title |
+| Partial | #9 — 9e balance and art | Seeded real-command chapter controller delivered; [40-run baseline](chapter-playthroughs.md). Remaining: owner playthrough, agreed pacing window, optional encounter tuning, chapter art and final title |
 | After the chapter | [#15](https://github.com/jsconu/aragon/issues/15) remainder | Fog, scouting, pan/zoom, minimap, saved multi-month orders, next regions |
 | After the chapter | [#6 City economy](https://github.com/jsconu/aragon/issues/6) | Commerce, transport, markets, governors and realm forecasts |
 | After the chapter | [#7 Veteran equipment](https://github.com/jsconu/aragon/issues/7) | Full equipment tree, services, salvage and reinforcement rules |
