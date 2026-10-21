@@ -1,0 +1,38 @@
+{
+  "source": "OpenAI built-in image_gen",
+  "date": "2026-10-21",
+  "status": "Generated; owner visual review pending",
+  "style": "Original detailed pixel-art fantasy panoramas, wide 16:9, no UI, text or watermark",
+  "assets": [
+    {
+      "id": "capital",
+      "file": "capital-v1.png",
+      "sourceFile": "exec-375df008-ecaa-4249-a334-30768ea55800.png",
+      "description": "Detailed isometric medieval capital panorama: stone keep, russet-roof timber houses, river crossing, distant mountains, open foreground development plots."
+    },
+    {
+      "id": "goblins",
+      "file": "goblins-v1.png",
+      "sourceFile": "exec-9611a43b-1a50-482c-a20c-727c5196b1e5.png",
+      "description": "Hidden woodland goblin camp: patched ochre tents, sharpened palisade, campfire, supply crates and crude watchtower."
+    },
+    {
+      "id": "trolls",
+      "file": "trolls-v1.png",
+      "sourceFile": "exec-ca2f22a0-93e2-42aa-876a-00e8853f358d.png",
+      "description": "Marshland troll den: mossy rock cave, teal pools, twisted roots, bone totems and hulking trolls."
+    },
+    {
+      "id": "giants",
+      "file": "giants-v1.png",
+      "sourceFile": "exec-4620958c-374e-4bac-bbf4-d33fd56a5c38.png",
+      "description": "Mountain giant stronghold: colossal stone walls, heavy gate, towers, boulders and giants, snowy peaks."
+    },
+    {
+      "id": "titans",
+      "file": "titans-v1.png",
+      "sourceFile": "exec-3c280dee-1b29-45cd-89be-373c22738cfa.png",
+      "description": "Remote titan sanctuary: monumental temple carved into a colossal seated stone figure, terraces, waterfalls, mist and faint golden glow."
+    }
+  ]
+}
