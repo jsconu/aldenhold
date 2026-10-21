@@ -1,5 +1,5 @@
 import { hexKey, hexNeighbors } from '../game/hex';
-import type { CampaignDefinition, HexWorld } from '../game/types';
+import type { CampaignDefinition, HexWorld, QuestCondition } from '../game/types';
 import { hexLand, parseKey, placeKey, roadsOf } from '../game/world';
 import type { Catalog } from './index';
 
@@ -230,7 +230,7 @@ function validateQuests(catalog: Catalog, err: (msg: string) => void) {
       if (stageIds.has(stage.id)) err(`${where}: duplicate stage "${stage.id}"`);
       stageIds.add(stage.id);
       if (stage.id === 'locked' || stage.id === 'resolved') err(`${where}: stage id "${stage.id}" is reserved`);
-      if (!stage.choices.length && !stage.deadline) err(`${where}: stage "${stage.id}" has no way to end`);
+      if (!stage.choices.length && !stage.deadline && !stage.objectives?.length) err(`${where}: stage "${stage.id}" has no way to end`);
       if (stage.deadline && (!Number.isInteger(stage.deadline.months) || stage.deadline.months < 1)) err(`${where}: stage "${stage.id}" has an invalid deadline`);
       const choiceIds = new Set<string>();
       for (const c of stage.choices) {
@@ -239,14 +239,32 @@ function validateQuests(catalog: Catalog, err: (msg: string) => void) {
         if (c.gold !== undefined && (!Number.isInteger(c.gold) || c.gold < 0)) err(`${where}: choice "${c.id}" has an invalid cost`);
         for (const item of c.requires ?? []) if (!catalog.items[item]) err(`${where}: choice "${c.id}" requires unknown item "${item}"`);
       }
+      for (const o of stage.objectives ?? []) {
+        if (choiceIds.has(o.id)) err(`${where}: objective "${o.id}" in stage "${stage.id}" reuses a choice or objective id`);
+        choiceIds.add(o.id);
+        if (!o.when.length) err(`${where}: objective "${o.id}" has no conditions`);
+        for (const c of o.when) checkCondition(c, `${where}: objective "${o.id}"`);
+      }
+      for (const e of stage.onStart ?? []) {
+        if (!catalog.factions[e.owner]) err(`${where}: stage "${stage.id}" spawns for unknown faction "${e.owner}"`);
+        for (const t of e.troops) if (!catalog.units[typeof t === 'string' ? t : t.type]) err(`${where}: stage "${stage.id}" spawns unknown unit`);
+        if (!e.troops.length) err(`${where}: stage "${stage.id}" spawns an empty army`);
+        for (const cid of q.campaignIds) {
+          const c = catalog.campaigns[cid];
+          const places = c?.hex ? c.hex.places.map((pl) => pl.id) : c?.nodes.map((n) => n.id) ?? [];
+          if (!places.includes(e.at)) err(`${where}: stage "${stage.id}" spawns at unknown place "${e.at}" in "${cid}"`);
+          if (e.target && !c?.towns.some((t) => t.id === e.target)) err(`${where}: stage "${stage.id}" targets unknown town "${e.target}"`);
+        }
+      }
     }
     const resolutions = [
       ...q.stages.flatMap((st) => st.choices.flatMap((c) => ('stage' in c.then ? [] : [c.then]))),
+      ...q.stages.flatMap((st) => (st.objectives ?? []).flatMap((o) => ('stage' in o.then ? [] : [o.then]))),
       ...q.stages.flatMap((st) => (st.deadline ? [st.deadline.outcome] : [])),
       q.onLocationLost,
     ];
     for (const st of q.stages) {
-      for (const c of st.choices) if ('stage' in c.then && !stageIds.has(c.then.stage)) err(`${where}: choice "${c.id}" leads to unknown stage "${c.then.stage}"`);
+      for (const c of [...st.choices, ...(st.objectives ?? [])]) if ('stage' in c.then && !stageIds.has(c.then.stage)) err(`${where}: "${c.id}" leads to unknown stage "${c.then.stage}"`);
     }
     for (const r of resolutions) {
       for (const e of r.effects) {
@@ -257,20 +275,30 @@ function validateQuests(catalog: Catalog, err: (msg: string) => void) {
         if (e.kind === 'treaty' && !q.campaignIds.every((cid) => catalog.campaigns[cid]?.towns.some((t) => t.id === e.town))) err(`${where}: treaty with unknown town "${e.town}"`);
       }
     }
-    for (const c of q.prerequisites) {
-      if (c.kind === 'quest' && !quests[c.quest]) err(`${where}: requires unknown quest "${c.quest}"`);
-      if (c.kind === 'town-owner' && !q.campaignIds.every((cid) => catalog.campaigns[cid]?.towns.some((t) => t.id === c.town))) err(`${where}: requires unknown town "${c.town}"`);
+    function checkCondition(c: QuestCondition, at: string) {
+      if (c.kind === 'quest' && !quests[c.quest]) err(`${at}: requires unknown quest "${c.quest}"`);
+      if ((c.kind === 'town-owner' || c.kind === 'food') && !q.campaignIds.every((cid) => catalog.campaigns[cid]?.towns.some((t) => t.id === c.town))) err(`${at}: requires unknown town "${c.town}"`);
+      if ('atLeast' in c && (!Number.isInteger(c.atLeast) || c.atLeast < 0)) err(`${at}: invalid count`);
+      if (c.kind === 'any') {
+        if (!c.of.length) err(`${at}: "any" with no conditions`);
+        c.of.forEach((x) => checkCondition(x, at));
+      }
     }
+    for (const c of q.prerequisites) checkCondition(c, where);
   }
   // A prerequisite on another quest's outcome must be an outcome that quest can produce.
   const outcomes = (q: (typeof quests)[string]) => new Set([
     ...q.stages.flatMap((st) => st.choices.flatMap((c) => ('stage' in c.then ? [] : [c.then.status]))),
+    ...q.stages.flatMap((st) => (st.objectives ?? []).flatMap((o) => ('stage' in o.then ? [] : [o.then.status]))),
     ...q.stages.flatMap((st) => (st.deadline ? [st.deadline.outcome.status] : [])),
     q.onLocationLost.status,
   ]);
+  /** Quest conditions anywhere in a list, including inside "any". */
+  const questRefs = (list: QuestCondition[]): Extract<QuestCondition, { kind: 'quest' }>[] =>
+    list.flatMap((c) => (c.kind === 'quest' ? [c] : c.kind === 'any' ? questRefs(c.of) : []));
   for (const [id, q] of Object.entries(quests)) {
-    for (const c of q.prerequisites) {
-      if (c.kind === 'quest' && quests[c.quest] && !outcomes(quests[c.quest]).has(c.status)) {
+    for (const c of questRefs(q.prerequisites)) {
+      if (quests[c.quest] && !outcomes(quests[c.quest]).has(c.status)) {
         err(`quest ${id}: requires "${c.quest}" to end ${c.status}, which it never can`);
       }
     }
@@ -285,7 +313,7 @@ function validateQuests(catalog: Catalog, err: (msg: string) => void) {
       return;
     }
     visiting.add(id);
-    for (const c of quests[id]?.prerequisites ?? []) if (c.kind === 'quest') visit(c.quest, [...path, id]);
+    for (const c of questRefs(quests[id]?.prerequisites ?? [])) visit(c.quest, [...path, id]);
     visiting.delete(id);
     done.add(id);
   };

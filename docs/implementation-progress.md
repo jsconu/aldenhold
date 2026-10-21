@@ -271,3 +271,37 @@ Validation: 260 tests pass, including 13 new tests:
 - item content validation and the v11 → v12 migration
 
 The build passes. In the browser I checked that the map banners use the registry colours, the quest shortcut appears, and the inventory renders its actions. The pane was hidden, so there are no screenshots.
+
+## Western chapter, part 9a: the chapter spine (#9)
+
+The Western Realm is now Act I, "The Inheritance". It has four main objectives, and finishing the last one completes the chapter. The remaining chapter work is split into 9b–9e in `docs/backlog.md`.
+
+**Quest engine additions.**
+- **Goal conditions:** towns ruled; standing (towns you rule plus allies and vassals); formations in the field; food stored in a city; `any` (one of several). The journal and quest cards show live progress ("Rule or ally with 3 towns (now 2)").
+- **Objective rules:** a stage can list goals checked at each month's end, and also when the quest's town changes hands, so taking a town you were told to take completes the quest instead of counting as losing it. The first goal met moves the quest on before any deadline applies. Objectives are recorded in the history and saves validate them.
+- **Stage events:** a stage can set events in motion on entry, exactly once. The first is a `spawn`: an orc force appears at a named place, optionally with a `target` town. Raiders with a target march on it while it isn't theirs.
+- **Hold-out deadlines:** a deadline can end a stage in success ("Hold until …").
+- **Same-month follow-ups:** a quest unlocked by one that just ended is offered in that month's report.
+- **Chapter finale:** a campaign can name a finale quest. Finishing it ends the game as a win (`chapter-complete`) with the chapter's own closing entry and banner. On the Western Realm, capturing Gharzak Hold still wins too.
+
+**The objectives.**
+
+| ID | Name | Goal | Reward and notes |
+| --- | --- | --- | --- |
+| M01 | The Inheritance | Field 7 formations (raise two) | 100 gold |
+| M02 | Bread and Law | 120 food in Aldenhold and standing with 3 towns (rule or alliance, so Q00/Q04 count but conquest works too) | 150 gold |
+| M03 | The Crossing Dispute | At Westmere: buy the toll charter (250 g, Westmere becomes an ally with passage), or refuse and take the town within six months | Ignoring it fails after six months; failure or loss of Westmere doesn't block the chapter |
+| M04 | The First Incursion | Two war bands spawn: Grey Pass → Millbrook (with a troll) and the goblin camp → Aldenhold. Hold for four months | If Millbrook falls, the goal becomes retaking it |
+
+**Validation:** content checks cover objective links and ids, spawn places, units, factions and targets, empty `any`, and prerequisite outcomes and loops through nested conditions. Saves accept the `objective` resolution and validate army targets (orcs only, known towns) and the new ending.
+
+**Not yet (later chapter PRs):** the six new settlements, encounters and Q01–Q03, Q05 and Q06, the heirloom reward after M01, and balance. In seeded runs with passive play, the incursion takes an undefended Millbrook (M04 then asks you to retake it); tuning that is for 9e.
+
+Validation: 272 tests pass, including 12 new chapter tests:
+- each objective's success path, and M03's refusal, conquest and timeout branches
+- spawns happen exactly once across reload, and raiders route to their target
+- holding out completes the chapter; losing Millbrook leads to retaking it
+- one seeded run under the real month pipeline (AI and auto-resolved battles), with the save valid every month
+- save and content rejections
+
+The build passes. In the browser I raised two militia, ended the month and saw M01 complete and M02 offered the same month, with both goals' progress shown. No console errors.

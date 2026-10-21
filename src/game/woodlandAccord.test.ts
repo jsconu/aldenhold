@@ -171,11 +171,11 @@ describe('Q04 The Woodland Accord', () => {
 describe('quest tracking', () => {
   it('tracks at most three open quests and offers them as header shortcuts', () => {
     const s = atGreenveil();
-    expect(trackedQuests(s).map((q) => q.id)).toEqual(['Q00', 'Q04']);
+    expect(trackedQuests(s).map((q) => q.id)).toEqual(['M01', 'Q00', 'Q04']);
     const html = renderCampaign(s, ui(townLocation(s, 'greenveil')));
     expect(html).toContain('data-action="view-quest" data-quest="Q04"');
     chooseQuest(s, 'Q04', 'cap');
-    expect(trackedQuests(s).map((q) => q.id)).toEqual(['Q00']);
+    expect(trackedQuests(s).map((q) => q.id)).toEqual(['M01', 'Q00']);
   });
 
   it('shows Greenveil’s allied recruits in its panel once the accord is signed', () => {

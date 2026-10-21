@@ -54,7 +54,7 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
   requireValue(s.campaignRevision === def.revision, 'unsupported campaign revision');
   requireValue(integer(s.turn, 1) && integer(s.gold) && integer(s.nextId, 1) && integer(s.seed, -2147483648, 2147483647), 'campaign numbers');
   requireValue(oneOf(s.status, ['playing', 'won', 'lost']), 'campaign status');
-  requireValue(oneOf(s.endingReason, [null, 'lair-captured', 'capital-lost', 'lord-dead']), 'ending reason');
+  requireValue(oneOf(s.endingReason, [null, 'lair-captured', 'chapter-complete', 'capital-lost', 'lord-dead']), 'ending reason');
   const nodes = new Set<string>();
   for (const entry of array(s.nodes)) {
     const n = object(entry);
@@ -86,6 +86,7 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
     const a = object(entry);
     useId(a.id);
     requireValue(oneOf(a.owner, factions) && loc(a.at) && (a.from === null || loc(a.from)), 'army location or owner');
+    requireValue(a.target === undefined || (a.owner === 'orcs' && text(a.target) && Object.hasOwn(towns, a.target)), 'army target');
     requireValue(array(a.troops).length > 0, 'empty army');
     for (const item of array(a.troops)) {
       const t = object(item);
@@ -218,14 +219,14 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
     requireValue(q.status === 'unavailable' ? q.stage === 'locked' : resolved ? q.stage === 'resolved' : text(q.stage) && stageIds.includes(q.stage), 'quest stage');
     requireValue(open ? integer(q.stageTurn, 1, turn) : q.stageTurn === null, 'quest stage month');
     requireValue(resolved
-      ? integer(q.resolvedTurn, 1, turn) && oneOf(q.resolvedBy, ['choice', 'deadline', 'location-lost'])
+      ? integer(q.resolvedTurn, 1, turn) && oneOf(q.resolvedBy, ['choice', 'objective', 'deadline', 'location-lost'])
       : q.resolvedTurn === null && q.resolvedBy === null, 'quest resolution');
     const history = array(q.history);
     for (const raw of history) {
       const h = object(raw);
       const stage = qdef.stages.find((st) => st.id === h.stage);
       requireValue(stage !== undefined && integer(h.turn, 1, turn) &&
-        (h.choice === DEADLINE || stage.choices.some((c) => c.id === h.choice)), 'quest history');
+        (h.choice === DEADLINE || stage.choices.some((c) => c.id === h.choice) || (stage.objectives ?? []).some((o) => o.id === h.choice)), 'quest history');
     }
     const choices = qdef.stages.flatMap((st) => st.choices.map((c) => c.id));
     requireValue(q.choice === null || (text(q.choice) && choices.includes(q.choice)), 'quest choice');
@@ -339,7 +340,7 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
   }
   const state = value as GameState;
   const reason = endingReason(state);
-  requireValue(state.status === 'playing' ? state.endingReason === null && reason === null : state.endingReason === reason && (state.status === 'won' ? reason === 'lair-captured' : reason === 'lord-dead' || reason === 'capital-lost'), 'inconsistent campaign ending');
+  requireValue(state.status === 'playing' ? state.endingReason === null && reason === null : state.endingReason === reason && (state.status === 'won' ? reason === 'lair-captured' || reason === 'chapter-complete' : reason === 'lord-dead' || reason === 'capital-lost'), 'inconsistent campaign ending');
 }
 
 /** Turn a chronicle line ("March, year 2: text") back into a month number and its text. */
