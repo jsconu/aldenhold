@@ -1,0 +1,58 @@
+import type { CampaignDefinition, Town } from '../../game/types';
+
+/** Fixed eastward and southern additions; no runtime generation or coordinate shifts. */
+export const WESTERN_EAST_ROWS = ['bbbbbhhh..hh',
+  'bbbbbhh..hhh',
+  'bbbbbh..hhh.',
+  'bbbbb..hhh..',
+  'bbbbb.hhh..h',
+  'bbbbbhhh..hh',
+  'bbbbbhh.hhmm',
+  'bbbbbh..hmmm',
+  'bbbbb..hmmmm',
+  'bbbbb.hhhhmm',
+  'bbbbbhhhhmmm',
+  'bbbbbhh.mmmm',
+  'bbbbbh..hhmm',
+  'bbbbb..hhmmm',
+  'bbbbb.hhh..h',
+  'bbbbbf..ffff',
+  'bbbbb.ffff..',
+  'bbbbbfff..ff',
+  'bbbbbf..ffff',
+  'bbbbb.ffff..',
+  'bbbbbfff..ff',
+  'bbbbbf..ffff',
+  'bbbbbh..hhh.',
+  'bbbbb..hhh..',
+  'bbbbb.hhh..h',
+  'bbbbbhhh..hh',
+  'bbbbbhh..hhh',
+  'bbbbbh..hhh.'];
+export const WESTERN_SOUTH_ROWS = ['~~~,,,,,,,,,,,,~~sss.fffff..fhhhmh..bbbbbbbb.hh.hh.h',
+  '~~~,,,,,,,,,,,,~~sssfffff..ffhhhmh..bbbbbbbbhh.hh.hh',
+  '~~~,,,,,,,,,,,,,~~sssfff..fffhhhhh..bbbbbbbbh.hh.hh.',
+  '~~~,,,,,,,,,,,,,~~sssff..ffffhhhhh..bbbbbbbb.hh.hh.h',
+  '~~~,,,,,,,,,,,,,,~~fff..fffffhhhmh..bbbbbbbbhh.hh.hh',
+  '~~~fffff,.,,,,,,,~~ff..fffff........bbbbbbbbh.hhhmmh',
+  '~~~~~~ff,,,,,,,,,,~~..fffff.........bbbbbbbb.hh.hmmh',
+  '~~~~~~ff,,,,,,,,,,~~.fffff..f.......bbbbbbbbhh.hhmmh',
+  '~~~~~~ff,,,,,,,,,,,~~.fff..ff.......bbbbbbbbh.hhhmmh',
+  '~~~~~~ff,,,,,,,,,,,~~fff..fff.......bbbbbbbb.hh.hmmh'];
+
+export const WESTERN_ADDED_TOWNS: Town[] = [
+  { id: 'oakcross', owner: 'neutral', pop: 1600, tax: 15, kind: 'town' },
+  { id: 'bellwater', owner: 'neutral', pop: 1900, tax: 15, kind: 'town' },
+  { id: 'thornwatch', owner: 'neutral', pop: 1400, tax: 15, kind: 'town' },
+  { id: 'redford', owner: 'neutral', pop: 1700, tax: 15, kind: 'town' },
+  { id: 'saltwick', owner: 'neutral', pop: 1300, tax: 15, kind: 'town' },
+  { id: 'ironbridge', owner: 'neutral', pop: 2200, tax: 15, kind: 'town' },
+];
+export const WESTERN_ADDED_ARMIES: CampaignDefinition['armies'] = [
+  { owner: 'neutral', at: 'oakcross', troops: ['militia'] },
+  { owner: 'neutral', at: 'bellwater', troops: ['militia', 'archers'] },
+  { owner: 'neutral', at: 'thornwatch', troops: ['spearmen', 'archers'] },
+  { owner: 'neutral', at: 'redford', troops: ['militia', 'spearmen'] },
+  { owner: 'neutral', at: 'saltwick', troops: ['militia'] },
+  { owner: 'neutral', at: 'ironbridge', troops: ['spearmen', 'spearmen', 'archers'] },
+];

@@ -207,6 +207,7 @@ export function questQuote(state: GameState, questId: string, choiceId: string):
   }
   if ('encounter' in choice.then) {
     const enc = choice.then.encounter;
+    if (progress.history.some((h) => h.choice === encounterMark(choice.id, false) && h.turn === state.turn)) return refuse('The expedition must regroup. Try again next campaign month.');
     const army = armyAt(state, startLocation(state, enc.site), 'player');
     if (!army) return refuse(`Bring an army to ${nodeName(state, startLocation(state, enc.site))} first.`);
     if (enc.heroesOnly && !partyOf(army.troops).length) return refuse('Only heroes may enter, and the council will not risk your lord. Bring a hired hero.');
@@ -343,13 +344,28 @@ export function advanceQuests(state: GameState): string[] {
     const progress = state.quests[def.id];
     if (!isOpen(progress)) continue;
     const deadline = stageOf(def, progress.stage)?.deadline;
-    if (deadline && progress.stageTurn !== null && state.turn - progress.stageTurn >= deadline.months) {
+    if (deadline && !deadline.afterBattles && progress.stageTurn !== null && state.turn - progress.stageTurn >= deadline.months) {
       progress.history.push({ stage: progress.stage, choice: DEADLINE, turn: state.turn });
       resolveQuest(state, def, deadline.outcome, 'deadline');
     }
   }
   // Follow-ups to quests that just ended are offered the same month; their goals are checked from next month.
   return [...news, ...unlockQuests(state)];
+}
+
+/** Hold-out success is checked only after this month's attacks and all queued battles settle. */
+export function settleHeldQuests(state: GameState) {
+  if (state.status !== 'playing' || state.battle || state.pending.length) return;
+  for (const def of campaignQuests(state).filter((q) => q.stages.some((s) => s.deadline?.afterBattles))) {
+    checkObjectives(state, def);
+    const progress = state.quests[def.id];
+    if (!isOpen(progress)) continue;
+    const deadline = stageOf(def, progress.stage)?.deadline;
+    if (deadline?.afterBattles && progress.stageTurn !== null && state.turn - progress.stageTurn >= deadline.months) {
+      progress.history.push({ stage: progress.stage, choice: DEADLINE, turn: state.turn });
+      resolveQuest(state, def, deadline.outcome, 'deadline');
+    }
+  }
 }
 
 /**

@@ -6,7 +6,7 @@ import type { UIState } from '../ui/shared';
 import { raidPath } from './ai';
 import { advanceMonth, applyBattle, armyAt, checkStatus, makeTroop, neighborsOf, newGame, startLocation } from './campaign';
 import { autoResolve } from './battle';
-import { advanceQuests, chooseQuest, conditionText, onTownOwnershipChange, questQuote } from './quests';
+import { settleHeldQuests, advanceQuests, chooseQuest, conditionText, onTownOwnershipChange, questQuote } from './quests';
 import { parseSave } from './saves';
 import type { GameState } from './types';
 import { landAt, townLocation } from './world';
@@ -24,6 +24,7 @@ function month(s: GameState) {
   settleTreasury(s, [], []);
   s.turn += 1;
   advanceQuests(s);
+  settleHeldQuests(s);
   checkStatus(s);
 }
 
@@ -207,6 +208,7 @@ describe('Act I under the real month pipeline', () => {
     expect(s.quests.M04.stage).toBe('retake');
     take(s, 'millbrook');
     advanceMonth(s);
+    while (s.battle) { autoResolve(s.battle); applyBattle(s, s.battle); }
     expect(s).toMatchObject({ status: 'won', endingReason: 'chapter-complete' });
   }, 20_000);
 });

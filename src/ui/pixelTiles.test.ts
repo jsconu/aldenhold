@@ -27,7 +27,7 @@ describe('pixel hex tiles', () => {
 
   it('paints the whole Western Realm at native resolution', () => {
     const c = paintTerrain(realm);
-    expect([c.width, c.height]).toEqual([STEP_X * 39 + TILE_W, TILE_H * 28 + HALF_H]);
+    expect([c.width, c.height]).toEqual([STEP_X * (realm.rows[0].length - 1) + TILE_W, TILE_H * realm.rows.length + HALF_H]);
     const alpha = (x: number, y: number) => c.data[(y * c.width + x) * 4 + 3];
     expect(alpha(c.width >> 1, c.height >> 1)).toBe(255);
     expect(alpha(0, 0)).toBe(0); // outside the first tile's corner

@@ -347,3 +347,15 @@ Validation: 287 tests pass, including 15 new encounter tests:
 - forged encounters and aims rejected by saves; content checks for sites, sides, units and stage links
 
 The build passes. In the browser I chose "Hunt the cyclops", watched it take aim (marker shown) and throw, auto-resolved to victory, and continued: Q02 succeeded, the quarry flag was set, the guardian was gone, and a save made mid-fight loaded. No console errors.
+
+
+## Codex: Western map growth (9b) and settlement timing
+
+- Adopted and merged Claude's more complete encounter PR #32 after checks passed; closed the overlapping Codex prototype PR #33. The owner authorized subsequent merges after CI. Codex continued the map-growth area left open in the queue.
+- Expanded fixed geography from 40×28 to 52×38 (about 76% more cells), keeping every original terrain cell and named coordinate. Added Oakcross, Bellwater, Thornwatch, Redford, Saltwick and Ironbridge, plus three route landmarks. The Western map now has 12 core regional settlements and three border towns/strongholds.
+- New towns have real neutral garrisons, populations and resource endowments. Farms, timber and ore outputs use those endowments; all six have map-panel descriptions. Added roads and a southern river crossing; content validation checks every objective remains reachable.
+- Western revision 1 migrates additively to revision 2 with all old assets, treasury/history, investments, equipment, quests, IDs, seed and active battles retained. The six towns/garrisons are outside old bounds. No duplicate additions or historical income are created; schema remains v12.
+- Fixed a discovered same-month hold-out bug: M04 no longer declares the west safe immediately before that month's attackers take Millbrook. Hold-out success and campaign victory now wait for monthly AI and pending battles; defeat still has priority.
+- Encounter settlement ignores stale completion callbacks, and failed expeditions cannot farm retries/XP repeatedly during the same campaign month.
+- 298 tests and production build pass, including preserved terrain/coordinates, bridge connectivity, new-town conquest and tax, paid-refit/construction migration, active cyclops targeting/hero parties, idempotent imports, duplicate battle settlement and deadline-month battle save/resume.
+- Remaining: distinct artwork for the new towns, local city quests, visual browser review and chapter balance. See [map growth](western-map-growth.md).

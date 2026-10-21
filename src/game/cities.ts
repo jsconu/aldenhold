@@ -50,6 +50,12 @@ const ENDOWMENTS: Record<string, { fertility: number; forest: number; ore: numbe
   fenwick: { fertility: 0.9, forest: 1.1, ore: 0.9 },
   harrowgate: { fertility: 0.7, forest: 0.6, ore: 1.3 },
   duskwater: { fertility: 0.8, forest: 1.4, ore: 0.2 },
+  oakcross: { fertility: 1.4, forest: 1.1, ore: 0.1 },
+  bellwater: { fertility: 1.3, forest: 0.3, ore: 0 },
+  thornwatch: { fertility: 0.6, forest: 1.7, ore: 0.6 },
+  redford: { fertility: 0.7, forest: 0.5, ore: 1.5 },
+  saltwick: { fertility: 1.1, forest: 0.5, ore: 0 },
+  ironbridge: { fertility: 0.6, forest: 0.7, ore: 1.6 },
   // Western Realm towns that the quick-play valley doesn't have.
   greenveil: { fertility: 0.6, forest: 1.6, ore: 0.2 },
   westmere: { fertility: 1.2, forest: 0.5, ore: 0.6 },
