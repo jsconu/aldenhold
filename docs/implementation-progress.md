@@ -445,3 +445,29 @@ Validation: all 328 tests and the production build pass. Four new tests cover mi
 The existing autosave key and version-12 game payload are unchanged. The Saved games screen manages three named manual browser slots and the three most recent distinct pre-action recovery positions. Recovery is captured before month advancement, valid quest choices, starting another campaign, JSON import and restoring a position. Every restore passes through the same strict save parser and migration as JSON import. Unreadable recovery history is preserved until the player explicitly clears it; failed or invalid manual writes preserve the previous slot. Replacing the current game requires confirmation; checkpoint failures warn and ask before proceeding without one. The existing JSON export remains the off-browser backup path.
 
 Validation: save-domain tests cover independent Western/quick-play slots, exact quest/treasury round-trip, ordered recovery rotation and deduplication, invalid saves, corrupt history and failed storage writes. A compiled DOM check covers naming a slot, ending a month, restoring that slot and restoring the prior position without runtime errors. Canvas was stubbed for this interaction check; visual browser review remains outstanding. The UI works with the normal autosave; there is no second campaign state or save-schema migration.
+
+## Hero equipment and the chapter's item rewards (#9 follow-ups, ITEM-02 minimal)
+
+Heroes can now carry campaign equipment. This makes two promised rewards real: the class heirloom after M01, and Q03's unique shield.
+
+**Rules.**
+- **Slots and bonuses:** heroes have weapon, armor and accessory slots. Equipment items say which slot they fill, what they add (attack, defense, leadership) and, optionally, which hero types may carry them. Content validation requires all of that, and that the bonuses add something.
+- **Changing equipment:** only in a town you rule or one allied with you, never during a battle. An item put into a full slot sends the old one back to the inventory, and taking an item off returns it too. The journal's inventory offers "Give to <hero>" per eligible hero, and each hero's row in the army panel lists what they carry with a "take off" button.
+- **In battle:** a hero's attack and defense include their equipment, and an army's leadership counts its best hero's leadership plus their equipment. Battles keep a snapshot, and saves check it against the hero.
+- **Fallen heroes:** if any of the army survives (held the field or got away), the survivors carry the hero's equipment home. Otherwise ordinary items are lost on the field. An heirloom (which can't be thrown away) is always recovered. The journal says which happened.
+- **Conservation:** held + carried + spent = what quests granted. Saves reject equipment on ordinary troops or the wrong hero, and carried items no quest granted.
+
+**Items.**
+- **Oathlance** (M01 reward): weapon, lord only, +2 attack and +5 leadership. It can't be sold, thrown away or lost.
+- **Shield of the Old Watch** (Q03 victory): armor, any hero, +2 defense. It can be sold for 120 g.
+
+**Save v13.** v12 saves are upgraded, and finished quests are granted rewards added to their content since, once (an M01 already won gets its Oathlance). Nothing else in the inventory changes.
+
+Validation: 352 tests pass, including 11 new ones:
+- the heirloom granted exactly once and limited to the lord
+- equipping only in friendly towns, and taking items off
+- the battle bonuses
+- fallen-hero recovery, including the journal line from a real battle
+- save rejections, the v12 → v13 backfill, and content checks
+
+The build passes. In the browser: winning M01 put the Oathlance in the inventory, "Give to Aldric" moved it onto the lord's row, and "take off" returned it. No console errors.

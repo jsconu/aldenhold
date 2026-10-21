@@ -4,7 +4,7 @@ import { hexDistance, hexKey, hexNeighbors, hexLine, type Hex } from './hex';
 import { random } from './rng';
 import { FACTIONS } from '../content/factions';
 import type { Army, Battle, BattleUnit, Land, Side, SpellId, Terrain, EffectId } from './types';
-import { attackFor, heroLevel, heroMaxHp, isHero, level } from './units';
+import { attackFor, heroLevel, heroMaxHp, isHero, kitBonus, level } from './units';
 import { EQUIPMENT } from './equipment';
 
 export const BATTLE_W = 12;
@@ -48,7 +48,7 @@ export function createBattle(at: string, attacker: Army, defender: Army, walls: 
 }
 
 export function leadershipOf(army: Army): number {
-  return Math.max(0, ...army.troops.map((t) => (t.men > 0 ? UNIT_TYPES[t.type].hero?.leadership ?? 0 : 0)));
+  return Math.max(0, ...army.troops.map((t) => (t.men > 0 ? (UNIT_TYPES[t.type].hero?.leadership ?? 0) + kitBonus(t.kit).leadership : 0)));
 }
 
 /** The middle of the field gets features shaped by the land outside; the three columns at each edge stay open. */
@@ -124,6 +124,7 @@ function deploy(b: Battle, army: Army, side: Side, cols: number[]) {
       xp: t.xp,
       mana: t.mana ?? 0,
       gear: { ...t.gear },
+      ...(t.kit ? { kit: { ...t.kit } } : {}),
       morale: startingMorale(b, side, t.type, t.xp, leadership),
       routing: false,
       fled: false,
@@ -167,12 +168,12 @@ export function unitAt(b: Battle, h: Hex): BattleUnit | undefined {
 }
 
 export function attackOf(u: BattleUnit): number {
-  return attackFor(u.type, u.xp) * (u.gear.bow ? EQUIPMENT[u.gear.bow].attackFactor : 1);
+  return (attackFor(u.type, u.xp) + kitBonus(u.kit).attack) * (u.gear.bow ? EQUIPMENT[u.gear.bow].attackFactor : 1);
 }
 
 export function defenseOf(b: Battle, u: BattleUnit): number {
   const wall = b.walls && u.side === 'defender' ? 1 : 0;
-  return Math.max(1, UNIT_TYPES[u.type].defense + EQUIPMENT[u.gear.armor].defenseBonus + terrainAt(b, u).defense + wall + (hasEffect(u, 'ward') ? 2 : 0));
+  return Math.max(1, UNIT_TYPES[u.type].defense + EQUIPMENT[u.gear.armor].defenseBonus + kitBonus(u.kit).defense + terrainAt(b, u).defense + wall + (hasEffect(u, 'ward') ? 2 : 0));
 }
 
 /** Fighting weight: men for a troop, a fixed value for a hero (wounds don't weaken their blows). */

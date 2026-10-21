@@ -124,7 +124,13 @@ export interface Troop {
   mp: number;
   gear: Loadout;
   refit: PendingRefit | null;
+  /** Heroes only: campaign equipment they carry, by slot (item ids). */
+  kit?: HeroKit;
 }
+
+/** A hero's equipment slots (ITEM-02). */
+export type HeroSlot = 'weapon' | 'armor' | 'accessory';
+export type HeroKit = Partial<Record<HeroSlot, string>>;
 
 export interface Army {
   id: number;
@@ -182,6 +188,8 @@ export interface BattleUnit {
   acted: boolean;
   /** Boulder throwers: the enemy formation they have taken aim at, thrown at on their next turn. */
   aim?: number;
+  /** Heroes: their equipment as the battle began. */
+  kit?: HeroKit;
 }
 
 export interface Battle {
@@ -516,7 +524,7 @@ export interface CityEconomy {
 }
 
 export interface GameState {
-  version: 12;
+  version: 13;
   campaignId: CampaignId;
   campaignRevision: number;
   endingReason: EndingReason | null;

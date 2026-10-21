@@ -1,3 +1,4 @@
+import { recoverFallenKit } from './items';
 import { orcTurn } from './ai';
 import { autoResolve, createBattle, isAI, runAI } from './battle';
 import { getCampaign } from '../content';
@@ -26,7 +27,7 @@ const OFFER_MONTHS = 3;
 export function newGame(seed = Math.floor(Math.random() * 2 ** 31), campaignId: CampaignId = 'valley-quickplay'): GameState {
   const def = getCampaign(campaignId);
   const state: GameState = {
-    version: 12,
+    version: 13,
     campaignId: def.id,
     campaignRevision: def.revision,
     endingReason: null,
@@ -423,7 +424,13 @@ export function applyBattle(state: GameState, b: Battle) {
       if (!u || u.reserve) continue;
       t.men = u.men;
       if (t.men <= 0) {
-        if (t.name) deed(state, army.owner === 'player' ? 'loss' : 'battle', `${t.name} died at ${nodeName(state, b.at)}.`, b.at);
+        // A fallen hero's equipment comes home if anyone of the army is left to carry it (see recoverFallenKit).
+        const survivors = army.troops.some((x) => {
+          const xu = b.units.find((y) => y.troopId === x.id);
+          return x !== t && (!xu || xu.reserve || xu.men > 0);
+        });
+        const kit = army.owner === 'player' ? recoverFallenKit(state, t, survivors) : null;
+        if (t.name) deed(state, army.owner === 'player' ? 'loss' : 'battle', `${t.name} died at ${nodeName(state, b.at)}.${kit ? ` ${kit}` : ''}`, b.at);
         continue;
       }
       if (isHero(t.type)) {

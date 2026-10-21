@@ -134,8 +134,8 @@ export const M01_INHERITANCE: QuestDefinition = {
   stages: [{
     id: 'muster', text: 'Raise two more formations to guard the realm.', choices: [],
     objectives: [{ id: 'mustered', label: 'Mustered the guard', when: [{ kind: 'formations', atLeast: 7 }], then: {
-      status: 'succeeded', effects: [{ kind: 'gold', amount: 100 }],
-      journal: 'The council of Aldenhold swore to you before your new companies, and the treasury granted 100 gold.',
+      status: 'succeeded', effects: [{ kind: 'gold', amount: 100 }, { kind: 'item', item: 'oathlance' }],
+      journal: 'The council of Aldenhold swore to you before your new companies, returned your father\u2019s Oathlance, and granted 100 gold.',
     } }],
   }],
   onLocationLost: CAPITAL_LOST,
@@ -263,8 +263,8 @@ export const Q03_OLD_TOWER: QuestDefinition = {
     choices: [
       { id: 'enter', label: 'Send in your heroes', then: { encounter: {
         site: 'watchtower', owner: 'orcs', troops: ['minotaur'], heroesOnly: true,
-        win: { status: 'succeeded', effects: [{ kind: 'gold', amount: 250 }, { kind: 'item', item: 'healing-draught' }],
-          journal: 'Your heroes slew the minotaur beneath the Old Watchtower and carried out the pay chest: 250 gold and a healing draught.' },
+        win: { status: 'succeeded', effects: [{ kind: 'gold', amount: 250 }, { kind: 'item', item: 'healing-draught' }, { kind: 'item', item: 'old-watch-shield' }],
+          journal: 'Your heroes slew the minotaur beneath the Old Watchtower and carried out the pay chest (250 gold and a healing draught) and the Shield of the Old Watch.' },
         lose: { stage: 'trial' },
       } } },
       { id: 'leave', label: 'Leave the tower be', then: { status: 'failed', effects: [], journal: 'You left the vault beneath the Old Watchtower sealed.' } },
