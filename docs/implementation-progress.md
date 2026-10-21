@@ -241,3 +241,33 @@ The first planned side quest, built on the quest engine. It is Western Realm onl
 Not yet: a giver portrait for the quest card. The faction registry and item policies (equipment, consumables, evidence) are part 3.
 
 Validation: 247 tests pass, including 11 new Q04 and tracking tests. They cover the offer and envoy range, cap enforcement across reload, compensation through the ledger, rejection keeping ordinary archers, deadline failure, location loss and conquest, an older save without Q04, and header and panel rendering. Build passes. In the browser I signed the accord, raised Woodland Archers in Greenveil (long bow, joined your army there) and checked the journal's tracked marker.
+
+## Faction registry and item policies (#17, part 3)
+
+**Factions (DIP-01).**
+- **Registry:** `content/factions.ts` lists every faction with its name, owner label, troop prefix, kind (player, raiders, free) and banner colour. The map colours, panel labels and battle troop names now read from it. Content validation checks ids, colours, exactly one player faction, and that every campaign town and army has a known owner.
+- **Relations:** `relationWith(state, town)` gives one answer for how a town stands toward you: `self`, or its treaty relation, or its faction's default (orcs hostile, free towns neutral). Town panels show it ("Free town · Allied").
+- **Passage:** `hasPassage` now also lets vassals with passage through, not only allies. Allied-town recruitment uses the same relation.
+
+**Items (ITEM-01).**
+- **Policy data:** each definition carries a `policy` (may it be sold or thrown away) and, for consumables, a `use` (phase, target, HP and mana restored). Behaviour comes from this data, never from names. Content validation enforces it: relics and evidence can never be sold, relics never thrown away, consumables (and only consumables) have a use that restores something, and anything sellable has a value. Quest effects may grant several consumables, never several of anything else, and may only archive evidence.
+- **Counted inventory (save v12):** `items` is a record of holdings, `{ qty, spent, archived }`. Saves check conservation: held plus spent must equal what resolved quests granted. They also reject objects spent against their policy (a used-up charter), and archived evidence that no quest archived. v11 inventories migrate one of each.
+- **Consumables:** Healing Draught (up to 12 HP) and Mana Draught (up to 6 mana). Use them between battles on one of your heroes, never above the hero's maximum; exactly one is used. The quote refuses a use that would gain nothing, so no flask is wasted. They can be sold at their value through the ledger (new `item-sale` receipt category), or thrown away.
+- **Evidence in quests:** a choice can `require` objects you hold, and the button shows "You need the …" until you do. A resolution can `archive` evidence: it stays on record under "Archived evidence" in the journal but can't be presented again.
+- **Journal:** the inventory shows counts, kinds, and the actions each object's policy allows (give to a named hero with the exact gain, sell for its price, throw away), each from its quote.
+
+**Not yet:**
+- No quest grants the draughts yet; the Western chapter quests (#9) will. Until then they are reachable only in tests.
+- Hero equipment slots, item transfer between heroes, and battle-phase consumables are ITEM-02 (P1) and later.
+- Treaty terms (tribute, duration) are DIP-02.
+
+Validation: 260 tests pass, including 13 new tests:
+- relations and passage (ally, vassal, truce)
+- registry labels and content checks
+- consumable use (cap at maximum, exactly-once, between battles only, heroes only)
+- sale through the ledger with no balance correction
+- forged counts and policy-violating spends
+- evidence that can't be sold, a choice that requires evidence, archiving on reload
+- item content validation and the v11 → v12 migration
+
+The build passes. In the browser I checked that the map banners use the registry colours, the quest shortcut appears, and the inventory renders its actions. The pane was hidden, so there are no screenshots.

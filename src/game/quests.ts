@@ -1,6 +1,8 @@
 import { QUESTS } from '../content/quests';
 import { deed, nodeName, neighborsOf } from './campaign';
 import { recordPurchase, recordReceipt } from './economy';
+import { archiveItem, grantItem, heldQty } from './items';
+import { ITEMS } from '../content/items';
 import type {
   FactionId, GameState, QuestChoice, QuestCondition, QuestDefinition, QuestProgress, QuestResolution, QuestStage,
 } from './types';
@@ -103,6 +105,8 @@ export function questQuote(state: GameState, questId: string, choiceId: string):
   if (state.status !== 'playing' || state.battle) return refuse(def.refusals?.battle ?? 'Not during a battle.');
   if (!isOpen(progress)) return refuse(isResolved(progress) ? def.refusals?.resolved ?? 'This matter is settled.' : 'This quest is not open yet.');
   if (!choice) return refuse('That choice is not open now.');
+  const missing = choice.requires?.find((item) => heldQty(state, item) < 1);
+  if (missing) return refuse(`You need the ${ITEMS[missing]?.name ?? missing}.`);
   if (def.needsEnvoy) {
     const at = townLocation(state, def.at);
     const inRange = state.armies.some((a) => a.owner === 'player' && (a.at === at || neighborsOf(state, at).includes(a.at)));
@@ -150,7 +154,10 @@ function resolveQuest(state: GameState, def: QuestDefinition, resolution: QuestR
         state.treaties[effect.town] = { relation: effect.relation, passage: effect.passage, signedTurn: state.turn };
         break;
       case 'item':
-        if (!state.items.includes(effect.item)) state.items.push(effect.item);
+        grantItem(state, effect.item, effect.qty ?? 1);
+        break;
+      case 'archive':
+        archiveItem(state, effect.item);
         break;
       case 'gold':
         state.gold += effect.amount;

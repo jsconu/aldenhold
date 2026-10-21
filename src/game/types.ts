@@ -269,8 +269,11 @@ export interface JournalEntry {
 }
 
 /** A treaty belongs to one specific settlement, not to all neutral towns. */
+/** How a town stands toward you (DIP-01). */
+export type Relation = 'hostile' | 'neutral' | 'truce' | 'ally' | 'vassal';
+
 export interface Treaty {
-  relation: 'hostile' | 'neutral' | 'truce' | 'ally' | 'vassal';
+  relation: Relation;
   passage: boolean;
   signedTurn: number;
 }
@@ -304,7 +307,9 @@ export type QuestCondition =
 /** What a quest's resolution changes in the campaign. Applied exactly once. */
 export type QuestEffect =
   | { kind: 'treaty'; town: string; relation: Treaty['relation']; passage: boolean }
-  | { kind: 'item'; item: string }
+  | { kind: 'item'; item: string; qty?: number }
+  /** The quest takes this evidence as proof: it stays in the record, archived, and can't be presented again. */
+  | { kind: 'archive'; item: string }
   | { kind: 'gold'; amount: number }
   | { kind: 'flag'; flag: string };
 
@@ -320,6 +325,8 @@ export interface QuestChoice {
   label: string;
   /** Gold the choice costs, paid when chosen. */
   gold?: number;
+  /** Objects you must hold (not archived) to make this choice: evidence to present, a charter to show. */
+  requires?: string[];
   /** Move to another stage, or end the quest. */
   then: { stage: string } | QuestResolution;
 }
@@ -353,7 +360,16 @@ export interface QuestDefinition {
 }
 
 /** Signed cash movements: positive receipts, negative actual payments. */
-export type LedgerCategory = 'tax' | 'wages' | 'recruitment' | 'hero-hire' | 'construction' | 'maintenance' | 'refit' | 'quest' | 'quest-reward' | 'balance-correction';
+export type LedgerCategory = 'tax' | 'wages' | 'recruitment' | 'hero-hire' | 'construction' | 'maintenance' | 'refit' | 'quest' | 'quest-reward' | 'item-sale' | 'balance-correction';
+
+/** One kind of object in the campaign inventory. `qty` + `spent` always equals the number quests granted. */
+export interface ItemHolding {
+  qty: number;
+  /** Used, sold or thrown away. */
+  spent: number;
+  /** Evidence a quest took as proof: kept in the record, no longer presentable. */
+  archived: boolean;
+}
 export interface LedgerEntry {
   turn: number;
   city: string | null;
@@ -413,7 +429,7 @@ export interface CityEconomy {
 }
 
 export interface GameState {
-  version: 11;
+  version: 12;
   campaignId: CampaignId;
   campaignRevision: number;
   endingReason: EndingReason | null;
@@ -435,7 +451,8 @@ export interface GameState {
   /** Quest state is separate from immutable quest content. */
   quests: Record<string, QuestProgress>;
   /** Unique non-consumable campaign-held objects; future equipment is kept separately. */
-  items: string[];
+  /** Campaign inventory by item id. See game/items.ts. */
+  items: Record<string, ItemHolding>;
   /** Location-scoped treaties; no accidental world-wide neutral-faction alliance. */
   treaties: Record<string, Treaty>;
   /** Campaign flags set by quest outcomes, read by later quests and rules. */

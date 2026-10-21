@@ -4,6 +4,8 @@ import { esc } from './shared';
 import { ITEMS } from '../content/items';
 import { campaignQuests, questSummary, trackedQuests } from '../game/quests';
 import { townLocation } from '../game/world';
+import { discardQuote, heldQty, sellQuote, useQuote } from '../game/items';
+import { isHero } from '../game/units';
 
 const KIND_LABEL: Record<DeedKind, string> = {
   story: 'Story',
@@ -50,12 +52,7 @@ export function renderJournal(state: GameState): string {
       </dl>
     </div>
     ${renderQuestLedger(state)}
-    <section class="quest-ledger"><h2>Inventory</h2>
-      ${state.items.length ? `<ul>${state.items.map((id) => {
-        const item = ITEMS[id];
-        return `<li><b>${esc(item.name)}</b> — ${esc(item.rules)}</li>`;
-      }).join('')}</ul>` : '<p class="sub">No campaign objects acquired yet.</p>'}
-    </section>
+    ${renderInventory(state)}
     ${sections || '<p class="hint">Nothing recorded yet.</p>'}
   </main>`;
 }
@@ -72,5 +69,40 @@ function renderQuestLedger(state: GameState): string {
   };
   return `<section class="quest-ledger"><h2>Quests</h2>
     ${quests.length ? group('main', 'Main objectives') + group('side', 'Side quests') : '<p class="sub">No quests offered yet.</p>'}
+  </section>`;
+}
+
+const ITEM_KIND: Record<string, string> = { relic: 'Relic', equipment: 'Equipment', consumable: 'Consumable', evidence: 'Evidence' };
+
+/** Held objects with what they do and the actions their policy allows; archived evidence below them. */
+function renderInventory(state: GameState): string {
+  const held = Object.keys(state.items).filter((id) => heldQty(state, id) > 0);
+  const archived = Object.keys(state.items).filter((id) => state.items[id].archived);
+  const heroes = state.armies.filter((a) => a.owner === 'player').flatMap((a) => a.troops.filter((t) => isHero(t.type)));
+  const button = (action: string, id: string, label: string, reason: string | null, extra = '') =>
+    `<button class="ghost" data-action="${action}" data-item="${id}"${extra} ${reason ? `disabled title="${esc(reason)}"` : ''}>${esc(label)}</button>`;
+  const rows = held.map((id) => {
+    const item = ITEMS[id];
+    const qty = heldQty(state, id);
+    const actions: string[] = [];
+    if (item.use) {
+      for (const hero of heroes) {
+        const q = useQuote(state, id, hero.id);
+        const gain = [q.hp ? `+${q.hp} HP` : '', q.mana ? `+${q.mana} mana` : ''].filter(Boolean).join(', ');
+        actions.push(button('use-item', id, `Give to ${hero.name ?? 'hero'}${gain ? ` (${gain})` : ''}`, q.reason, ` data-troop="${hero.id}"`));
+      }
+    }
+    if (item.policy.sell) {
+      const q = sellQuote(state, id);
+      actions.push(button('sell-item', id, `Sell · ${q.gold}g`, q.reason));
+    }
+    if (item.policy.discard) actions.push(button('discard-item', id, 'Throw away', discardQuote(state, id).reason));
+    return `<li><b>${esc(item.name)}</b>${qty > 1 ? ` ×${qty}` : ''} <small class="tag">${ITEM_KIND[item.kind]}</small> — ${esc(item.rules)}
+      ${actions.length ? `<div class="quest-actions">${actions.join('')}</div>` : ''}</li>`;
+  }).join('');
+  const archive = archived.length ? `<h3>Archived evidence</h3><ul>${archived.map((id) =>
+    `<li><b>${esc(ITEMS[id].name)}</b> <small class="sub">presented and kept on record</small></li>`).join('')}</ul>` : '';
+  return `<section class="quest-ledger"><h2>Inventory</h2>
+    ${rows ? `<ul>${rows}</ul>` : '<p class="sub">No campaign objects held.</p>'}${archive}
   </section>`;
 }

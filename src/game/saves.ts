@@ -43,12 +43,12 @@ const factions = ['player', 'orcs', 'neutral'];
 const deedKinds: DeedKind[] = ['story', 'battle', 'capture', 'loss', 'hero', 'realm', 'ending', 'earlier'];
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const sides = ['attacker', 'defender'];
-const ledgerCategories: LedgerCategory[] = ['tax', 'wages', 'recruitment', 'hero-hire', 'construction', 'maintenance', 'refit', 'quest', 'quest-reward', 'balance-correction'];
+const ledgerCategories: LedgerCategory[] = ['tax', 'wages', 'recruitment', 'hero-hire', 'construction', 'maintenance', 'refit', 'quest', 'quest-reward', 'item-sale', 'balance-correction'];
 
 /** Validate both shape and references before exposing a save to rules or rendering. */
 function validate(value: unknown, allowMissingBattleTroops = false): asserts value is GameState {
   const s = object(value);
-  requireValue(s.version === 11, 'unsupported schema version');
+  requireValue(s.version === 12, 'unsupported schema version');
   requireValue(text(s.campaignId) && Object.hasOwn(CATALOG.campaigns, s.campaignId), 'unknown campaign');
   const def = getCampaign(s.campaignId as CampaignId);
   requireValue(s.campaignRevision === def.revision, 'unsupported campaign revision');
@@ -137,7 +137,7 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
         text(e.counterparty) && text(e.actionId) && e.actionId.length > 0 &&
         !unique.has(e.actionId), 'treasury transaction');
       unique.add(e.actionId as string);
-      requireValue(e.category === 'tax' || e.category === 'quest-reward' ? Number(e.amount) > 0 :
+      requireValue(e.category === 'tax' || e.category === 'quest-reward' || e.category === 'item-sale' ? Number(e.amount) > 0 :
         e.category === 'balance-correction' ? Number(e.amount) !== 0 : Number(e.amount) < 0,
         'treasury transaction sign');
     }
@@ -235,9 +235,12 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
       requireValue(resolutionOf(qdef, q as unknown as GameState['quests'][string])?.status === q.status, 'quest outcome');
     }
   }
-  const inventory = array(s.items);
-  requireValue(inventory.every((id) => text(id) && Object.hasOwn(ITEMS, id)) &&
-    new Set(inventory).size === inventory.length, 'inventory objects');
+  const inventory = object(s.items);
+  for (const [id, entry] of Object.entries(inventory)) {
+    const h = object(entry);
+    requireValue(Object.hasOwn(ITEMS, id) && integer(h.qty, 0) && integer(h.spent, 0) && bool(h.archived) &&
+      Number(h.qty) + Number(h.spent) > 0, 'inventory objects');
+  }
   const treaties = object(s.treaties);
   for (const [id, entry] of Object.entries(treaties)) {
     const t = object(entry);
@@ -249,15 +252,13 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
   requireValue(flags.every(text) && new Set(flags).size === flags.length, 'campaign flags');
   // Everything a quest grants must come from a quest that actually ended that way: no forged rewards, no
   // missing ones. Treaties may have ended since (a town changing hands), so they only need a source.
-  const granted = { items: new Set<string>(), treaties: new Set<string>(), flags: new Set<string>() };
+  const granted = { items: new Map<string, number>(), archived: new Set<string>(), treaties: new Set<string>(), flags: new Set<string>() };
   for (const [id, entry] of Object.entries(quests)) {
     const progress = entry as GameState['quests'][string];
     const resolution = isResolved(progress) ? resolutionOf(QUESTS[id], progress) : null;
     for (const effect of resolution?.effects ?? []) {
-      if (effect.kind === 'item') {
-        granted.items.add(effect.item);
-        requireValue(inventory.includes(effect.item), 'missing quest reward');
-      }
+      if (effect.kind === 'item') granted.items.set(effect.item, (granted.items.get(effect.item) ?? 0) + (effect.qty ?? 1));
+      if (effect.kind === 'archive') granted.archived.add(effect.item);
       if (effect.kind === 'treaty') granted.treaties.add(effect.town);
       if (effect.kind === 'flag') {
         granted.flags.add(effect.flag);
@@ -265,7 +266,17 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
       }
     }
   }
-  requireValue(inventory.every((item) => granted.items.has(item as string)), 'inventory object with no quest that granted it');
+  // Objects are conserved: held plus spent equals what quests granted, and only a quest can archive evidence.
+  for (const [item, count] of granted.items) {
+    requireValue(Object.hasOwn(inventory, item), 'missing quest reward');
+    const h = inventory[item] as { qty: number; spent: number };
+    requireValue(h.qty + h.spent === count, 'inventory count does not match what quests granted');
+  }
+  requireValue(Object.keys(inventory).every((item) => granted.items.has(item)), 'inventory object with no quest that granted it');
+  for (const [item, entry] of Object.entries(inventory)) {
+    requireValue((entry as { archived: boolean }).archived === granted.archived.has(item), 'archived evidence');
+    requireValue(ITEMS[item].policy.sell || ITEMS[item].policy.discard || ITEMS[item].use || (entry as { spent: number }).spent === 0, 'spent an object that cannot be spent');
+  }
   requireValue(Object.keys(treaties).every((town) => granted.treaties.has(town)), 'treaty with no quest that granted it');
   requireValue(flags.every((flag) => granted.flags.has(flag as string)), 'flag with no quest that set it');
   array(s.journal).forEach((entry, i) => {
@@ -464,13 +475,22 @@ function upgradeToV11(value: Record<string, unknown>) {
   value.version = 11;
 }
 
+/** v11 → v12: the inventory becomes counted holdings (one of each object held before), so consumables can stack. */
+function upgradeToV12(value: Record<string, unknown>) {
+  // An inventory already in the new shape is left as it is; validation checks it either way.
+  if (Array.isArray(value.items)) {
+    value.items = Object.fromEntries(value.items.map((id) => [id, { qty: 1, spent: 0, archived: false }]));
+  }
+  value.version = 12;
+}
+
 /**
  * Quests added to the catalog after a save was made start locked in it, and unlock at the next month if their
  * prerequisites hold. This is a content addition, not a schema change, so it needs no version bump. Unknown
  * quest ids in the save are still rejected by validation.
  */
 function addNewQuests(value: Record<string, unknown>) {
-  if (value.version !== 11 || typeof value.quests !== 'object' || value.quests === null) return;
+  if (value.version !== 12 || typeof value.quests !== 'object' || value.quests === null) return;
   const quests = value.quests as Record<string, unknown>;
   for (const id of Object.keys(QUESTS)) if (!Object.hasOwn(quests, id)) quests[id] = lockedProgress();
 }
@@ -503,6 +523,7 @@ export function parseSave(raw: string): GameState {
     upgradeToV9(value);
     upgradeToV10(value);
     upgradeToV11(value);
+    upgradeToV12(value);
     validate(value, true);
     if (value.battle) {
       const b = value.battle;
@@ -523,6 +544,7 @@ export function parseSave(raw: string): GameState {
   if (value.version === 8) upgradeToV9(value);
   if (value.version === 9) upgradeToV10(value);
   if (value.version === 10) upgradeToV11(value);
+  if (value.version === 11) upgradeToV12(value);
   addNewQuests(value);
   validate(value);
   return value;

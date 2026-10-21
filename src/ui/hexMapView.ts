@@ -1,3 +1,4 @@
+import { FACTIONS } from '../content/factions';
 import type { Army, FactionId, GameState, HexWorld } from '../game/types';
 import { arrivalOutcome } from '../game/campaign';
 import { hasRoad, hexLand, locationName, parseKey, type MarchStep } from '../game/world';
@@ -11,7 +12,7 @@ import { esc, type UIState } from './shared';
  * landmarks, armies, labels, highlights and clicks. SVG units are the bitmap's native pixels.
  */
 
-const OWNER_COLOUR: Record<FactionId, string> = { player: '#5555ff', orcs: '#ff3333', neutral: '#ffdd55' };
+const OWNER_COLOUR = Object.fromEntries(Object.values(FACTIONS).map((f) => [f.id, f.colour])) as Record<FactionId, string>;
 
 const MAP_PALETTE: Record<string, string> = {
   k: '#10100c', w: '#ffffff', g: '#c8c0a8', G: '#8a8270', s: '#b0a890', S: '#5a5048', b: '#6a4a20', B: '#2a1a10',

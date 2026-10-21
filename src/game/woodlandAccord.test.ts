@@ -65,7 +65,7 @@ describe('Q04 The Woodland Accord', () => {
     expect(chooseQuest(s, 'Q04', 'cap')).toBeNull();
     expect(s.quests.Q04).toMatchObject({ status: 'succeeded', resolvedBy: 'choice' });
     expect(s.treaties.greenveil).toMatchObject({ relation: 'ally', passage: true });
-    expect(s.items).toContain('woodland-charter');
+    expect(s.items['woodland-charter']).toEqual({ qty: 1, spent: 0, archived: false });
     expect(s.flags).toContain('logging-cap');
 
     s = reload(s);
@@ -149,7 +149,7 @@ describe('Q04 The Woodland Accord', () => {
     expect(canRecruitAt(allied, allied.towns.greenveil, 'archers')).toBe(true);
     // The promise to cap logging still stands.
     expect(allied.flags).toContain('logging-cap');
-    expect(reload(allied).items).toContain('woodland-charter');
+    expect(reload(allied).items['woodland-charter'].qty).toBe(1);
   });
 
   it('a save made before Q04 existed loads with it locked, and it unlocks the next month', () => {
