@@ -163,7 +163,8 @@ export function renderHexMap(
     const { centre: [cx, cy] } = cell(key);
     list.forEach((a, i) => {
       const x = cx + 6 + i * 7;
-      armies += `<g class="map-army"><title>${esc(armyTitle(a))}</title>${use('banner', a.owner, x + 3, cy - 1)}
+      armies += `<g class="map-army owner-${a.owner}"><title>${esc(armyTitle(a))}</title>
+        <ellipse cx="${x + 6}" cy="${cy - 5}" rx="11" ry="9" class="army-halo"/>${use('banner', a.owner, x + 3, cy - 1)}
         <text x="${x + 6}" y="${cy - 3}" class="army-count">${a.troops.length}</text></g>`;
     });
   }
@@ -185,7 +186,12 @@ export function renderHexMap(
 
   const image = terrainImage(world);
   return `<svg viewBox="0 0 ${width} ${height}" class="map overland" role="img" aria-label="Overland map">
-    ${symbolDefs()}
+    ${symbolDefs()}<defs>
+      <radialGradient id="overland-march-glow"><stop offset="0" stop-color="#f3e2a2" stop-opacity=".6"/>
+        <stop offset="1" stop-color="#f3e2a2" stop-opacity="0"/></radialGradient>
+      <radialGradient id="overland-danger-glow"><stop offset="0" stop-color="#e89270" stop-opacity=".75"/>
+        <stop offset="1" stop-color="#e89270" stop-opacity="0"/></radialGradient>
+    </defs>
     ${image ? `<image href="${image}" x="0" y="0" width="${width}" height="${height}" class="terrain"/>` : ''}
     ${reach}${selection}${places}${armies}${labels}${hits}
   </svg>`;

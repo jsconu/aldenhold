@@ -432,6 +432,10 @@ Validation: 300 tests pass, including 13 new city-quest tests:
 The build passes. In the browser: the granary rotted on schedule, rationing blocked Aldenhold's recruit buttons with the reason, and the trial brought the ledger into the inventory, then archived it on conviction. No console errors.
 
 
+## Codex: Western overland art and march guidance (9e)
+
+The Western map now uses the battle scene's quieter earth, forest and water palette, broad continuous lighting, less repeated tile detail and softer movement glows. Blue army banners have a clearer backing so the army's location is easier to find. A prominent march guide in the sidebar shows the currently ticked and reachable troops, can return to a ready army after inspecting another hex, and explains that an unlit hex inspects rather than moves. Hex geometry, terrain, roads, movement costs and saves are unchanged. This is a first visual pass to review in the running game with the owner.
+
 ## Codex: Western chapter city-quest and alliance playthrough pass (9e)
 
 Extended the real-command optional-expedition controller to resolve Q01 through bought, escorted or rationed grain and Q06 through an evidence-led conviction or pardon. It prioritizes the timed granary response before optional garrison spending, checks imports immediately after decisions, and separately exercises an envoy's Q04 woodland alliance. No production gameplay rules changed.

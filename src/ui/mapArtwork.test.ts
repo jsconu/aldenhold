@@ -7,6 +7,8 @@ import { renderBattle } from './battleView';
 import { renderHexMap } from './hexMapView';
 import { atlasTiles, renderOverland } from './overlandMap';
 import { paintTerrain, softenHexSeams } from './pixelTiles';
+import { moveTargets, renderCampaign } from './campaignView';
+import { townLocation } from '../game/world';
 import type { UIState } from './shared';
 
 const ui: UIState = { selected: 'aldenhold', checked: new Set(), battleUnit: null,
@@ -51,6 +53,24 @@ describe('continuous map artwork without exposed tile outlines', () => {
     expect(view).toContain('<ellipse');
     expect(view).not.toMatch(/<polygon[^>]+class="selected"/);
     expect(view).toContain('class="cell" data-action="node"');
+    expect(view).toContain('overland-march-glow');
+    expect(view).toContain('class="army-halo"');
+  });
+
+  it('keeps the march instructions tied to the actually selected troops and reachable cells', () => {
+    const state = newGame(12, 'western-realm');
+    const at = townLocation(state, 'aldenhold');
+    const troops = armyAt(state, at, 'player')!.troops;
+    const selected = { ...ui, selected: at, checked: new Set(troops.map((t) => t.id)) };
+    const before = JSON.stringify(state);
+    const screen = renderCampaign(state, selected);
+    expect(screen).toContain(`${troops.length} of ${troops.length} ready troops ticked`);
+    expect(screen).toContain(`(${moveTargets(state, selected).size} reachable now)`);
+    expect(screen).toContain('Click a glowing hex');
+    const inspecting = renderCampaign(state, { ...selected, selected: '0,0', checked: new Set() });
+    expect(inspecting).toContain('Show a ready army');
+    expect(inspecting).toContain(`data-action="locate-army" data-node="${at}"`);
+    expect(JSON.stringify(state)).toBe(before);
   });
 
   it('blends battle ground and paints local details above it with separate click targets', () => {

@@ -69,12 +69,31 @@ export function renderCampaign(state: GameState, ui: UIState): string {
     <aside class="side">
       ${ui.message ? `<p class="msg">${esc(ui.message)}</p>` : ''}
       ${renderOfferNotice(state, ui)}
+      ${isHexCampaign(state) ? renderMarchGuide(state, ui) : ''}
       ${isHexCampaign(state) ? '' : renderRoutePlanner(state, ui)}
       ${ui.selected && !isHexCampaign(state) ? renderTravelGuide(state, ui) : ''}
       ${ui.selected ? renderNodePanel(state, ui, ui.selected) : '<p class="hint">Click a place on the map. Your troops show as blue shields.</p>'}
       <details class="log" open><summary>Chronicle</summary><ul>${state.log.slice(0, 14).map((l) => `<li>${esc(l)}</li>`).join('')}</ul></details>
     </aside>
   </main>`}`;
+}
+
+/** Keep the immediate march action visible even when the troop list is farther down the sidebar. */
+function renderMarchGuide(state: GameState, ui: UIState): string {
+  const army = ui.selected ? armyAt(state, ui.selected, 'player') : undefined;
+  const ready = army?.troops.filter((t) => t.mp > 0 && !t.refit) ?? [];
+  const checked = ready.filter((t) => ui.checked.has(t.id)).length;
+  const destinations = checked ? moveTargets(state, ui).size : 0;
+  const otherArmy = state.armies.find((a) => a.owner === 'player' && a.troops.some((t) => t.mp > 0 && !t.refit));
+  return `<section class="march-guide" aria-label="How to march troops"><h3>March your troops</h3>
+    ${army ? `<p><b>1. Choose troops.</b> ${checked} of ${ready.length} ready troops ticked under “Your troops” below.</p>
+      <p><b>2. Click a glowing hex</b> on the map to march there${destinations ? ` (${destinations} reachable now)` : ''}.</p>
+      ${!checked && ready.length ? '<p class="march-tip">Tick a troop below to show where it can go.</p>' : ''}
+      ${!ready.length ? '<p class="march-tip">This army has no movement left. End month to travel again.</p>' : ''}` :
+      `<p>Select the hex with your blue army banner first. That opens its troop list and shows reachable hexes.</p>
+      ${otherArmy ? `<button data-action="locate-army" data-node="${esc(otherArmy.at)}">Show a ready army</button>` : ''}`}
+    <p class="march-tip">An unlit hex only lets you inspect it. For a longer trip, march in stages; End month restores movement.</p>
+  </section>`;
 }
 
 /** UI-only map controls never mutate the campaign or its saves. */
@@ -336,7 +355,7 @@ function renderArmy(state: GameState, ui: UIState, a: Army): string {
       const type = UNIT_TYPES[t.type];
       const spent = t.mp <= 0;
       const box = mine
-        ? `<input type="checkbox" data-change="check" data-troop="${t.id}" ${ui.checked.has(t.id) ? 'checked' : ''} ${spent ? 'disabled' : ''}/>`
+        ? `<input type="checkbox" data-change="check" data-troop="${t.id}" ${ui.checked.has(t.id) ? 'checked' : ''} ${spent || t.refit ? 'disabled' : ''}/>`
         : '';
       // On a hex map show movement left this month; on the valley a march takes the whole month.
       const marched = !mine ? '' : hexWorld ? `<span class="tag" title="Movement left this month">${t.mp}/${marchRate(state, t)}</span>` : spent ? '<span class="tag">marched</span>' : '';
