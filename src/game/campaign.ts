@@ -61,7 +61,7 @@ export function newGame(seed = Math.floor(Math.random() * 2 ** 31), campaignId: 
 }
 
 /** Start positions name a location on the valley and a town or landmark on a hex map. */
-function startLocation(state: GameState, id: string): string {
+export function startLocation(state: GameState, id: string): string {
   const world = worldOf(state);
   if (world.kind === 'graph') return id;
   const place = world.places.find((p) => p.id === id);
@@ -499,6 +499,8 @@ export function endingReason(state: GameState): GameState['endingReason'] {
   if (state.towns[capital].owner !== 'player') return 'capital-lost';
   if (!lordOf(state)?.men) return 'lord-dead';
   if (state.towns[lair].owner === 'player') return 'lair-captured';
+  const chapter = campaignOf(state).chapter;
+  if (chapter && state.quests[chapter.finale]?.status === 'succeeded') return 'chapter-complete';
   return null;
 }
 
@@ -507,12 +509,13 @@ export function checkStatus(state: GameState) {
   const reason = endingReason(state);
   if (!reason) return;
   state.endingReason = reason;
-  state.status = reason === 'lair-captured' ? 'won' : 'lost';
-  const { capital, lair } = campaignOf(state);
+  state.status = reason === 'lair-captured' || reason === 'chapter-complete' ? 'won' : 'lost';
+  const { capital, lair, chapter } = campaignOf(state);
   deed(state, 'ending', {
     'capital-lost': `${nodeName(state, capital)} has fallen. Your house is ended.`,
     'lord-dead': 'Your lord is dead. With no heir, your house is ended.',
     'lair-captured': `${nodeName(state, lair)} is broken. ${worldOf(state).kind === 'graph' ? 'The valley' : 'The realm'} is yours.`,
+    'chapter-complete': chapter?.ending ?? 'The chapter is complete.',
   }[reason], reason === 'lair-captured' ? townLocation(state, lair) : reason === 'capital-lost' ? townLocation(state, capital) : null);
 }
 

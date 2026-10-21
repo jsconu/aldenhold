@@ -1,5 +1,7 @@
 import { QUESTS } from '../content/quests';
-import { deed, nodeName, neighborsOf } from './campaign';
+import { armyAt, deed, makeTroop, nodeName, neighborsOf, startLocation } from './campaign';
+import { relationWith } from './diplomacy';
+import { isHero } from './units';
 import { recordPurchase, recordReceipt } from './economy';
 import { archiveItem, grantItem, heldQty } from './items';
 import { ITEMS } from '../content/items';
@@ -62,12 +64,82 @@ export function stageOf(def: QuestDefinition, stageId: string): QuestStage | und
   return def.stages.find((s) => s.id === stageId);
 }
 
-function conditionHolds(state: GameState, c: QuestCondition): boolean {
+/** The number a counting condition measures now, for checks and for progress shown to the player. */
+function measure(state: GameState, c: QuestCondition): number | null {
+  switch (c.kind) {
+    case 'towns-ruled': return Object.values(state.towns).filter((t) => t.owner === 'player' && t.kind !== 'lair').length;
+    case 'standing': return Object.values(state.towns).filter((t) => t.kind !== 'lair' &&
+      ['self', 'ally', 'vassal'].includes(relationWith(state, t.id) ?? '')).length;
+    case 'formations': return state.armies.filter((a) => a.owner === 'player')
+      .reduce((n, a) => n + a.troops.filter((t) => !isHero(t.type)).length, 0);
+    case 'food': return state.towns[c.town]?.owner === 'player' ? state.cityEconomies[c.town]?.goods.food ?? 0 : 0;
+    default: return null;
+  }
+}
+
+export function conditionHolds(state: GameState, c: QuestCondition): boolean {
   switch (c.kind) {
     case 'quest': return state.quests[c.quest]?.status === c.status;
     case 'town-owner': return state.towns[c.town]?.owner === c.owner;
     case 'flag': return state.flags.includes(c.flag);
     case 'month': return state.turn >= c.atLeast;
+    case 'any': return c.of.some((x) => conditionHolds(state, x));
+    default: return (measure(state, c) ?? 0) >= c.atLeast;
+  }
+}
+
+/** A goal in plain words, with where you stand ("Rule 3 towns (now 2)"). */
+export function conditionText(state: GameState, c: QuestCondition): string {
+  const now = measure(state, c);
+  const progress = now === null ? '' : ` (now ${now})`;
+  switch (c.kind) {
+    case 'quest': return `${QUESTS[c.quest]?.name ?? c.quest} ends ${c.status}`;
+    case 'town-owner': return c.owner === 'player' ? `Take ${nodeName(state, c.town)}` : `${nodeName(state, c.town)} falls to the ${c.owner}`;
+    case 'flag': return `Event: ${c.flag}`;
+    case 'month': return `Month ${c.atLeast} arrives`;
+    case 'towns-ruled': return `Rule ${c.atLeast} towns${progress}`;
+    case 'standing': return `Rule or ally with ${c.atLeast} towns${progress}`;
+    case 'formations': return `Field ${c.atLeast} formations${progress}`;
+    case 'food': return `Store ${c.atLeast} food in ${nodeName(state, c.town)}${progress}`;
+    case 'any': return c.of.map((x) => conditionText(state, x)).join(', or ');
+  }
+}
+
+/** Enter a stage: record when it began and set its events in motion (exactly once, on entry). */
+function enterStage(state: GameState, def: QuestDefinition, stageId: string) {
+  const progress = state.quests[def.id];
+  progress.stage = stageId;
+  progress.stageTurn = state.turn;
+  for (const event of stageOf(def, stageId)?.onStart ?? []) {
+    const at = startLocation(state, event.at);
+    const troops = event.troops.map((t) => (typeof t === 'string' ? makeTroop(state, t) : makeTroop(state, t.type, t.name)));
+    const army = armyAt(state, at, event.owner);
+    if (army) {
+      army.troops.push(...troops);
+      if (event.target) army.target = event.target;
+    } else {
+      state.armies.push({ id: state.nextId++, owner: event.owner, at, from: null, troops, ...(event.target ? { target: event.target } : {}) });
+    }
+  }
+}
+
+/**
+ * Move a quest on if its current stage's goals are met. Checks repeat so a stage met on arrival passes at once;
+ * each stage can only be passed once, so this always stops.
+ */
+function checkObjectives(state: GameState, def: QuestDefinition) {
+  for (let guard = 0; guard <= def.stages.length; guard++) {
+    const progress = state.quests[def.id];
+    if (!isOpen(progress)) return;
+    const objective = stageOf(def, progress.stage)?.objectives?.find((o) => o.when.every((c) => conditionHolds(state, c)));
+    if (!objective) return;
+    progress.history.push({ stage: progress.stage, choice: objective.id, turn: state.turn });
+    if ('stage' in objective.then) {
+      progress.status = 'active';
+      enterStage(state, def, objective.then.stage);
+    } else {
+      resolveQuest(state, def, objective.then, 'objective');
+    }
   }
 }
 
@@ -81,8 +153,7 @@ export function unlockQuests(state: GameState): string[] {
     const progress = state.quests[def.id];
     if (progress.status !== 'unavailable' || !def.prerequisites.every((c) => conditionHolds(state, c))) continue;
     progress.status = 'available';
-    progress.stage = def.stages[0].id;
-    progress.stageTurn = state.turn;
+    enterStage(state, def, def.stages[0].id);
     news.push(`New ${def.kind === 'main' ? 'objective' : 'quest'}: ${def.name}, offered at ${nodeName(state, def.at)}.`);
   }
   return news;
@@ -131,8 +202,7 @@ export function chooseQuest(state: GameState, questId: string, choiceId: string)
   progress.choice = choice.id;
   if ('stage' in choice.then) {
     progress.status = 'active';
-    progress.stage = choice.then.stage;
-    progress.stageTurn = state.turn;
+    enterStage(state, def, choice.then.stage);
   } else {
     resolveQuest(state, def, choice.then, 'choice');
   }
@@ -171,10 +241,14 @@ function resolveQuest(state: GameState, def: QuestDefinition, resolution: QuestR
   deed(state, 'story', resolution.journal, townLocation(state, def.at));
 }
 
-/** The month's quest phase: unlock quests whose time has come, then end stages whose deadline has passed. */
+/**
+ * The month's quest phase: unlock quests whose time has come, move on quests whose goals are met, end stages
+ * whose deadline has passed (a goal met in the deadline's month counts), then offer any follow-ups.
+ */
 export function advanceQuests(state: GameState): string[] {
   const news = unlockQuests(state);
   for (const def of campaignQuests(state)) {
+    checkObjectives(state, def);
     const progress = state.quests[def.id];
     if (!isOpen(progress)) continue;
     const deadline = stageOf(def, progress.stage)?.deadline;
@@ -183,7 +257,8 @@ export function advanceQuests(state: GameState): string[] {
       resolveQuest(state, def, deadline.outcome, 'deadline');
     }
   }
-  return news;
+  // Follow-ups to quests that just ended are offered the same month; their goals are checked from next month.
+  return [...news, ...unlockQuests(state)];
 }
 
 /**
@@ -196,6 +271,8 @@ export function onTownOwnershipChange(state: GameState, townId: string, owner: F
     deed(state, 'realm', `The ${nodeName(state, townId)} passage treaty has ended with the change of ruler.`, townLocation(state, townId));
   }
   for (const def of questsAt(state, townId)) {
+    // Taking the town may be the quest's goal: that is checked first, so it isn't mistaken for losing it.
+    checkObjectives(state, def);
     if (isOpen(state.quests[def.id])) resolveQuest(state, def, def.onLocationLost, 'location-lost');
   }
 }
@@ -208,8 +285,10 @@ export function resolutionOf(def: QuestDefinition, progress: QuestProgress): Que
   if (!last) return null;
   const stage = stageOf(def, last.stage);
   if (progress.resolvedBy === 'deadline') return stage?.deadline?.outcome ?? null;
-  const choice = stage?.choices.find((c) => c.id === last.choice);
-  return choice && !('stage' in choice.then) ? choice.then : null;
+  const step = progress.resolvedBy === 'objective'
+    ? stage?.objectives?.find((o) => o.id === last.choice)
+    : stage?.choices.find((c) => c.id === last.choice);
+  return step && !('stage' in step.then) ? step.then : null;
 }
 
 /** A short status line for the journal and panels. */
@@ -223,7 +302,11 @@ export function questSummary(state: GameState, questId: string): string {
     case 'active': return 'Under way';
     case 'superseded': return 'No longer available';
     default: {
-      if (p.resolvedBy === 'deadline') return p.status === 'succeeded' ? 'Succeeded' : 'Failed: time ran out';
+      if (p.resolvedBy === 'deadline') return p.status === 'succeeded' ? 'Succeeded: you held out' : 'Failed: time ran out';
+      if (p.resolvedBy === 'objective') {
+        const reached = def.stages.flatMap((s) => s.objectives ?? []).find((o) => o.id === p.history.at(-1)?.choice);
+        return `${p.status === 'succeeded' ? 'Succeeded' : 'Failed'}${reached ? ` (${reached.label.toLowerCase()})` : ''}`;
+      }
       const label = def.stages.flatMap((s) => s.choices).find((c) => c.id === p.choice)?.label;
       return `${p.status === 'succeeded' ? 'Succeeded' : 'Failed'}${label ? ` (${label.toLowerCase()})` : ''}`;
     }

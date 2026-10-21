@@ -128,6 +128,8 @@ export interface Army {
   /** Node the army last came from; where it falls back to after a failed attack. */
   from: string | null;
   troops: Troop[];
+  /** Raiders only: the town this force marches on (a quest's incursion) instead of the nearest one. */
+  target?: string;
 }
 
 export interface MapNode {
@@ -206,7 +208,7 @@ export interface HeroOffer {
   expires: number;
 }
 
-export type EndingReason = 'lair-captured' | 'capital-lost' | 'lord-dead';
+export type EndingReason = 'lair-captured' | 'chapter-complete' | 'capital-lost' | 'lord-dead';
 
 export type CampaignId = 'valley-quickplay' | 'western-realm';
 
@@ -253,6 +255,8 @@ export interface CampaignDefinition {
   /** Start locations are node ids on the valley and place ids on a hex map. */
   armies: { owner: FactionId; at: string; troops: StartTroop[] }[];
   offers: HeroOffer[];
+  /** A chapter campaign: finishing this main quest completes it (a win). */
+  chapter?: { title: string; finale: string; ending: string };
 }
 
 /** Kinds of deed the permanent journal keeps. 'earlier' holds chronicle lines carried over from older saves. */
@@ -290,7 +294,7 @@ export interface QuestProgress {
   choice: string | null;
   resolvedTurn: number | null;
   /** How the quest ended: a player choice, a missed deadline, or its town changing hands. */
-  resolvedBy: 'choice' | 'deadline' | 'location-lost' | null;
+  resolvedBy: 'choice' | 'objective' | 'deadline' | 'location-lost' | null;
   /** Month the current stage began (deadlines count from here); null while locked or resolved. */
   stageTurn: number | null;
   /** Every choice made, in order. */
@@ -302,7 +306,40 @@ export type QuestCondition =
   | { kind: 'quest'; quest: string; status: ResolvedQuestStatus }
   | { kind: 'town-owner'; town: string; owner: FactionId }
   | { kind: 'flag'; flag: string }
-  | { kind: 'month'; atLeast: number };
+  | { kind: 'month'; atLeast: number }
+  /** Towns (not lairs) you rule. */
+  | { kind: 'towns-ruled'; atLeast: number }
+  /** Towns you rule plus free towns allied with you or your vassals: your standing in the realm. */
+  | { kind: 'standing'; atLeast: number }
+  /** Your formations in the field and in garrison, heroes not counted. */
+  | { kind: 'formations'; atLeast: number }
+  /** Food stored in one of your cities. */
+  | { kind: 'food'; town: string; atLeast: number }
+  /** Any one of these holds. */
+  | { kind: 'any'; of: QuestCondition[] };
+
+/** Something that happens in the world when a quest stage begins. */
+export type QuestEvent = {
+  kind: 'spawn';
+  owner: FactionId;
+  /** A town or landmark id. Joins an army of the same owner already there. */
+  at: string;
+  troops: StartTroop[];
+  /** Town the force marches on. */
+  target?: string;
+};
+
+/**
+ * A stage goal checked against the world at each month's end (and when the quest's town changes hands). The
+ * first one whose conditions all hold moves the quest on, before any deadline is applied.
+ */
+export interface QuestObjective {
+  id: string;
+  /** Shown in the journal once reached ("Held the line"). */
+  label: string;
+  when: QuestCondition[];
+  then: { stage: string } | QuestResolution;
+}
 
 /** What a quest's resolution changes in the campaign. Applied exactly once. */
 export type QuestEffect =
@@ -335,7 +372,11 @@ export interface QuestStage {
   id: string;
   text: string;
   choices: QuestChoice[];
-  /** Months after the stage begins before it fails, and what happens then. */
+  /** Goals that move the quest on by themselves when the world meets them. */
+  objectives?: QuestObjective[];
+  /** What happens in the world as the stage begins (applied once, on entering it). */
+  onStart?: QuestEvent[];
+  /** Months after the stage begins before it ends this way (a failure, or for "hold out" goals a success). */
   deadline?: { months: number; outcome: QuestResolution };
 }
 

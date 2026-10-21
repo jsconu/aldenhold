@@ -204,6 +204,9 @@ button.link { background: none; border: none; padding: 0; color: var(--gold); te
 .quest-card, .quest-ledger { border: 1px solid var(--line, #766c55); background: var(--panel, #262521); padding: 12px; margin: 12px 0; border-radius: 8px; }
 .quest-card h3, .quest-ledger h2 { margin: 0 0 8px; }
 .quest-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.objectives { list-style: none; padding: 0; margin: 6px 0; }
+.objectives li { margin: 2px 0; }
+.objectives li.met { color: var(--good, #8fd18f); }
 .quest-ledger ul { padding-left: 22px; }
 
 /* Pixel-art unit tokens: figures on team-coloured bases, like painted miniatures. */

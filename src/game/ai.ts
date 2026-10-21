@@ -93,7 +93,9 @@ function raidAcrossHexes(state: GameState, army: Army) {
 export function raidPath(state: GameState, army: Army): string[] {
   const options = marchOptions(state, army.at, 'orcs', Infinity, true);
   let best: { at: string; cost: number } | null = null;
-  for (const [at, step] of options) {
+  const target = army.target && state.towns[army.target]?.owner !== 'orcs' ? townLocation(state, army.target) : null;
+  if (target && options.has(target)) best = { at: target, cost: options.get(target)!.cost };
+  for (const [at, step] of target && best ? [] : options) {
     const town = townAt(state, at);
     if (!town || town.owner === 'orcs') continue;
     if (!best || step.cost < best.cost) best = { at, cost: step.cost };

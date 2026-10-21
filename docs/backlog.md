@@ -23,11 +23,12 @@ These came out of a planning review with the owner. They govern order and releas
 
 | Order | GitHub issue | Next deliverable |
 | --- | --- | --- |
-| Delivered, awaiting merge | [#15 Real hex overland map](https://github.com/jsconu/aragon/issues/15) (PR #20) | Steps 1–2: the walkable Western Realm, terrain-cost movement, bridges, arrival estimates and pixel terrain tiles. Fog, pan/zoom, saved multi-month orders and growth to 128 × 80 remain on #15 |
-| 1 | [#21 Architecture: action quotes](https://github.com/jsconu/aragon/issues/21) | Every player command (recruit, hire, march, quests) gets a quote with cost and refusal reason that both the UI and the command use; removes rules duplicated in the UI |
-| 2 | [#22 Architecture: month pipeline](https://github.com/jsconu/aragon/issues/22) | `advanceMonth` as an ordered list of named phases returning a month report; journal and chronicle written from the report |
-| 3 | [#17 Quest framework](https://github.com/jsconu/aragon/issues/17) | Staged objectives, prerequisites/deadlines, saved event triggers, choices and permanent consequences; reuse the Fenwick treaty fixture |
-| 4 | [#9 Western chapter](https://github.com/jsconu/aragon/issues/9) | Act I in R01–R02 on the hex map: 12 settlements, M01–M04, regional quests and authored surprises; one ruler class; chapter balance and art pass |
+| Done | #21, #22, #17 | Action quotes (#24), month pipeline (#25), quest engine (#27), Q04 Woodland Accord (#29), faction registry and item policies (#30) |
+| 1 | [#9 Western chapter](https://github.com/jsconu/aragon/issues/9) — 9a chapter spine | Objective stages that advance on world state, stage-start events (the M04 incursion), M01–M04, and finishing Act I as the chapter's victory |
+| 2 | #9 — 9b map growth | The six missing R01–R02 settlements (Oakcross, Bellwater, Thornwatch, Redford, Saltwick, Ironbridge) and their geography; validator checks every objective is reachable. Map art heavy: a good Codex turn |
+| 3 | #9 — 9c encounters | Authored battles started from quest choices, hero-only encounters; Q02 One Eye at the Quarry, Q03 Beneath the Old Tower, Q05 The Missing Caravan |
+| 4 | #9 — 9d city quests | Q01 The Empty Granary, Q06 The Miller on Trial; consumable rewards |
+| 5 | #9 — 9e balance and art | Seeded playthrough bot for M01–M04 on Normal, incursion and economy tuning, chapter art pass, final title |
 | After the chapter | [#15](https://github.com/jsconu/aragon/issues/15) remainder | Fog, scouting, pan/zoom, minimap, saved multi-month orders, next regions |
 | After the chapter | [#6 City economy](https://github.com/jsconu/aragon/issues/6) | Commerce, transport, markets, governors and realm forecasts |
 | After the chapter | [#7 Veteran equipment](https://github.com/jsconu/aragon/issues/7) | Full equipment tree, services, salvage and reinforcement rules |

@@ -10,7 +10,12 @@ export const WESTERN_REALM: CampaignDefinition = {
   revision: 1,
   name: 'The Western Realm',
   blurb: 'A full overland map: eight towns, a river crossed only at its bridges, and the orcs beyond the mountains.',
-  intro: 'Your father is dead and Aldenhold is yours. Orcs raid the realm from Gharzak Hold beyond Grey Pass. Win the free towns of the Aldwater to your banner and break the Hold.',
+  intro: 'Your father is dead and Aldenhold is yours. Orcs raid the realm from Gharzak Hold beyond Grey Pass. Secure your inheritance, win the free towns of the Aldwater, and hold the west.',
+  chapter: {
+    title: 'Act I: The Inheritance',
+    finale: 'M04',
+    ending: 'The incursion is broken and the west holds. Act I is complete: the house of Aldenhold endures.',
+  },
   capital: 'aldenhold',
   lair: 'gharzak',
   startingGold: 300,
