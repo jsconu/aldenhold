@@ -518,3 +518,11 @@ The build passes. In the browser, after a ransom, Fenwick showed the stall at 60
 - **Open:** the minotaur is still too easy (any lone hero wins 98%). Tuning it to 14 makes a lone fighter or mage a roughly 70% gamble, but a lone priest can't win, which breaks the priest-only tower route Codex's expedition controller and its tests rely on. The owner decides.
 
 Validation: 375 tests pass, including 3 new ones (fearless cyclops, the cyclops's difficulty band, report coverage). Build passes.
+
+## Minotaur tuning and expedition controller update (#9, 9e)
+
+- **The minotaur:** 8 men → 14 (owner decision). A lone champion or mage now wins about 70%, a champion and priest together 98%, and a lone priest can't win. Details are in [encounter odds](encounter-odds.md).
+- **The seeded expedition controller:** it hires a fighting hero for the tower (after the granary choice), never sends the priest in alone, replaces fallen heroes, and rebuilds with reinforcements instead of attacking without formations. Codex's tests now expect a priest-plus-fighter tower party. Their seed-9 retry test became "never enters alone"; tower retries are still covered by the encounter tests.
+- **Results over 20 seeds:** full chapter tours win with all 20 seeds in 17–33 months. Expedition tours finish in 12–17 months for 19 seeds; seed 8 loses the tower fight and runs out of time.
+
+Validation: 377 tests pass, including a minotaur difficulty guard.

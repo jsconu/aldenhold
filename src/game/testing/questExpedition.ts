@@ -51,6 +51,10 @@ export function playQuestExpedition(seed: number, options: {
   };
   const allDone = () => ['Q02', 'Q03', 'Q05'].every((id) => state.quests[id].status === 'succeeded');
   let heroesLost = 0;
+  // Replacement formations on their way to the party after a lost fight.
+  const reinforcementIds: number[] = [];
+  const partyFormations = () => state.armies.find((a) => a.owner === 'player' && a.troops.some((t) => partyIds.includes(t.id)))
+    ?.troops.filter((t) => partyIds.includes(t.id) && !UNIT_TYPES[t.type].hero).length ?? 0;
   const alive = (id: number) => state.armies.some((a) => a.owner === 'player' && a.troops.some((t) => t.id === id));
   for (; months < maxMonths && state.status === 'playing' && (!allDone() || options.finishChapter); months++) {
     // A hero who fell (say, in a lost tower fight) leaves the party; the tour hires another when one is offered.
@@ -150,6 +154,29 @@ export function playQuestExpedition(seed: number, options: {
     const caravan = state.quests.Q05;
     const destination = allDone() ? 'fenwick' : caravan.status === 'unavailable' || caravan.stage === 'plea' ? 'fenwick'
       : caravan.status !== 'succeeded' ? 'mine' : state.quests.Q02.status !== 'succeeded' ? 'quarry' : 'watchtower';
+    // A lost fight can strip the party of its soldiers. Like a player, rebuild before trying again: raise
+    // replacements at the capital and march them to the party's next stop, where they join it.
+    for (const id of [...reinforcementIds]) {
+      const party = state.armies.find((a) => a.owner === 'player' && a.troops.some((t) => partyIds.includes(t.id)));
+      if (!alive(id)) reinforcementIds.splice(reinforcementIds.indexOf(id), 1);
+      else if (party?.troops.some((t) => t.id === id)) {
+        reinforcementIds.splice(reinforcementIds.indexOf(id), 1);
+        partyIds.push(id);
+        note('reinforcements join the expedition');
+      }
+    }
+    if (!allDone() && partyFormations() + reinforcementIds.length < 3) {
+      const quote = recruitQuote(state, 'aldenhold', 'spearmen');
+      if (!quote.reason && state.gold - quote.gold >= 20) {
+        must(recruit(state, 'aldenhold', 'spearmen'));
+        reinforcementIds.push(armyAt(state, townLocation(state, 'aldenhold'), 'player')!.troops.at(-1)!.id);
+        note('recruit spearmen to reinforce the expedition');
+      }
+    }
+    if (reinforcementIds.length) {
+      const leg = marchParty(state, reinforcementIds, destination, destination === 'fenwick');
+      if (leg) note(`reinforcements toward ${destination}: ${leg}`);
+    }
     const next = marchParty(state, partyIds, destination, destination === 'fenwick');
     if (next) note(`expedition toward ${destination}: ${next}`);
     if (allDone() && !questQuote(state, 'Q00', 'sign').reason) {
@@ -160,6 +187,8 @@ export function playQuestExpedition(seed: number, options: {
       if (questQuote(state, quest, choice).reason) continue;
       // Wait at the tower for the fighter rather than sending the priest in alone.
       if (quest === 'Q03' && !partyArmy()?.troops.some((t) => t.id === fighterId)) continue;
+      // Don't take a monster or a goblin warren on without soldiers; wait for reinforcements.
+      if ((choice === 'hunt' || choice === 'raid') && partyFormations() < 2) continue;
       must(chooseQuest(state, quest, choice));
       note(`${quest}: ${choice}`);
       fight();

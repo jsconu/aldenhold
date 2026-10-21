@@ -59,3 +59,11 @@ For a longer real-command tour, run `CITY_CHOICES=buy-convict CHAPTER_FINISH=1 n
 Across the 20 listed seeds, both buy/convict and ration/pardon tours won in 21–28 months with Q01, Q02, Q03, Q05 and Q06 succeeded, a living ruler and priest, no unpaid bills, shortages or corrections. The paid priest temporarily brought cash to zero. An escort/convict tour was also checked on seeds 1, 42 and 2026: Q01 transfers actual Millbrook food while the army is there and ends successfully; it completes Act I in 21–27 months. CI covers those three seeds under each city policy, including exact choice actions and saved outcomes.
 
 Q04 is a distinct, time-limited route. `WOODLAND_ACCORD=1 CITY_CHOICES=buy-convict CHAPTER_FINISH=1 npm run simulate:quests -- 1` sends a paid-for militia envoy to Greenveil and signs the logging cap. Its alliance counts toward M02's stated standing goal, bringing the incursion forward. Seed 1 finishes Act I in 11 months with Q01, Q02, Q04, Q05 and Q06 resolved but before the party reaches Q03's tower; the game ends and cannot finish that optional trial in the same save. This is an unresolved campaign-continuation design question for the next act, not a broken quest or a reason to discount allied standing. The owner still needs a hands-on tactical and pacing playthrough.
+
+## After encounter tuning (cyclops 18 men, fearless monsters, minotaur 14 men)
+
+The expedition now hires a champion or mage for the tower, never sends the priest in alone, replaces fallen heroes, and rebuilds with reinforcements after a lost fight; see [encounter odds](encounter-odds.md). Over the 20 seeds above:
+- **Full buy/convict chapter tours** win with all 20 seeds, in 17–33 months.
+- **The plain expedition** finishes all three optional quests in 12–17 months for 19 seeds. Seed 8 loses the tower fight and doesn't recover within 24 months.
+
+The figures in earlier sections predate this tuning.

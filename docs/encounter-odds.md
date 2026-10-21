@@ -38,16 +38,36 @@ With 300 fights each, every encounter was won almost every time, by almost any p
 
 The cyclops now meets the targets: it's a hero-led fight. Q05 is at the easy end, which suits a rescue. Its band rate is above the thin-party range, but the goblins aren't a boss.
 
-## Open: the minotaur
+## The minotaur (decided: tuned)
 
-Q03 is still far too easy: any single hero, even a healer, wins 98% of the time. A sweep of its strength gave these win rates (300 fights each):
+The owner chose to tune the minotaur and have the expedition bring a fighting hero. It now has 14 men (was 8):
+
+| Party | Wins | Hero died | Men lost |
+| --- | --- | --- | --- |
+| Champion alone | 70% | 30% | 84% |
+| Mage alone | 72% | 28% | 76% |
+| Priest alone | 0% | 100% | 100% |
+| Champion and priest | 98% | 5% | 12% |
+
+A single fighting hero takes a real gamble. (The battle AI never retreats; in play you can retreat and try again, so a player risks far less.) A pair is the intended party, and a lone healer can't win.
+
+Sweep of the minotaur's strength before the decision (300 fights each):
 
 | Minotaur men | Champion alone | Priest alone | Mage alone | Champion + priest |
 | --- | --- | --- | --- | --- |
-| 8 (now) | 98% | 98% | 98% | 100% |
+| 8 (before) | 98% | 98% | 98% | 100% |
 | 12 | 96% | 8% | 97% | 97% |
 | 13 | 92% | 0% | 84% | 98% |
-| 14 | 70% | 0% | 72% | 98% |
+| 14 (chosen) | 70% | 0% | 72% | 98% |
 | 15 | 46% | 0% | 49% | 98% |
 
-At 14, a lone fighter or mage takes a real gamble (about 70%, with a 30% chance of losing the hero if they never retreat), and a pair is safe. But a lone priest can no longer win. Codex's seeded expedition tours (`questExpedition.ts`) send exactly that, a hired priest alone into the vault, and twelve of their CI checks assert that it wins. So tuning the minotaur means also changing that controller to bring a fighting hero (or a pair). That is a design decision, left for the owner.
+### The seeded expedition controller
+`src/game/testing/questExpedition.ts` used to send its priest into the vault alone. It now:
+- **Hires a fighter:** the first champion or mage offered after the priest, once Q01's time-limited granary choice is settled so its gold isn't spent first. That hero marches to the Old Watchtower on its own and joins the party there.
+- **Never sends the priest in alone:** the party waits at the tower until the fighter has joined.
+- **Replaces fallen heroes:** a priest or fighter who dies leaves the party, a new one is hired when offered, and the tour reports `heroesLost`.
+- **Rebuilds after a lost fight:** it doesn't take on the cyclops or the goblins with fewer than two formations, and raises spearmen at the capital to reinforce the party. This matters since the cyclops was tuned (#45): seed 3's tour once lost that fight, and its priest kept attacking alone.
+
+Over the 20 documented seeds:
+- **The expedition tour** finishes all three optional quests in 12–17 months for 19 seeds. Seed 8 is the rare case where the tower pair loses (both heroes die); its replacements don't arrive within the tour's 24 months.
+- **The full buy/convict chapter tour** wins with all 20 seeds, in 17–33 months. Seed 3's 33 months include losing the cyclops fight once, rebuilding and winning.
