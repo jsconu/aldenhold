@@ -85,6 +85,11 @@ export interface UnitType {
   march: number;
   /** Bow carried by a newly raised formation, if better than the short bow every missile troop starts with. */
   startingBow?: 'long-bow';
+  /**
+   * A thrown-boulder attack (the cyclops): the unit takes aim at a formation one turn, announcing it, and throws the
+   * next if the target is still within `range`. Damage is multiplied by `factor` and can't be struck back.
+   */
+  boulder?: { range: number; factor: number };
   /** Present for heroes. For heroes, `men` is base hit points and `cost` the hiring fee. */
   hero?: HeroTraits;
 }
@@ -175,6 +180,8 @@ export interface BattleUnit {
   row: number;
   moved: boolean;
   acted: boolean;
+  /** Boulder throwers: the enemy formation they have taken aim at, thrown at on their next turn. */
+  aim?: number;
 }
 
 export interface Battle {
@@ -194,6 +201,8 @@ export interface Battle {
   outcome: Side | null;
   retreated: Side | null;
   seed: number;
+  /** A quest encounter: which choice started it, the guardian army, and the hero party split off for it. */
+  encounter?: { quest: string; choice: string; guardian: number; army: number; party?: number };
 }
 
 export interface PendingBattle {
@@ -294,7 +303,7 @@ export interface QuestProgress {
   choice: string | null;
   resolvedTurn: number | null;
   /** How the quest ended: a player choice, a missed deadline, or its town changing hands. */
-  resolvedBy: 'choice' | 'objective' | 'deadline' | 'location-lost' | null;
+  resolvedBy: 'choice' | 'encounter' | 'objective' | 'deadline' | 'location-lost' | null;
   /** Month the current stage began (deadlines count from here); null while locked or resolved. */
   stageTurn: number | null;
   /** Every choice made, in order. */
@@ -313,10 +322,30 @@ export type QuestCondition =
   | { kind: 'standing'; atLeast: number }
   /** Your formations in the field and in garrison, heroes not counted. */
   | { kind: 'formations'; atLeast: number }
+  /** One of your armies stands at this town or landmark (a discovery). */
+  | { kind: 'army-at'; place: string }
   /** Food stored in one of your cities. */
   | { kind: 'food'; town: string; atLeast: number }
   /** Any one of these holds. */
   | { kind: 'any'; of: QuestCondition[] };
+
+/** Where a quest goes next: another stage, or an ending. */
+export type QuestNext = { stage: string } | QuestResolution;
+
+/**
+ * An authored battle at a landmark, started by a quest choice. Your army must stand at the site. The guardian
+ * force appears for the fight and leaves afterwards; it never roams the map. Losing or retreating takes `lose`.
+ */
+export interface QuestEncounter {
+  /** A town or landmark id. */
+  site: string;
+  owner: FactionId;
+  troops: StartTroop[];
+  /** Only your heroes fight (not your lord, whom the council won't risk); the rest of the army waits. */
+  heroesOnly?: boolean;
+  win: QuestNext;
+  lose: QuestNext;
+}
 
 /** Something that happens in the world when a quest stage begins. */
 export type QuestEvent = {
@@ -338,7 +367,7 @@ export interface QuestObjective {
   /** Shown in the journal once reached ("Held the line"). */
   label: string;
   when: QuestCondition[];
-  then: { stage: string } | QuestResolution;
+  then: QuestNext;
 }
 
 /** What a quest's resolution changes in the campaign. Applied exactly once. */
@@ -364,8 +393,8 @@ export interface QuestChoice {
   gold?: number;
   /** Objects you must hold (not archived) to make this choice: evidence to present, a charter to show. */
   requires?: string[];
-  /** Move to another stage, or end the quest. */
-  then: { stage: string } | QuestResolution;
+  /** Move to another stage, end the quest, or fight an encounter whose result decides. */
+  then: QuestNext | { encounter: QuestEncounter };
 }
 
 export interface QuestStage {
@@ -390,12 +419,14 @@ export interface QuestDefinition {
   at: string;
   summary: string;
   prerequisites: QuestCondition[];
-  /** A player army must stand at the quest's town or next to it to choose. */
+  /** A player army must stand at the quest's town or next to it to choose (encounter choices need the site instead). */
   needsEnvoy: boolean;
   /** The first stage is where the quest starts. */
   stages: QuestStage[];
   /** What happens if the quest's town changes hands before it is resolved. */
   onLocationLost: QuestResolution;
+  /** The giver stays on if you take the town yourself (a merchant, not a ruling council). */
+  survivesConquest?: boolean;
   /** Quest-specific wording for refusals; generic wording is used otherwise. */
   refusals?: { resolved?: string; envoy?: string; battle?: string };
 }

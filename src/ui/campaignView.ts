@@ -1,7 +1,7 @@
 import { CATALOG } from '../content';
 import {
   armyAt, arrivalEstimates, campaignOf, canRecruitAt, dateLabel, hireQuote, monthlyIncome, monthlyUpkeep, neighborsOf, nodeName, playerMarchOptions,
-  recruitQuote, townGrowth, townIncome,
+  recruitQuote, startLocation, townGrowth, townIncome,
 } from '../game/campaign';
 import { hasRoad, hexLand, marchRate, placeAt, townAt, townLocation, worldOf, type MarchStep } from '../game/world';
 import { renderHexMap } from './hexMapView';
@@ -10,11 +10,11 @@ import { heroLevel, heroMaxHp, heroMaxMana, level } from '../game/units';
 import { EQUIPMENT, refitQuote, equipmentUpkeep, usesBow } from '../game/equipment';
 import { RELATION_LABEL, relationWith } from '../game/diplomacy';
 import { FACTIONS } from '../content/factions';
-import type { Army, CampaignId, FactionId, GameState, Town } from '../game/types';
+import type { Army, CampaignId, FactionId, GameState, QuestDefinition, Town } from '../game/types';
 import { renderJournal } from './journalView';
 import { renderTreasury } from './treasuryView';
 import { BUILDING_IDS, BUILDINGS, cityMaintenance, constructionQuote, developmentSites, endowment, totalCityMaintenance } from '../game/cities';
-import { conditionHolds, conditionText, isOpen, questQuote, questsAt, questSummary, stageOf, trackedQuests } from '../game/quests';
+import { conditionHolds, conditionText, isOpen, questQuote, questsAt, questsAtSite, questSummary, stageOf, trackedQuests } from '../game/quests';
 import { esc, type UIState } from './shared';
 import { renderOverland } from './overlandMap';
 import { previewRoute, type RoutePreview } from '../game/overlandRoutes';
@@ -201,7 +201,9 @@ function renderNodePanel(state: GameState, ui: UIState, at: string): string {
   } else {
     html += `<p class="sub">Open country</p>`;
   }
-  if (town) html += renderQuests(state, town.id);
+  const site = town?.id ?? placeAt(state, at)?.id;
+  if (town) html += renderQuests(state, questsAt(state, town.id));
+  if (site) html += renderQuests(state, questsAtSite(state, site));
   for (const a of armies) html += renderArmy(state, ui, a);
   if (!armies.length) html += `<p class="sub">No troops here.</p>`;
   return html;
@@ -246,8 +248,8 @@ function renderCityDevelopment(state: GameState, id: string): string {
 }
 
 /** Cards for every quest offered at this town: the current stage and one button per choice, from its quote. */
-function renderQuests(state: GameState, townId: string): string {
-  return questsAt(state, townId).map((def) => {
+function renderQuests(state: GameState, defs: QuestDefinition[]): string {
+  return defs.map((def) => {
     const q = state.quests[def.id];
     if (q.status === 'unavailable') return '';
     const head = `<div class="quest-card"><h3>${esc(def.name)} <small>${def.kind === 'main' ? 'Main objective' : 'Side quest'} · ${esc(def.giver)}</small></h3>`;
@@ -271,7 +273,7 @@ function renderQuests(state: GameState, townId: string): string {
     return `${head}<p>${esc(def.summary)}</p><p class="sub">${esc(stage.text)}</p>${goals}${deadline}
       ${shared ? `<p class="hint">${esc(shared)}</p>` : ''}
       ${quotes.length ? `<div class="quest-actions">${quotes.map(({ c, quote }) => `<button data-action="quest-choice" data-quest="${def.id}" data-choice="${c.id}"
-        ${quote.reason ? `disabled title="${esc(quote.reason)}"` : ''}>${esc(c.label)}${quote.gold ? ` · ${quote.gold}g` : ''}</button>`).join('')}</div>` : ''}</div>`;
+        ${quote.reason ? `disabled title="${esc(quote.reason)}"` : ''}>${esc(c.label)}${quote.gold ? ` · ${quote.gold}g` : ''}${'encounter' in c.then ? ` · battle at ${esc(nodeName(state, startLocation(state, c.then.encounter.site)))}` : ''}</button>`).join('')}</div>` : ''}</div>`;
   }).join('');
 }
 

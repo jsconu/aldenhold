@@ -3,7 +3,7 @@ import { autoResolve, createBattle, isAI, runAI } from './battle';
 import { getCampaign } from '../content';
 import { hasPassage, relationWith } from './diplomacy';
 import { newTreasury, recordPurchase, settleTreasury, type CashFlow } from './economy';
-import { advanceQuests, newQuestState, onTownOwnershipChange, unlockQuests } from './quests';
+import { advanceQuests, endEncounter, newQuestState, onTownOwnershipChange, unlockQuests } from './quests';
 import { advanceCities, cityMaintenance, startingCities, type CityPhaseResult } from './cities';
 import { basicLoadout, finishRefits, troopUpkeep } from './equipment';
 import { HERO_NAMES, HIREABLE_HEROES, UNIT_TYPES } from './data';
@@ -439,6 +439,13 @@ export function applyBattle(state: GameState, b: Battle) {
   const winner = b.owners[b.outcome ?? 'defender'];
   if (b.owners.attacker === 'player' || b.owners.defender === 'player') {
     deed(state, 'battle', winner === 'player' ? `Victory at ${place}.` : `Defeat at ${place}.`, b.at);
+  }
+  // A quest encounter: nobody falls back or takes the site; the quest decides what follows.
+  if (b.encounter) {
+    endEncounter(state, b);
+    checkStatus(state);
+    startNextPending(state);
+    return;
   }
 
   const survives = (a: Army | undefined): a is Army => !!a && !!findArmy(state, a.id);

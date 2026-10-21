@@ -608,7 +608,42 @@ function aiSpell(b: Battle, u: BattleUnit): boolean {
   return !!best && castSpell(b, u.id, best.id, best.target.id, best.destination);
 }
 
+/**
+ * Boulder throwers telegraph: one turn they take aim (and say so), the next they throw if the target is still in
+ * reach. A target moved out of reach makes them give up the aim. Returns true if the unit spent its turn.
+ */
+function aiBoulder(b: Battle, u: BattleUnit, boulder: NonNullable<(typeof UNIT_TYPES)[string]['boulder']>): boolean {
+  if (nextToEnemy(b, u, u.side)) {
+    delete u.aim;
+    return false;
+  }
+  const aimed = u.aim === undefined ? undefined : b.units.find((x) => x.id === u.aim);
+  delete u.aim;
+  if (aimed && aimed.men > 0 && !aimed.fled && hexDistance(u, aimed) <= boulder.range) {
+    const killed = rollDamage(b, u, aimed, boulder.factor);
+    b.log.push(`${unitLabel(b, u)} hurls a boulder at ${unitLabel(b, aimed)}: ${killed} ${isHero(aimed.type) ? 'wounds' : 'fall'}.${takeLosses(b, aimed, killed)}`);
+    u.moved = true;
+    u.acted = true;
+    u.deeds++;
+    checkOutcome(b);
+    return true;
+  }
+  if (aimed) return false;
+  const inReach = alive(b, other(u.side)).filter((e) => hexDistance(u, e) <= boulder.range);
+  if (!inReach.length) return false;
+  // The biggest formation in reach; heroes only when no formation is (a boulder shouldn't quietly end a reign).
+  const formations = inReach.filter((e) => !isHero(e.type));
+  const target = (formations.length ? formations : inReach).reduce((a, c) => (c.men > a.men ? c : a));
+  u.aim = target.id;
+  u.moved = true;
+  u.acted = true;
+  b.log.push(`${unitLabel(b, u)} heaves up a boulder and takes aim at ${unitLabel(b, target)}. Get them out of reach!`);
+  return true;
+}
+
 function aiUnit(b: Battle, u: BattleUnit) {
+  const boulder = UNIT_TYPES[u.type].boulder;
+  if (boulder && aiBoulder(b, u, boulder)) return;
   const caster = knownSpells(u).length > 0 && u.mana >= 2;
   if (caster && aiSpell(b, u)) return;
   // Casters with mana hang back at spell range; archers at bow range; everyone else closes in.
