@@ -20,3 +20,5 @@ Battles field the first 27 formations per army. Additional formations appear in 
 The Western Realm has grown to **52×38 hexes**, with 12 core regional settlements and three border towns/strongholds. Existing Western saves expand automatically while retaining their armies and development. See [map growth and save migration](docs/western-map-growth.md).
 
 The chapter simulation uses normal player commands, monthly save/import checkpoints and auto-resolved battles. See [the reproducible balance baseline](docs/chapter-playthroughs.md) for policies, metrics and limits.
+
+Use the Journal’s **Show** links to locate an active encounter on the map. Tracked quest shortcuts also open the current encounter site; movement and battles still require your commands.

@@ -379,3 +379,10 @@ Twenty seeds complete the tour in 13–14 months. All return the three Healing D
 This exposed and fixed an actual quest timing defect: Westmere could fall before M03 unlocked, then its dead guild would still offer a paid charter. Newly unlocked quests now respect prior conquest/loss, suppress stage-start events for a lost giver, prioritize already-met conquest goals, and preserve merchants that survive our conquest. An owned Westmere satisfies M03 without a toll payment. Stale imported offers refuse purchases immediately and settle next quest phase. No save schema change or retroactive removal of completed rewards.
 
 Validation: 316 tests and the production build pass. New coverage includes real expeditions, hero-only participants, actual rewards/XP, next-month recovery, completing the chapter after a late offer, pre-offer enemy/player conquest, stale-save quotes and merchant survival. Human difficulty/pacing assessment remains open.
+
+
+## Codex: current-stage quest destinations
+
+The header's quest shortcut now opens an active encounter's map site, while ordinary diplomacy still opens the giver. Current encounter sites also have explicit “Show” links on quest cards and in the journal: a tracked caravan leads to the mine, the cyclops to the quarry, and the discovered tower to its vault. These are map selections, not automatic marches or battle commands. Locked quests, future stage branches and resolved encounters do not expose destination links. The quick-play graph keeps its original location IDs.
+
+Validation: 320 tests and production build pass. Four navigation tests cover stage transitions, ordinary conversation, undiscovered/resolved quests, graph compatibility and rendering without campaign mutation. A smoke check of the compiled UI exercised the quarry shortcut, journal navigation, caravan tracking and mine card without moving troops, spending gold or starting a battle; no runtime errors. Canvas was stubbed for that DOM check, so visual browser review remains outstanding.
