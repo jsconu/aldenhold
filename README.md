@@ -22,3 +22,5 @@ The Western Realm has grown to **52×38 hexes**, with 12 core regional settlemen
 The chapter simulation uses normal player commands, monthly save/import checkpoints and auto-resolved battles. See [the reproducible balance baseline](docs/chapter-playthroughs.md) for policies, metrics and limits.
 
 Use the Journal’s **Show** links to locate an active encounter on the map. Tracked quest shortcuts also open the current encounter site; movement and battles still require your commands.
+
+At an encounter site, expand **Expedition** to inspect the troops that will deploy, remain in reserve or wait outside. Hero-only trials leave your ruler and formations outside.
