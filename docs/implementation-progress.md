@@ -359,3 +359,12 @@ The build passes. In the browser I chose "Hunt the cyclops", watched it take aim
 - Encounter settlement ignores stale completion callbacks, and failed expeditions cannot farm retries/XP repeatedly during the same campaign month.
 - 298 tests and production build pass, including preserved terrain/coordinates, bridge connectivity, new-town conquest and tax, paid-refit/construction migration, active cyclops targeting/hero parties, idempotent imports, duplicate battle settlement and deadline-month battle save/resume.
 - Remaining: distinct artwork for the new towns, local city quests, visual browser review and chapter balance. See [map growth](western-map-growth.md).
+
+
+## Codex: seeded chapter playthroughs (9e foundation)
+
+Added a controller using actual player commands and quotes: paid recruitment, farm construction, envoy routing, Fenwick diplomacy, Westmere charter or timeout, full monthly simulation and auto-resolved battles. No resources, ownership or quest outcomes are injected. Monthly and battle checkpoints reload through the strict save importer. Reports include elapsed months, objective completion, cash minimum, bills, food shortages, treasury corrections, battles and casualties.
+
+Forty seeded runs across two policies finish Act I with a living ruler and solvent realm. Charter runs take seven months; ignoring the dispute takes 11–12. The minimum cash is 27 gold; final gold is 400 or 1083–1205. CI adds eight tests covering both policies, repeatability and an honest unfinished result. All 306 tests and the production build pass. See [commands, seed list, results and limits](chapter-playthroughs.md).
+
+No game rules were changed to make the controller succeed. This delivers the automated baseline, not owner balance acceptance: human playthrough, pacing agreement, optional encounters and art remain.
