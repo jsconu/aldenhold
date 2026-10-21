@@ -1,4 +1,4 @@
-import { LAIRS as LAIRS_BY_ID, lairsOf } from '../content/lairs';
+import { LAIRS as LAIRS_BY_ID, lairsOf, SPECIES } from '../content/lairs';
 import { FACTIONS } from '../content/factions';
 import { WESTERN_ADDED_ARMIES, WESTERN_ADDED_TOWNS } from '../content/campaigns/westernExpansion';
 import { WESTERN_REVISION_1_TOWNS } from '../content/campaigns/westernRevision1';
@@ -53,7 +53,7 @@ const ledgerCategories: LedgerCategory[] = ['tax', 'wages', 'recruitment', 'hero
 /** Validate both shape and references before exposing a save to rules or rendering. */
 function validate(value: unknown, allowMissingBattleTroops = false): asserts value is GameState {
   const s = object(value);
-  requireValue(s.version === 15, 'unsupported schema version');
+  requireValue(s.version === 16, 'unsupported schema version');
   requireValue(text(s.campaignId) && Object.hasOwn(CATALOG.campaigns, s.campaignId), 'unknown campaign');
   const def = getCampaign(s.campaignId as CampaignId);
   requireValue(s.campaignRevision === def.revision, 'unsupported campaign revision');
@@ -288,14 +288,25 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
     if (st.status === 'cleared') requireValue(st.discovered === true && integer(st.clearedTurn, 1, Number(s.turn)), 'cleared lair');
     else requireValue(st.clearedTurn === null && (s.armies as GameState['armies']).some((a) => a.owner === l.species && a.at === hexPlace(l.place)), 'lair garrison');
   }
-  // Pending raids: from an active lair of this campaign, against a town, announced last month at the latest.
+  // Pending raids: from a lair of this campaign, against a town, arriving within its species' warning.
   const pending = array(s.raids);
   const raidTargets = new Set<string>();
   for (const raw of pending) {
     const r = object(raw);
-    requireValue(text(r.lair) && Object.hasOwn(lairs, r.lair) && text(r.target) && Object.hasOwn(towns, r.target) && !raidTargets.has(r.target) &&
-      integer(r.announced, 1, Number(s.turn)) && r.arrives === Number(r.announced) + 1 && Number(r.arrives) >= Number(s.turn), 'pending raid');
+    requireValue(text(r.lair) && Object.hasOwn(lairs, r.lair) && text(r.target) && Object.hasOwn(towns, r.target) && !raidTargets.has(r.target), 'pending raid');
+    const warning = SPECIES[LAIRS_BY_ID[r.lair as string].species].raids.warning;
+    requireValue(integer(r.announced, 1, Number(s.turn)) && integer(r.arrives, Number(r.announced) + 1, Number(r.announced) + warning) && Number(r.arrives) >= Number(s.turn), 'pending raid');
     raidTargets.add(r.target as string);
+  }
+  // The raid log: what each raid that came due cost, in month order.
+  let lastRaidTurn = 1;
+  for (const raw of array(s.raidLog)) {
+    const r = object(raw);
+    requireValue(integer(r.turn, lastRaidTurn, Number(s.turn)) && text(r.lair) && Object.hasOwn(lairs, r.lair) && text(r.target) && Object.hasOwn(towns, r.target), 'raid record');
+    requireValue(oneOf(r.result, ['never-came', 'turned-back', 'beaten-off', 'plundered', 'sacked', 'taken']) && bool(r.battle) &&
+      [r.gold, r.people, r.garrisonLost, r.raidersLost].every((n) => integer(n, 0)) && (r.damaged === null || oneOf(r.damaged, BUILDING_IDS)), 'raid record');
+    requireValue(r.battle || (r.garrisonLost === 0 && r.raidersLost === 0), 'raid record losses');
+    lastRaidTurn = Number(r.turn);
   }
   for (const a of s.armies as GameState['armies']) {
     if (a.raid !== undefined) requireValue(text(a.raid.lair) && LAIRS_BY_ID[a.raid.lair]?.species === a.owner && Object.hasOwn(lairs, a.raid.lair), 'raiding party');
@@ -361,6 +372,10 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
     const terrain = array(b.terrain);
     requireValue(terrain.length === width && terrain.every((col) => array(col).length === height && array(col).every((k) => text(k) && Object.hasOwn(TERRAIN, k))), 'battle terrain');
     requireValue(array(b.log).every(text), 'battle log');
+    if (b.raid !== undefined) {
+      const r = object(b.raid);
+      requireValue(text(r.lair) && Object.hasOwn(lairs, r.lair) && text(r.town) && Object.hasOwn(towns, r.town) && hexPlace(r.town as string) === b.at, 'raid battle');
+    }
     const state = value as GameState;
     const a = state.armies.find((a) => a.id === b.attackerId);
     const d = state.armies.find((a) => a.id === b.defenderId);
@@ -626,13 +641,19 @@ function upgradeToV15(value: Record<string, unknown>) {
   value.version = 15;
 }
 
+/** v15 → v16: raid outcomes. No raid has a record yet. */
+function upgradeToV16(value: Record<string, unknown>) {
+  value.raidLog = [];
+  value.version = 16;
+}
+
 /**
  * Quests added to the catalog after a save was made, and unlock at the next month if their
  * prerequisites hold. This is a content addition, not a schema change, so it needs no version bump. Unknown
  * quest ids in the save are still rejected by validation.
  */
 function addNewQuests(value: Record<string, unknown>) {
-  if (value.version !== 15 || typeof value.quests !== 'object' || value.quests === null) return;
+  if (value.version !== 16 || typeof value.quests !== 'object' || value.quests === null) return;
   const quests = value.quests as Record<string, unknown>;
   for (const id of Object.keys(QUESTS)) if (!Object.hasOwn(quests, id)) quests[id] = lockedProgress();
 }
@@ -705,6 +726,7 @@ export function parseSave(raw: string): GameState {
     upgradeToV13(value);
     upgradeToV14(value);
     upgradeToV15(value);
+    upgradeToV16(value);
     validate(value, true);
     if (value.battle) {
       const b = value.battle;
@@ -729,6 +751,7 @@ export function parseSave(raw: string): GameState {
   if (value.version === 12) upgradeToV13(value);
   if (value.version === 13) upgradeToV14(value);
   if (value.version === 14) upgradeToV15(value);
+  if (value.version === 15) upgradeToV16(value);
   addNewQuests(value);
   upgradeWesternMap(value);
   addLairGarrisons(value);

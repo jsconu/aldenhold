@@ -11,7 +11,8 @@
     "typecheck": "tsc --noEmit",
     "simulate:chapter": "node scripts/run-chapter-playthroughs.mjs",
     "simulate:quests": "node scripts/run-quest-expeditions.mjs",
-    "simulate:encounters": "node scripts/run-encounter-odds.mjs"
+    "simulate:encounters": "node scripts/run-encounter-odds.mjs",
+    "simulate:raids": "node scripts/run-raid-report.mjs"
   },
   "devDependencies": {
     "typescript": "^7.0.2",

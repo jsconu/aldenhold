@@ -17,7 +17,7 @@ try {
     cityChoices: cityChoices || undefined,
     woodlandAccord,
   }));
-  console.table(results.map(({ actions, completed, encounters, resolutions, ...result }) => ({ ...result, quests: JSON.stringify(completed) })));
+  console.table(results.map(({ actions, completed, encounters, resolutions, raids, ...result }) => ({ ...result, quests: JSON.stringify(completed), raids: raids.length })));
   if (process.env.CHAPTER_TRACE === '1') for (const result of results) console.log(result.seed, result.actions.join('\n'));
   if (results.some((r) => (process.env.CHAPTER_FINISH === '1' && r.ending !== 'chapter-complete') ||
     (woodlandAccord ? !['Q02', 'Q05'].every((id) => r.resolutions[id] === 'succeeded') : Object.keys(r.completed).length !== 3) ||

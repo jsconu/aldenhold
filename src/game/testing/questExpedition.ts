@@ -227,6 +227,6 @@ export function playQuestExpedition(seed: number, options: {
     cityFlags: state.flags.filter((flag) => flag.startsWith('miller-')),
     resolutions: Object.fromEntries(['Q02', 'Q03', 'Q05'].map((id) => [id, state.quests[id].status])),
     chapter: state.quests.M02.status, ending: state.endingReason,
-    crossing: state.quests.M03.status, westmereOwner: state.towns.westmere.owner,
+    crossing: state.quests.M03.status, westmereOwner: state.towns.westmere.owner, raids: state.raidLog,
   };
 }

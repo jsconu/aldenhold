@@ -16,6 +16,12 @@ export interface SpeciesProfile {
   counter: string;
   /** No lair of this species is placed closer than this to the player's capital (hexes). */
   minDistance: number;
+  /**
+   * How its raids go (monster raids spec, step 4): harassment only plunders; a siege also knocks down a
+   * building. `warning` is how many months ahead a raid is announced; `takesTowns` lets a won siege take a
+   * town (never your capital).
+   */
+  raids: { kind: 'harassment' | 'siege'; warning: number; takesTowns: boolean };
 }
 
 export const SPECIES: Record<MonsterSpecies, SpeciesProfile> = {
@@ -23,21 +29,25 @@ export const SPECIES: Record<MonsterSpecies, SpeciesProfile> = {
     name: 'Goblins', lands: ['forest', 'deepwood', 'hills'], minDistance: 6,
     tactics: 'Frequent light raids by skirmishers and archers, often from ambush.',
     counter: 'Scout patrols and a modest garrison; clear the warren.',
+    raids: { kind: 'harassment', warning: 1, takesTowns: false },
   },
   trolls: {
     name: 'Trolls', lands: ['swamp', 'water', 'forest'], minDistance: 10,
     tactics: 'Slow, durable attackers that regenerate, striking along rivers and crossings.',
     counter: 'Focused fire and defended crossings.',
+    raids: { kind: 'harassment', warning: 1, takesTowns: false },
   },
   giants: {
     name: 'Giants', lands: ['hills', 'mountains', 'badlands'], minDistance: 12,
     tactics: 'Rare heavy raids; they hurl boulders and pressure walls.',
     counter: 'Fortifications and strong formations led by heroes.',
+    raids: { kind: 'siege', warning: 2, takesTowns: false },
   },
   titans: {
     name: 'Titans', lands: ['hills', 'mountains', 'badlands'], minDistance: 30,
     tactics: 'A very rare world-shaking threat, preceded by long warning.',
     counter: 'A prepared coalition of heroes and veteran troops.',
+    raids: { kind: 'siege', warning: 3, takesTowns: true },
   },
 };
 
@@ -94,7 +104,7 @@ export const LAIRS: Record<string, LairDefinition> = {
   eldersanctum: {
     id: 'eldersanctum', name: 'The Elder Sanctum', species: 'titans', campaignId: W, place: 'eldersanctum', tier: 4,
     garrison: ['titan', 'giant', 'giant'],
-    loot: { gold: 800 }, raid: { radius: 14, activity: 0.05, strength: 24, cooldown: 12 },
+    loot: { gold: 800 }, raid: { radius: 14, activity: 0.05, strength: 36, cooldown: 12 },
     discovery: 'Your scouts found the Elder Sanctum, a ruined temple in the eastern hills where a titan sleeps among its giant servants.',
     cleared: 'The Elder Sanctum has fallen silent. The titan is dead; the songs of this victory will outlast your house.',
   },

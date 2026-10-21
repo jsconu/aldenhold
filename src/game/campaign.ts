@@ -1,3 +1,4 @@
+import { SPECIES } from '../content/lairs';
 import { endRaid, planRaids, resolveRaids } from './raids';
 import { discoverLairs, newLairState, settleLairs } from './lairs';
 import { recoverFallenKit } from './items';
@@ -11,7 +12,7 @@ import { advanceCities, cityMaintenance, startingCities, type CityPhaseResult } 
 import { basicLoadout, finishRefits, troopUpkeep } from './equipment';
 import { HERO_NAMES, HIREABLE_HEROES, UNIT_TYPES } from './data';
 import { random } from './rng';
-import type { Army, Battle, CampaignDefinition, CampaignId, DeedKind, FactionId, GameState, HeroOffer, MonthlyLedger, Town, Troop } from './types';
+import type { Army, Battle, CampaignDefinition, CampaignId, DeedKind, FactionId, GameState, HeroOffer, MonsterSpecies, MonthlyLedger, Town, Troop } from './types';
 import { heroLevel, heroMaxHp, heroMaxMana, isHero } from './units';
 import {
   landAt, locationName, marchOptions, marchRate, neighbors, pathTo, stepCost, townAt, townLocation, worldOf,
@@ -29,7 +30,7 @@ const OFFER_MONTHS = 3;
 export function newGame(seed = Math.floor(Math.random() * 2 ** 31), campaignId: CampaignId = 'valley-quickplay'): GameState {
   const def = getCampaign(campaignId);
   const state: GameState = {
-    version: 15,
+    version: 16,
     campaignId: def.id,
     campaignRevision: def.revision,
     endingReason: null,
@@ -54,6 +55,7 @@ export function newGame(seed = Math.floor(Math.random() * 2 ** 31), campaignId: 
     flags: [],
     lairs: newLairState(campaignId),
     raids: [],
+    raidLog: [],
     status: 'playing',
   };
   for (const t of def.towns) state.towns[t.id] = { ...t };
@@ -394,7 +396,7 @@ function settle(state: GameState, army: Army) {
   if (town && town.owner !== army.owner && !hasPassage(state, army.owner, town.id)) captureTown(state, town, army.owner);
 }
 
-function captureTown(state: GameState, town: Town, owner: FactionId) {
+export function captureTown(state: GameState, town: Town, owner: FactionId) {
   const name = nodeName(state, town.id);
   const was = town.owner;
   town.owner = owner;
@@ -404,7 +406,7 @@ function captureTown(state: GameState, town: Town, owner: FactionId) {
     town.tax = 15;
     deed(state, 'capture', town.kind === 'lair' ? `${name} has fallen to your army!` : `${name} now flies your banner.`, townLocation(state, town.id));
   } else if (was === 'player') {
-    deed(state, 'loss', `${owner === 'orcs' ? 'Orcs have' : 'The enemy has'} taken ${name} from you.`, townLocation(state, town.id));
+    deed(state, 'loss', `${owner === 'orcs' ? 'Orcs have' : owner in SPECIES ? `${SPECIES[owner as MonsterSpecies].name} have` : 'The enemy has'} taken ${name} from you.`, townLocation(state, town.id));
   } else if (owner === 'orcs') {
     log(state, `Orcs have taken ${name}.`);
   }
@@ -432,6 +434,7 @@ export function startBattle(state: GameState, attackerId: number, defenderId: nu
     applyBattle(state, b);
     return;
   }
+  if (attacker.raid && town) b.raid = { lair: attacker.raid.lair, town: town.id };
   log(state, `Battle at ${nodeName(state, attacker.at)}!`);
   state.battle = b;
   if (isAI(b, b.active)) runAI(b);
@@ -513,7 +516,7 @@ function finishBattles(state: GameState) {
 }
 
 /** Survivors of a lost battle: attackers go back where they came from; defenders to a safe neighbor. */
-function fallBack(state: GameState, army: Army) {
+export function fallBack(state: GameState, army: Army) {
   for (const t of army.troops) if (!isHero(t.type)) t.men = Math.max(1, Math.floor(t.men * 0.9));
   // A beaten army only falls back to its own towns or open country, never into someone else's town.
   const safe = (at: string) => {
