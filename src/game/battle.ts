@@ -713,6 +713,13 @@ function flee(b: Battle, u: BattleUnit) {
 /** Morale recovers a little each turn; running troops either rally or keep running. */
 function startSideTurn(b: Battle) {
   for (const u of alive(b, b.active)) {
+    // Trolls knit their wounds back together.
+    const regen = UNIT_TYPES[u.type].regenerate ?? 0;
+    if (regen && u.men < u.startMen) {
+      const amount = Math.min(regen, u.startMen - u.men);
+      u.men += amount;
+      b.log.push(`${unitLabel(b, u)} regenerate${amount > 1 ? '' : 's'}: ${amount} back.`);
+    }
     const ground = terrainAt(b, u);
     if (ground.heal && u.men < u.maxMen) {
       const amount = Math.min(ground.heal, u.maxMen - u.men);

@@ -1,3 +1,4 @@
+import { LAIRS } from '../content/lairs';
 import { describe, expect, it } from 'vitest';
 import { CATALOG, getCampaign } from '../content';
 import { WESTERN_ADDED_TOWNS } from '../content/campaigns/westernExpansion';
@@ -23,6 +24,11 @@ function legacy(seed = 1): GameState {
   const arrivals = s.armies.filter((a) => newLocations.has(a.at));
   s.nextId = Math.min(...arrivals.flatMap((a) => [a.id, ...a.troops.map((t) => t.id)]));
   s.armies = s.armies.filter((a) => !newLocations.has(a.at));
+  // Saves from revision 1 predate monster lairs (save v14): no lair records and no garrisons.
+  const lairPlaces = new Set(Object.values(LAIRS).map((l) => startLocation(s, l.place)));
+  s.armies = s.armies.filter((a) => !lairPlaces.has(a.at));
+  delete (s as Partial<GameState>).lairs;
+  (s as { version: number }).version = 13;
   for (const id of added) { delete s.towns[id]; delete s.cityEconomies[id]; }
   s.campaignRevision = 1;
   return s;
@@ -45,7 +51,9 @@ describe('Western Realm revision 2', () => {
     const oldPositions = { aldenhold: '4,14', millbrook: '6,21', fenwick: '8,7', greenveil: '3,4', harrowgate: '20,6', westmere: '19,12', duskwater: '20,20', reedhaven: '24,22', gharzak: '35,12', watchtower: '30,22', quarry: '24,15', mine: '26,3' };
     for (const [id, at] of Object.entries(oldPositions)) expect(startLocation(s, id)).toBe(at);
     expect(Object.keys(s.towns)).toHaveLength(15);
-    expect(w.places.filter((p) => p.kind === 'landmark')).toHaveLength(12);
+    // Twelve landmarks, plus the five monster lairs (content/lairs.ts).
+    expect(w.places.filter((p) => p.kind === 'landmark' && !Object.values(LAIRS).some((l) => l.place === p.id))).toHaveLength(12);
+    expect(w.places.filter((p) => Object.values(LAIRS).some((l) => l.place === p.id))).toHaveLength(5);
     expect(validateContent(CATALOG)).toEqual([]);
   });
   it('gives every new city a reachable route and a real garrison outside the old map bounds', () => {
@@ -107,8 +115,12 @@ describe('additive Western map migration', () => {
     expect(current.campaignRevision).toBe(2);
     expect(current.nextId).toBeGreaterThan(old.nextId);
     const newcomers = current.armies.filter((a) => !old.armies.some((b) => b.id === a.id));
-    expect(newcomers).toHaveLength(6);
-    expect(newcomers.every((a) => a.owner === 'neutral' && a.troops.every((t) => t.mp === 0))).toBe(true);
+    // Six new town garrisons from the map upgrade, and the five lair garrisons from save v14.
+    const towns = newcomers.filter((a) => a.owner === 'neutral');
+    expect(towns).toHaveLength(6);
+    expect(towns.every((a) => a.troops.every((t) => t.mp === 0))).toBe(true);
+    expect(newcomers.filter((a) => a.owner !== 'neutral').map((a) => a.owner).sort()).toEqual(['giants', 'goblins', 'goblins', 'titans', 'trolls']);
+    expect(Object.values(current.lairs).every((l) => l.status === 'active' && !l.discovered)).toBe(true);
     const twice = migrate(current); expect(twice).toEqual(current);
   });
   it('preserves a mid-battle cyclops aim and continues the same tactical result', () => {

@@ -17,7 +17,11 @@ export const UNIT_TYPES: Record<string, UnitType> = {
   cyclops: { id: 'cyclops', name: 'Cyclops', short: 'CYC', attack: 8, defense: 5, move: 3, range: 1, men: 16, cost: 0, upkeep: 0, recruit: null, march: 9, boulder: { range: 4, factor: 2 }, fearless: true },
   minotaur: { id: 'minotaur', name: 'Minotaur', short: 'MIN', attack: 10, defense: 6, move: 4, range: 1, men: 14, cost: 0, upkeep: 0, recruit: null, march: 12, fearless: true },
   goblinSkirmishers: { id: 'goblinSkirmishers', name: 'Goblin Skirmishers', short: 'GOB', attack: 2, defense: 1, move: 4, range: 1, men: 18, cost: 0, upkeep: 0, recruit: null, march: 14 },
-  troll: { resistances: { cold: 25 }, id: 'troll', name: 'Troll', short: 'TRL', attack: 9, defense: 5, move: 3, range: 1, men: 6, cost: 0, upkeep: 0, recruit: null, march: 9 },
+  // Lair monsters (monster raids spec): goblin archers, giants who throw boulders, and the rare titans.
+  goblinArchers: { id: 'goblinArchers', name: 'Goblin Archers', short: 'GBA', attack: 2, defense: 1, move: 4, range: 3, men: 15, cost: 0, upkeep: 0, recruit: null, march: 14 },
+  giant: { id: 'giant', name: 'Giant', short: 'GNT', attack: 9, defense: 6, move: 3, range: 1, men: 20, cost: 0, upkeep: 0, recruit: null, march: 10, boulder: { range: 4, factor: 2 }, fearless: true },
+  titan: { id: 'titan', name: 'Titan', short: 'TTN', attack: 12, defense: 8, move: 3, range: 1, men: 40, cost: 0, upkeep: 0, recruit: null, march: 10, boulder: { range: 5, factor: 2.5 }, fearless: true },
+  troll: { resistances: { cold: 25 }, regenerate: 1, id: 'troll', name: 'Troll', short: 'TRL', attack: 9, defense: 5, move: 3, range: 1, men: 6, cost: 0, upkeep: 0, recruit: null, march: 9 },
 
   // Heroes: `men` is base hit points, `cost` the hiring fee.
   lord: { id: 'lord', name: 'Lord', short: 'LRD', attack: 4, defense: 5, move: 4, range: 1, men: 30, cost: 0, upkeep: 0, recruit: null, march: 14,

@@ -1,3 +1,5 @@
+import { SPECIES, type LairDefinition } from '../content/lairs';
+import { lairAt, lairGarrison } from '../game/lairs';
 import { CATALOG } from '../content';
 import {
   armyAt, arrivalEstimates, campaignOf, canRecruitAt, dateLabel, hireQuote, monthlyIncome, monthlyUpkeep, neighborsOf, nodeName, playerMarchOptions,
@@ -224,7 +226,10 @@ function renderNodePanel(state: GameState, ui: UIState, at: string): string {
   } else if (world.kind === 'hex') {
     const land = hexLand(world, at);
     const landmark = placeAt(state, at);
-    html += `<p class="sub">${landmark ? `${land.name} · landmark` : land.name}${hasRoad(state, at) ? ' · on the road' : ''}</p><p class="sub">${esc(land.text)}</p>`;
+    const lair = lairAt(state, at);
+    const shown = !lair || state.lairs[lair.id]?.discovered;
+    html += `<p class="sub">${landmark && shown ? `${land.name} · ${lair ? 'monster lair' : 'landmark'}` : land.name}${hasRoad(state, at) ? ' · on the road' : ''}</p><p class="sub">${esc(land.text)}</p>`;
+    if (lair && shown) html += renderLair(state, lair);
   } else {
     html += `<p class="sub">Open country</p>`;
   }
@@ -322,6 +327,20 @@ function renderEncounterParty(state: GameState, preview: EncounterPreview): stri
     ${preview.reserves.length ? `<p><b>Off-field reserves:</b> ${names(preview.reserves)}. They stay off the field and earn no combat experience.</p>` : ''}
     ${preview.waiting.length ? `<p><b>Waiting outside:</b> ${names(preview.waiting)}</p>` : ''}
   </details>`;
+}
+
+/** A found lair: its people, how they fight and how to counter them, its garrison and plunder, or that it's cleared. */
+function renderLair(state: GameState, lair: LairDefinition): string {
+  const st = state.lairs[lair.id];
+  const sp = SPECIES[lair.species];
+  const garrison = lairGarrison(state, lair);
+  return `<div class="quest-card lair"><h3>${esc(lair.name)} <small>${sp.name} · tier ${lair.tier}</small></h3>
+    ${st.status === 'cleared'
+      ? `<p>Cleared${st.clearedTurn ? ` in ${esc(dateLabel(st.clearedTurn))}` : ''}. Nothing stirs here now.</p>`
+      : `<p class="sub">${esc(sp.tactics)}</p><p class="sub">Counter: ${esc(sp.counter)}</p>
+        <p>${garrison ? `Garrison: ${garrison.troops.length} formations (${esc(garrison.troops.map((t) => UNIT_TYPES[t.type].name).join(', '))}).` : ''}
+        Defeat it to clear the lair for good: ${lair.loot.gold} gold in plunder.</p>`}
+  </div>`;
 }
 
 /** Stalls in this town opened (or closed) by a quest's outcome, with a buy button per stocked item. */
@@ -477,7 +496,7 @@ function renderHexSection(state: GameState, ui: UIState): string {
   if (world.kind !== 'hex') return '';
   return `<section class="map-wrap">
     ${renderHexMap(state, ui, world, moveTargets(state, ui), ui.selected ? arrivalEstimates(state, ui.selected, [...ui.checked]) : new Map())}
-    <div class="map-legend" aria-label="Map legend">${(['player', 'enemy', 'free', 'lair'] as BannerKind[]).map((k) =>
+    <div class="map-legend" aria-label="Map legend">${(['player', 'enemy', 'free', 'lair', 'cleared'] as BannerKind[]).map((k) =>
       `<span><svg viewBox="0 0 12 13" width="14" height="15" aria-hidden="true">${bannerSvg(k, 0, 0)}</svg>${BANNER_LABEL[k]}</span>`).join('')}</div>
     <p class="atlas-caption">Every hex can be walked. Roads cost 1 movement; plains and farmland 2; forest, hills and badlands 3; deep woods and swamp 4. Rivers are crossed only at bridges and mountains only at Grey Pass or the southern trail. Hover a hex for its cost and how many months it takes to reach.</p>
   </section>`;

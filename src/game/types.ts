@@ -1,4 +1,7 @@
-export type FactionId = 'player' | 'orcs' | 'neutral';
+export type FactionId = 'player' | 'orcs' | 'neutral' | MonsterSpecies;
+
+/** Monster peoples who hold lairs (monster raids spec): each is its own faction. */
+export type MonsterSpecies = 'goblins' | 'trolls' | 'giants' | 'titans';
 export type Side = 'attacker' | 'defender';
 export type Terrain = 'plain' | 'forest' | 'hill' | 'stream' | 'marsh' | 'thorns' | 'ruins' | 'rocks' | 'spring';
 
@@ -97,6 +100,8 @@ export interface UnitType {
   boulder?: { range: number; factor: number };
   /** Never loses morale or runs (quest monsters): it fights until it falls. */
   fearless?: boolean;
+  /** Regains this many men (up to its starting strength) at the start of each of its turns: trolls. */
+  regenerate?: number;
   /** Present for heroes. For heroes, `men` is base hit points and `cost` the hiring fee. */
   hero?: HeroTraits;
 }
@@ -477,7 +482,14 @@ export interface QuestDefinition {
 }
 
 /** Signed cash movements: positive receipts, negative actual payments. */
-export type LedgerCategory = 'tax' | 'wages' | 'recruitment' | 'hero-hire' | 'construction' | 'maintenance' | 'refit' | 'quest' | 'quest-reward' | 'item-sale' | 'item-purchase' | 'balance-correction';
+export type LedgerCategory = 'tax' | 'wages' | 'recruitment' | 'hero-hire' | 'construction' | 'maintenance' | 'refit' | 'quest' | 'quest-reward' | 'item-sale' | 'item-purchase' | 'lair-plunder' | 'balance-correction';
+
+/** A monster lair's state: active until its garrison is destroyed; hidden until found. */
+export interface LairState {
+  status: 'active' | 'cleared';
+  discovered: boolean;
+  clearedTurn: number | null;
+}
 
 /** One kind of object in the campaign inventory. `qty` + `spent` always equals the number quests granted. */
 export interface ItemHolding {
@@ -549,7 +561,7 @@ export interface CityEconomy {
 }
 
 export interface GameState {
-  version: 13;
+  version: 14;
   campaignId: CampaignId;
   campaignRevision: number;
   endingReason: EndingReason | null;
@@ -577,5 +589,7 @@ export interface GameState {
   treaties: Record<string, Treaty>;
   /** Campaign flags set by quest outcomes, read by later quests and rules. */
   flags: string[];
+  /** Monster lairs of this campaign (content/lairs.ts), by id. */
+  lairs: Record<string, LairState>;
   status: 'playing' | 'won' | 'lost';
 }

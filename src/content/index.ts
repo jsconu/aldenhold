@@ -3,6 +3,7 @@ import { VALLEY_QUICKPLAY } from './campaigns/valleyQuickplay';
 import { WESTERN_REALM } from './campaigns/westernRealm';
 import { FACTIONS } from './factions';
 import { ITEMS } from './items';
+import { LAIRS, SPECIES } from './lairs';
 import { MERCHANTS } from './merchants';
 import { QUESTS } from './quests';
 import { HERO_NAMES, HIREABLE_HEROES, LAND, SPELLS, TERRAIN, UNIT_TYPES } from './rules';
@@ -15,6 +16,8 @@ export const CATALOG = {
   land: LAND,
   factions: FACTIONS,
   items: ITEMS,
+  lairs: LAIRS,
+  species: SPECIES,
   merchants: MERCHANTS,
   quests: QUESTS,
   hireableHeroes: HIREABLE_HEROES,

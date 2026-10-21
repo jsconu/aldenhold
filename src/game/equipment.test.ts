@@ -148,7 +148,7 @@ describe('experience-gated equipment', () => {
     }
     (legacy as { version: number }).version = 7;
     const restored = parseSave(JSON.stringify(legacy));
-    expect(restored.version).toBe(13);
+    expect(restored.version).toBe(14);
     expect(restored.gold).toBe(beforeGold);
     expect(restored.treasury.pending).toEqual([]);
     expect(restored.armies.find((a) => a.owner === 'player')!.troops.find((u) => u.id === t.id)!.gear.bow).toBe('short-bow');

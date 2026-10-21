@@ -1,3 +1,4 @@
+import { lairsOf } from '../lairs';
 import { WESTERN_REVISION_1_ROWS } from './westernRevision1';
 import { WESTERN_ADDED_ARMIES, WESTERN_ADDED_TOWNS, WESTERN_EAST_ROWS, WESTERN_SOUTH_ROWS } from './westernExpansion';
 import type { CampaignDefinition } from '../../game/types';
@@ -55,6 +56,12 @@ export const WESTERN_REALM: CampaignDefinition = {
       { id: 'mine', name: 'Abandoned Mine', col: 26, row: 3, kind: 'landmark' },
       { id: 'shrine', name: 'Marsh Shrine', col: 4, row: 25, kind: 'landmark' },
       { id: 'camp', name: 'Goblin Camp', col: 36, row: 20, kind: 'landmark' },
+      // Monster lairs (content/lairs.ts): hidden until an army comes near.
+      { id: 'briarwood', name: 'Briarwood Warren', col: 16, row: 8, kind: 'landmark' },
+      { id: 'hollowpine', name: 'Hollowpine Warren', col: 27, row: 36, kind: 'landmark' },
+      { id: 'blackmire', name: 'Blackmire Den', col: 20, row: 25, kind: 'landmark' },
+      { id: 'stonejaw', name: 'Stonejaw Crag', col: 25, row: 11, kind: 'landmark' },
+      { id: 'eldersanctum', name: 'The Elder Sanctum', col: 47, row: 8, kind: 'landmark' },
     ],
     routes: [
       ['millbrook', 'oakcross', 'saltroad', 'saltwick'],
@@ -100,6 +107,8 @@ export const WESTERN_REALM: CampaignDefinition = {
     { owner: 'orcs', at: 'gharzak', troops: [{ type: 'warchief', name: 'Gorrash' }, { type: 'shaman', name: 'Murg' }, 'warband', 'warband', 'warband', 'orcArchers', 'troll'] },
     { owner: 'orcs', at: 'pass', troops: ['warband', 'warband'] },
     { owner: 'orcs', at: 'camp', troops: ['warband', 'orcArchers'] },
+    // Lair garrisons (content/lairs.ts).
+    ...lairsOf('western-realm').map((l) => ({ owner: l.species, at: l.place, troops: l.garrison })),
     ...WESTERN_ADDED_ARMIES,
   ],
   settlementProfiles: {

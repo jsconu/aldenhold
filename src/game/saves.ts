@@ -1,3 +1,5 @@
+import { lairsOf } from '../content/lairs';
+import { FACTIONS } from '../content/factions';
 import { WESTERN_ADDED_ARMIES, WESTERN_ADDED_TOWNS } from '../content/campaigns/westernExpansion';
 import { WESTERN_REVISION_1_TOWNS } from '../content/campaigns/westernRevision1';
 import { EFFECTS } from '../content/spells';
@@ -42,16 +44,16 @@ function integer(value: unknown, min = 0, max = Number.MAX_SAFE_INTEGER): value 
 function text(value: unknown): value is string { return typeof value === 'string'; }
 function bool(value: unknown): value is boolean { return typeof value === 'boolean'; }
 function oneOf(value: unknown, values: readonly unknown[]): boolean { return values.includes(value); }
-const factions = ['player', 'orcs', 'neutral'];
+const factions = Object.keys(FACTIONS);
 const deedKinds: DeedKind[] = ['story', 'battle', 'capture', 'loss', 'hero', 'realm', 'ending', 'earlier'];
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const sides = ['attacker', 'defender'];
-const ledgerCategories: LedgerCategory[] = ['tax', 'wages', 'recruitment', 'hero-hire', 'construction', 'maintenance', 'refit', 'quest', 'quest-reward', 'item-sale', 'item-purchase', 'balance-correction'];
+const ledgerCategories: LedgerCategory[] = ['tax', 'wages', 'recruitment', 'hero-hire', 'construction', 'maintenance', 'refit', 'quest', 'quest-reward', 'item-sale', 'item-purchase', 'lair-plunder', 'balance-correction'];
 
 /** Validate both shape and references before exposing a save to rules or rendering. */
 function validate(value: unknown, allowMissingBattleTroops = false): asserts value is GameState {
   const s = object(value);
-  requireValue(s.version === 13, 'unsupported schema version');
+  requireValue(s.version === 14, 'unsupported schema version');
   requireValue(text(s.campaignId) && Object.hasOwn(CATALOG.campaigns, s.campaignId), 'unknown campaign');
   const def = getCampaign(s.campaignId as CampaignId);
   requireValue(s.campaignRevision === def.revision, 'unsupported campaign revision');
@@ -160,7 +162,7 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
         text(e.counterparty) && text(e.actionId) && e.actionId.length > 0 &&
         !unique.has(e.actionId), 'treasury transaction');
       unique.add(e.actionId as string);
-      requireValue(e.category === 'tax' || e.category === 'quest-reward' || e.category === 'item-sale' ? Number(e.amount) > 0 :
+      requireValue(e.category === 'tax' || e.category === 'quest-reward' || e.category === 'item-sale' || e.category === 'lair-plunder' ? Number(e.amount) > 0 :
         e.category === 'balance-correction' ? Number(e.amount) !== 0 : Number(e.amount) < 0,
         'treasury transaction sign');
     }
@@ -274,6 +276,17 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
     requireValue(Object.hasOwn(towns, id) && oneOf(t.relation, ['hostile', 'neutral', 'truce', 'ally', 'vassal']) &&
       bool(t.passage) && integer(t.signedTurn, 1, Number(s.turn)), 'treaty');
     requireValue(!t.passage || t.relation === 'ally' || t.relation === 'vassal', 'treaty passage');
+  }
+  // Lairs: one record per lair of this campaign; an active lair still has its garrison, a cleared one is found.
+  const lairs = object(s.lairs);
+  const expected = lairsOf(def.id);
+  const hexPlace = (id: string) => { const pl = def.hex?.places.find((x) => x.id === id); return pl ? `${pl.col},${pl.row}` : id; };
+  requireValue(Object.keys(lairs).length === expected.length && expected.every((l) => Object.hasOwn(lairs, l.id)), 'lair registry');
+  for (const l of expected) {
+    const st = object(lairs[l.id]);
+    requireValue(oneOf(st.status, ['active', 'cleared']) && bool(st.discovered), 'lair state');
+    if (st.status === 'cleared') requireValue(st.discovered === true && integer(st.clearedTurn, 1, Number(s.turn)), 'cleared lair');
+    else requireValue(st.clearedTurn === null && (s.armies as GameState['armies']).some((a) => a.owner === l.species && a.at === hexPlace(l.place)), 'lair garrison');
   }
   const flags = array(s.flags);
   requireValue(flags.every(text) && new Set(flags).size === flags.length, 'campaign flags');
@@ -564,12 +577,43 @@ function upgradeToV13(value: Record<string, unknown>) {
 }
 
 /**
+ * v13 → v14: monster lairs. Every lair of the campaign starts active and undiscovered, and its garrison is added.
+ * A lair whose place is already held by someone else starts cleared (no plunder), so no armies are stacked.
+ */
+function upgradeToV14(value: Record<string, unknown>) {
+  value.lairs = {};
+  // Garrisons go in after any map upgrade (lairs can stand outside an older revision's map): addLairGarrisons.
+  lairGarrisonsDue.add(value);
+  value.version = 14;
+}
+
+const lairGarrisonsDue = new WeakSet<object>();
+
+/** Second half of v13 → v14, once the map is current: place each lair and its garrison. */
+function addLairGarrisons(value: Record<string, unknown>) {
+  if (!lairGarrisonsDue.has(value)) return;
+  lairGarrisonsDue.delete(value);
+  const state = value as unknown as GameState;
+  const def = getCampaign(state.campaignId);
+  const lairs = value.lairs as Record<string, unknown>;
+  for (const l of lairsOf(state.campaignId)) {
+    const place = def.hex?.places.find((p) => p.id === l.place);
+    const at = place ? `${place.col},${place.row}` : l.place;
+    const occupied = state.armies.some((a) => a.at === at);
+    lairs[l.id] = occupied
+      ? { status: 'cleared', discovered: true, clearedTurn: integer(value.turn, 1) ? value.turn : 1 }
+      : { status: 'active', discovered: false, clearedTurn: null };
+    if (!occupied) state.armies.push({ id: state.nextId++, owner: l.species, at, from: null, troops: l.garrison.map((t) => (typeof t === 'string' ? makeTroop(state, t) : makeTroop(state, t.type, t.name))) });
+  }
+}
+
+/**
  * Quests added to the catalog after a save was made, and unlock at the next month if their
  * prerequisites hold. This is a content addition, not a schema change, so it needs no version bump. Unknown
  * quest ids in the save are still rejected by validation.
  */
 function addNewQuests(value: Record<string, unknown>) {
-  if (value.version !== 13 || typeof value.quests !== 'object' || value.quests === null) return;
+  if (value.version !== 14 || typeof value.quests !== 'object' || value.quests === null) return;
   const quests = value.quests as Record<string, unknown>;
   for (const id of Object.keys(QUESTS)) if (!Object.hasOwn(quests, id)) quests[id] = lockedProgress();
 }
@@ -640,6 +684,7 @@ export function parseSave(raw: string): GameState {
     upgradeToV11(value);
     upgradeToV12(value);
     upgradeToV13(value);
+    upgradeToV14(value);
     validate(value, true);
     if (value.battle) {
       const b = value.battle;
@@ -662,8 +707,10 @@ export function parseSave(raw: string): GameState {
   if (value.version === 10) upgradeToV11(value);
   if (value.version === 11) upgradeToV12(value);
   if (value.version === 12) upgradeToV13(value);
+  if (value.version === 13) upgradeToV14(value);
   addNewQuests(value);
   upgradeWesternMap(value);
+  addLairGarrisons(value);
   validate(value);
   return value;
 }
