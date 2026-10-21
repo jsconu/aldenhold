@@ -3,7 +3,7 @@ import { CATALOG } from '../content';
 import { QUESTS } from '../content/quests';
 import { validateContent } from '../content/validate';
 import { advanceMonth, newGame } from './campaign';
-import { chooseQuest, onTownOwnershipChange, questQuote } from './quests';
+import { advanceQuests, chooseQuest, onTownOwnershipChange, questQuote } from './quests';
 import { parseSave } from './saves';
 import type { GameState, QuestDefinition } from './types';
 
@@ -66,6 +66,22 @@ describe('quest engine', () => {
     const report = advanceMonth(s)!;
     expect(s.quests[TOLL.id]).toMatchObject({ status: 'available', stage: 'offer', stageTurn: 2 });
     expect(report.phases.find((p) => p.id === 'quests')!.notes.map((n) => n.text)).toContain('New quest: The Toll Road, offered at Millbrook.');
+  });
+
+  it('does not fire stage-start spawns for a giver lost before the quest became eligible', () => {
+    QUESTS[TOLL.id] = structuredClone(TOLL);
+    QUESTS[TOLL.id].stages[0].onStart = [{ kind: 'spawn', owner: 'orcs', at: 'millbrook', troops: ['warband'] }];
+    const s = newGame(1);
+    s.towns.millbrook.owner = 'orcs';
+    s.turn = 2;
+    const armies = structuredClone(s.armies);
+    const nextId = s.nextId;
+    const news = advanceQuests(s);
+    expect(s.quests[TOLL.id]).toMatchObject({ status: 'superseded', resolvedBy: 'location-lost' });
+    expect(s.armies).toEqual(armies);
+    expect(s.nextId).toBe(nextId);
+    expect(news).not.toContain('New quest: The Toll Road, offered at Millbrook.');
+    expect(reload(s).quests[TOLL.id].status).toBe('superseded');
   });
 
   it('a full success: pays the cost once, moves through stages, and grants gold and a flag exactly once', () => {

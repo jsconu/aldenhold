@@ -1,3 +1,4 @@
+import { getCampaign } from '../content';
 import { QUESTS } from '../content/quests';
 import { armyAt, deed, findArmy, makeTroop, nodeName, neighborsOf, startBattle, startLocation } from './campaign';
 import { relationWith } from './diplomacy';
@@ -132,10 +133,11 @@ export function conditionText(state: GameState, c: QuestCondition): string {
 }
 
 /** Enter a stage: record when it began and set its events in motion (exactly once, on entry). */
-function enterStage(state: GameState, def: QuestDefinition, stageId: string) {
+function enterStage(state: GameState, def: QuestDefinition, stageId: string, runEvents = true) {
   const progress = state.quests[def.id];
   progress.stage = stageId;
   progress.stageTurn = state.turn;
+  if (!runEvents) return;
   for (const event of stageOf(def, stageId)?.onStart ?? []) {
     const at = startLocation(state, event.at);
     const troops = event.troops.map((t) => (typeof t === 'string' ? makeTroop(state, t) : makeTroop(state, t.type, t.name)));
@@ -164,6 +166,13 @@ function checkObjectives(state: GameState, def: QuestDefinition) {
   }
 }
 
+/** Givers belong to the authored town's original ruler, except merchants who explicitly survive our conquest. */
+function giverLost(state: GameState, def: QuestDefinition): boolean {
+  const owner = state.towns[def.at]?.owner;
+  const original = getCampaign(state.campaignId).towns.find((town) => town.id === def.at)?.owner;
+  return owner !== original && !(owner === 'player' && def.survivesConquest);
+}
+
 /**
  * Unlock every quest of this campaign whose prerequisites now hold. Returns news lines for the newly unlocked
  * quests (at the start of a game the opening quests simply begin available).
@@ -174,7 +183,14 @@ export function unlockQuests(state: GameState): string[] {
     const progress = state.quests[def.id];
     if (progress.status !== 'unavailable' || !def.prerequisites.every((c) => conditionHolds(state, c))) continue;
     progress.status = 'available';
-    enterStage(state, def, def.stages[0].id);
+    const lost = giverLost(state, def);
+    enterStage(state, def, def.stages[0].id, !lost);
+    if (lost) {
+      // A conquest objective takes precedence over losing its council, including before the quest was offered.
+      checkObjectives(state, def);
+      if (isOpen(progress)) resolveQuest(state, def, def.onLocationLost, 'location-lost');
+      continue;
+    }
     news.push(`New ${def.kind === 'main' ? 'objective' : 'quest'}: ${def.name}, offered at ${nodeName(state, def.at)}.`);
   }
   return news;
@@ -197,6 +213,7 @@ export function questQuote(state: GameState, questId: string, choiceId: string):
   if (state.status !== 'playing' || state.battle) return refuse(def.refusals?.battle ?? 'Not during a battle.');
   if (!isOpen(progress)) return refuse(isResolved(progress) ? def.refusals?.resolved ?? 'This matter is settled.' : 'This quest is not open yet.');
   if (!choice) return refuse('That choice is not open now.');
+  if (giverLost(state, def)) return refuse('The quest giver’s town has changed hands.');
   const missing = choice.requires?.find((item) => heldQty(state, item) < 1);
   if (missing) return refuse(`You need the ${ITEMS[missing]?.name ?? missing}.`);
   // Talking needs an envoy near the giver; an encounter instead needs your army at its site (checked below).
@@ -343,6 +360,11 @@ export function advanceQuests(state: GameState): string[] {
     checkObjectives(state, def);
     const progress = state.quests[def.id];
     if (!isOpen(progress)) continue;
+    // Also repair an older save that imported an open quest after its giver had already fallen.
+    if (giverLost(state, def)) {
+      resolveQuest(state, def, def.onLocationLost, 'location-lost');
+      continue;
+    }
     const deadline = stageOf(def, progress.stage)?.deadline;
     if (deadline && !deadline.afterBattles && progress.stageTurn !== null && state.turn - progress.stageTurn >= deadline.months) {
       progress.history.push({ stage: progress.stage, choice: DEADLINE, turn: state.turn });

@@ -1,11 +1,11 @@
 import { UNIT_TYPES } from '../../content/rules';
-import { autoResolve } from '../battle';
-import { advanceMonth, applyBattle, armyAt, lordOf, marchQuote, moveTroops, newGame, recruit, recruitQuote } from '../campaign';
+import { advanceMonth, armyAt, lordOf, newGame, recruit, recruitQuote } from '../campaign';
 import { buildCity, constructionQuote } from '../cities';
 import { chooseQuest, questQuote } from '../quests';
 import { parseSave } from '../saves';
 import type { GameState } from '../types';
-import { marchOptions, neighbors, pathTo, stopsMarch, townLocation } from '../world';
+import { townLocation } from '../world';
+import { marchParty, resumeBattles } from './campaignCommands';
 
 export interface ChapterPlaythrough {
   seed: number;
@@ -40,23 +40,11 @@ export function playChapter(seed: number, crossing: 'charter' | 'ignore' = 'char
   };
   const must = (reason: string | null) => { if (reason) throw new Error(`Seed ${seed}, month ${state.turn}: ${reason}`); };
   const resolveBattles = () => {
-    let count = 0;
-    while (state.battle) {
-      if (++count > 50) throw new Error('Battle queue did not drain.');
-      const before = state.armies.filter((a) => a.owner === 'player').flatMap((a) => a.troops)
-        .filter((t) => !UNIT_TYPES[t.type].hero).reduce((sum, t) => sum + t.men, 0);
-      // Resume both a pending fight and its resolved-but-unapplied result, as the browser can.
-      state = parseSave(JSON.stringify(state));
-      autoResolve(state.battle!);
-      state = parseSave(JSON.stringify(state));
-      const battle = state.battle!;
-      applyBattle(state, battle);
-      const after = state.armies.filter((a) => a.owner === 'player').flatMap((a) => a.troops)
-        .filter((t) => !UNIT_TYPES[t.type].hero).reduce((sum, t) => sum + t.men, 0);
-      report.casualties += Math.max(0, before - after);
-      report.battles++;
-      note(`battle ${battle.outcome}`);
-    }
+    const result = resumeBattles(state);
+    state = result.state;
+    report.battles += result.battles;
+    report.casualties += result.casualties;
+    if (result.battles) note(`resolved ${result.battles} battles`);
   };
   const raise = (town: string, type: string, reserve: number) => {
     const quote = recruitQuote(state, town, type);
@@ -66,22 +54,8 @@ export function playChapter(seed: number, crossing: 'charter' | 'ignore' = 'char
     return true;
   };
   const sendEnvoy = (town: string) => {
-    const army = state.armies.find((a) => a.owner === 'player' && a.troops.some((t) => t.id === envoyId));
-    if (!army) return;
-    const target = townLocation(state, town);
-    const adjacent = neighbors(state, target);
-    if (army.at === target || adjacent.includes(army.at)) return;
-    const routes = marchOptions(state, army.at, 'player', Infinity);
-    const destination = adjacent.filter((at) => !stopsMarch(state, at, 'player') && routes.has(at))
-      .sort((a, b) => routes.get(a)!.cost - routes.get(b)!.cost)[0];
-    if (!destination) return;
-    const mp = army.troops.find((t) => t.id === envoyId)!.mp;
-    const next = pathTo(routes, destination).filter((at) => routes.get(at)!.cost <= mp).at(-1);
-    if (!next) return;
-    const quote = marchQuote(state, army.at, [envoyId], next);
-    if (quote.reason || quote.ends) return;
-    must(moveTroops(state, army.at, [envoyId], next));
-    note(`envoy toward ${town}: ${next}`);
+    const next = marchParty(state, [envoyId], town, true);
+    if (next) note(`envoy toward ${town}: ${next}`);
   };
   for (let month = 0; month < maxMonths && state.status === 'playing'; month++) {
     if (state.cityEconomies.aldenhold.buildings.farm < 2 && !constructionQuote(state, 'aldenhold', 'farm').reason) {
