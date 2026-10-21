@@ -814,3 +814,7 @@ The build passes. 19 of 20 seeded full tours finish the chapter. Seed 12 runs ou
 - the break-in on the end screen;
 - the farms losing a level;
 - the raid in the town's "Last raids" and in the journal's Raids section.
+
+## Planning screenshot integration (October 21, 2026)
+
+Owner supplied visual references for battle reports, terrain-specific evolving cities, varied battle geography, and four monster home-base types. Added original code-native settlement scenes with terrain backdrops and saved farm/lumber/mine/forge levels plus construction scaffolding; discovered lairs show species-specific camp, den, stronghold or sanctuary scenes and a cleared state. Finished battles now display a framed chronicle above the field, with both armies, casualties, fallen heroes, withdrawals and projected XP/level gains. The existing continue command applies consequences once; rendering grants nothing. Existing large seeded battlefields, camera/minimap, lairs and raid deterrence remain in use. These scenes are an initial illustration integration, not equivalent in detail to the supplied third-party artwork. Remaining: richer pixel-art production scenes, explicit wall/gate siege terrain and full review against the references in browser.

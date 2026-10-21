@@ -25,6 +25,7 @@ import { questFocus, questSites } from './questNavigation';
 import { BUILDING_IDS, BUILDINGS, cityMaintenance, constructionQuote, developmentSites, endowment, totalCityMaintenance } from '../game/cities';
 import { conditionHolds, conditionText, isOpen, questQuote, questsAt, questsAtSite, questSummary, stageOf, trackedQuests, type EncounterPreview } from '../game/quests';
 import { esc, type UIState } from './shared';
+import { placeScene } from './placeScene';
 import { renderOverland } from './overlandMap';
 import { previewRoute, type RoutePreview } from '../game/overlandRoutes';
 
@@ -203,6 +204,7 @@ function renderNodePanel(state: GameState, ui: UIState, at: string): string {
   let html = `<h2>${esc(nodeName(state, at))}</h2>`;
   const world = worldOf(state);
   if (town) {
+    html += placeScene(state, town.id);
     const profile = campaignOf(state).settlementProfiles?.[id];
     if (profile) html += `<p class="sub"><b>${esc(profile.region)}</b> · ${esc(profile.role)}</p>`;
     html += `<p class="sub">${town.kind === 'lair' ? 'Orc stronghold' : town.kind === 'capital' ? 'Your capital' : 'Town'} · ${OWNER_LABEL(town.owner)}${(() => {
@@ -356,7 +358,7 @@ function renderLair(state: GameState, lair: LairDefinition): string {
   const st = state.lairs[lair.id];
   const sp = SPECIES[lair.species];
   const garrison = lairGarrison(state, lair);
-  return `<div class="quest-card lair"><h3>${esc(lair.name)} <small>${sp.name} · tier ${lair.tier}</small></h3>
+  return `${placeScene(state, lair.place, lair.species, st.status === 'cleared')}<div class="quest-card lair"><h3>${esc(lair.name)} <small>${sp.name} · tier ${lair.tier}</small></h3>
     ${st.status === 'cleared'
       ? `<p>Cleared${st.clearedTurn ? ` in ${esc(dateLabel(st.clearedTurn))}` : ''}. Nothing stirs here now.</p>`
       : `<p class="sub">${esc(sp.tactics)}</p><p class="sub">Counter: ${esc(sp.counter)}</p>
