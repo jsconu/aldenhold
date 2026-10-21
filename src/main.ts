@@ -293,7 +293,12 @@ function onHex(col: number, row: number) {
   const clicked = unitAt(b, { col, row });
   const sel = selectedUnit(b, ui);
   if (sel && ui.battleSpell) {
-    if (clicked && spellTargets(b, sel, ui.battleSpell).includes(clicked)) {
+    if (clicked && clicked.id === ui.battleTarget && ui.battleSpell !== 'teleport') {
+      // Clicking the chosen target a second time casts, the same as the Cast button.
+      if (castSpell(b, sel.id, ui.battleSpell, clicked.id)) {
+        ui.battleSpell = null; ui.battleTarget = null; ui.battleDestination = null;
+      }
+    } else if (clicked && spellTargets(b, sel, ui.battleSpell).includes(clicked)) {
       ui.battleTarget = clicked.id; ui.battleDestination = null;
     } else if (ui.battleSpell === 'teleport' && ui.battleTarget != null) {
       const target = b.units.find((u) => u.id === ui.battleTarget);

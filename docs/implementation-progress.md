@@ -518,3 +518,12 @@ The build passes. In the browser, after a ransom, Fenwick showed the stall at 60
 - **Open:** the minotaur is still too easy (any lone hero wins 98%). Tuning it to 14 makes a lone fighter or mage a roughly 70% gamble, but a lone priest can't win, which breaks the priest-only tower route Codex's expedition controller and its tests rely on. The owner decides.
 
 Validation: 375 tests pass, including 3 new ones (fearless cyclops, the cyclops's difficulty band, report coverage). Build passes.
+
+## Fix: spells seemed to do nothing (Fireball)
+
+Reported: casting Fireball didn't damage the opponent. The rules were fine (a level-1 Fireball kills 6 of a 20-orc warband). The problem was the battle screen. Clicking a target only opens a preview, and the preview with its Cast button sat in the side panel, which on a normal window is below the battlefield and out of sight. Choosing Fireball and clicking an orc therefore did nothing visible.
+
+- **Top bar:** the spell being aimed now shows in the battle's top bar ("Fireball: click a highlighted target", then "Fireball on Enemy Orc Warband: 6 damage" with a Cast button).
+- **Click again to cast:** clicking the chosen target a second time casts the spell, the same as the Cast button. Teleport still asks for a destination. The full preview stays in the side panel.
+
+Validation: a new render test; 377 tests pass. In the browser, the spell was chosen, aimed and cast with two clicks on the orcs, and they took the 6 damage.
