@@ -11,6 +11,17 @@ export const MAX_BUILDING_LEVEL = 2;
 /** Set by the Woodland Accord (Q04): lumber camps may not be upgraded past this level anywhere in the realm. */
 export const LOGGING_CAP_FLAG = 'logging-cap';
 export const LOGGING_CAP_LEVEL = 1;
+/** Q02 One Eye at the Quarry: clearing the quarry lifts your ore mines' output; diverting the workers cuts it. */
+export const QUARRY_CLEARED_FLAG = 'quarry-cleared';
+export const QUARRY_DIVERTED_FLAG = 'quarry-diverted';
+
+/** How the realm's standing decisions change a building's output in your towns. */
+export function yieldFactor(state: GameState, townId: string, kind: BuildingId): number {
+  if (kind !== 'mine' || state.towns[townId]?.owner !== 'player') return 1;
+  if (state.flags.includes(QUARRY_CLEARED_FLAG)) return 1.25;
+  if (state.flags.includes(QUARRY_DIVERTED_FLAG)) return 0.75;
+  return 1;
+}
 
 export interface BuildingDefinition {
   id: BuildingId;
@@ -167,7 +178,7 @@ export function advanceCities(state: GameState): CityPhaseResult {
       employed += assigned;
       const staffing = needed ? assigned / needed : 0;
       const localYield = def.resource === null ? 1 : deposits[def.resource];
-      const potential = Math.max(0, Math.floor(level * def.capacity * staffing * localYield));
+      const potential = Math.max(0, Math.floor(level * def.capacity * staffing * localYield * yieldFactor(state, town.id, kind)));
       if (kind === 'forge') {
         // Both material limits come from the beginning-of-month snapshot.
         const made = Math.min(potential, stock.ore, stock.timber);

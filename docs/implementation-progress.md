@@ -305,3 +305,45 @@ Validation: 272 tests pass, including 12 new chapter tests:
 - save and content rejections
 
 The build passes. In the browser I raised two militia, ended the month and saw M01 complete and M02 offered the same month, with both goals' progress shown. No console errors.
+
+## Western chapter, part 9c: encounters (#9)
+
+Quest choices can now start authored battles at landmarks. Three side quests use them: Q02, Q03 and Q05.
+
+**Encounters.**
+- **Starting:** a choice's `then` can be `{ encounter }`: a site (a town or landmark), the guardian force, and where a win or a loss leads. Your army must stand at the site; the quote says so ("Bring an army to Old Quarry first"). The envoy rule doesn't apply to encounter choices.
+- **The fight:** the guardians appear for the battle only and leave afterwards, so they never roam the map or join raids. Nobody falls back or takes the site after an encounter; the quest decides what follows. Losing or retreating takes the `lose` branch (all three quests let you try again).
+- **Heroes only:** your hired heroes split off as a party (the council never risks your lord) and rejoin the army when the fight ends.
+- **Saves:** a battle carries its encounter (quest, choice, guardian, army, party). Saves check it against the quest's last step and the battle's armies, and accept the result in quest history (`hunt:won`, `hunt:lost`) and the new `encounter` resolution.
+- **Quest cards at the site:** cards for open encounters also appear on the landmark's panel, and the button names the battle ("Hunt the cyclops · battle at Old Quarry").
+- **New condition:** `army-at` (one of your armies stands at a place) unlocks quests by discovery.
+- **Conquest:** `survivesConquest` keeps a quest open when you take its giver's town yourself (a merchant, not a council).
+
+**Monsters:**
+- **Cyclops:** has a telegraphed boulder. With no enemy beside it, it takes aim at the biggest formation within 4 hexes, preferring formations to heroes so it can't quietly end your reign. It logs "takes aim at …", and the battle map shows a dashed red ring with a "!" on the target. Next turn it throws (2.5× damage, no strike back) if the target is still in reach; otherwise it gives up the aim.
+- **Minotaur and Goblin Skirmishers:** two more monster units. All three have original pixel sprites and icons.
+
+**The quests:**
+
+| ID | Trigger | Choices | Outcome |
+| --- | --- | --- | --- |
+| Q02 One Eye at the Quarry | Month 4, at court | Hunt the cyclops at the Old Quarry, or divert the workers | Win: 100 g and your ore mines produce 25% more. Divert: they produce 25% less (`yieldFactor` in city production) |
+| Q03 Beneath the Old Tower | An army reaches the Old Watchtower | Send hired heroes in against a minotaur (retreat allowed), or leave it | Win: 250 g and a Healing Draught, plus the heroes' battle XP |
+| Q05 The Missing Caravan | Month 5, a Fenwick merchant (needs an envoy) | Track the goblins to the Abandoned Mine within 3 months, or pay a 200 g ransom | Rescue: 150 g, two Healing Draughts and `caravan-rescued`. Ransom: `caravan-ransomed`. Timeout: `caravan-lost`. The merchant stays if you take Fenwick |
+
+The Healing Draughts from part 3 can now be earned in play.
+
+**Not yet:**
+- Q03's unique shield waits for hero equipment slots (ITEM-02).
+- The caravan flags aren't read by a later quest yet.
+- Encounter difficulty is for the balance pass (9e).
+
+Validation: 287 tests pass, including 15 new encounter tests:
+- each quest's win and its no-fight branches
+- retreat and retry, with the guardian removed and the army staying put
+- the heroes-only party split and rejoin
+- the cyclops aims, throws, gives up when the target moves, and prefers formations
+- deadline failure, and conquest by you versus by the orcs
+- forged encounters and aims rejected by saves; content checks for sites, sides, units and stage links
+
+The build passes. In the browser I chose "Hunt the cyclops", watched it take aim (marker shown) and throw, auto-resolved to victory, and continued: Q02 succeeded, the quarry flag was set, the guardian was gone, and a save made mid-fight loaded. No console errors.

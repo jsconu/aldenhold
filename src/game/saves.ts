@@ -3,7 +3,7 @@ import { BATTLE_H, BATTLE_W, createBattle, FIELD_LIMIT } from './battle';
 import { CATALOG, getCampaign } from '../content';
 import { ITEMS } from '../content/items';
 import { QUESTS } from '../content/quests';
-import { DEADLINE, isResolved, lockedProgress, resolutionOf } from './quests';
+import { DEADLINE, encounterMark, isOpen, isResolved, lockedProgress, resolutionOf, stageOf } from './quests';
 import { newTreasury } from './economy';
 import { BUILDING_IDS, BUILDINGS, developmentSites, GOODS, MAX_BUILDING_LEVEL, MAX_DEVELOPMENT_SITES, startingCities } from './cities';
 import { basicLoadout, EQUIPMENT, equipmentQuoteGold, usesBow } from './equipment';
@@ -219,14 +219,15 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
     requireValue(q.status === 'unavailable' ? q.stage === 'locked' : resolved ? q.stage === 'resolved' : text(q.stage) && stageIds.includes(q.stage), 'quest stage');
     requireValue(open ? integer(q.stageTurn, 1, turn) : q.stageTurn === null, 'quest stage month');
     requireValue(resolved
-      ? integer(q.resolvedTurn, 1, turn) && oneOf(q.resolvedBy, ['choice', 'objective', 'deadline', 'location-lost'])
+      ? integer(q.resolvedTurn, 1, turn) && oneOf(q.resolvedBy, ['choice', 'encounter', 'objective', 'deadline', 'location-lost'])
       : q.resolvedTurn === null && q.resolvedBy === null, 'quest resolution');
     const history = array(q.history);
     for (const raw of history) {
       const h = object(raw);
       const stage = qdef.stages.find((st) => st.id === h.stage);
       requireValue(stage !== undefined && integer(h.turn, 1, turn) &&
-        (h.choice === DEADLINE || stage.choices.some((c) => c.id === h.choice) || (stage.objectives ?? []).some((o) => o.id === h.choice)), 'quest history');
+        (h.choice === DEADLINE || stage.choices.some((c) => c.id === h.choice) || (stage.objectives ?? []).some((o) => o.id === h.choice) ||
+          stage.choices.some((c) => 'encounter' in c.then && (h.choice === encounterMark(c.id, true) || h.choice === encounterMark(c.id, false)))), 'quest history');
     }
     const choices = qdef.stages.flatMap((st) => st.choices.map((c) => c.id));
     requireValue(q.choice === null || (text(q.choice) && choices.includes(q.choice)), 'quest choice');
@@ -313,6 +314,7 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
       requireValue(integer(u.maxMen, 1) && u.maxMen === (isHero(troop.type) ? heroMaxHp(troop.type, troop.xp) : troop.men) && integer(u.men, 0, u.maxMen), 'battle strength');
       requireValue(integer(u.mana, 0, heroMaxMana(troop.type, troop.xp)) && integer(u.morale, 0, 100) && integer(u.deeds), 'battle resources');
       requireValue([u.reserve, u.routing, u.fled, u.moved, u.acted].every(bool) && (u.name === undefined || text(u.name)), 'battle flags');
+      requireValue(u.aim === undefined || (UNIT_TYPES[troop.type].boulder !== undefined && integer(u.aim, 1)), 'boulder aim');
       const effects = array(u.effects);
       const seenEffects = new Set<string>();
       for (const rawEffect of effects) {
@@ -336,6 +338,16 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
       }
     }
     requireValue(deployed.attacker <= FIELD_LIMIT && deployed.defender <= FIELD_LIMIT, 'field capacity');
+    if (b.encounter !== undefined) {
+      // A quest encounter: the guardians defend; your army (or its hero party) attacks; the quest is waiting on it.
+      const e = object(b.encounter);
+      const progress = (s.quests as GameState['quests'])[e.quest as string];
+      const stage = progress && QUESTS[e.quest as string] ? stageOf(QUESTS[e.quest as string], progress.stage) : undefined;
+      const choice = stage?.choices.find((c) => c.id === e.choice);
+      requireValue(choice !== undefined && 'encounter' in choice.then && isOpen(progress) && progress.history.at(-1)?.choice === e.choice &&
+        e.guardian === b.defenderId && (e.party === undefined ? e.army === b.attackerId : e.party === b.attackerId) &&
+        state.armies.some((x) => x.id === e.army && x.owner === 'player'), 'quest encounter');
+    }
     if (!allowMissingBattleTroops) requireValue([...a.troops, ...d.troops].every((t) => troopIds.has(t.id)), 'missing battle formations');
   }
   const state = value as GameState;

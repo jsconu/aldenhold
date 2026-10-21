@@ -13,6 +13,10 @@ export const UNIT_TYPES: Record<string, UnitType> = {
   knights: { id: 'knights', name: 'Knights', short: 'KNT', attack: 5, defense: 4, move: 6, range: 1, men: 10, cost: 220, upkeep: 15, recruit: 'capital', march: 18 },
   warband: { id: 'warband', name: 'Orc Warband', short: 'ORC', attack: 3, defense: 2, move: 3, range: 1, men: 20, cost: 0, upkeep: 0, recruit: null, march: 12 },
   orcArchers: { id: 'orcArchers', name: 'Orc Archers', short: 'OAR', attack: 2, defense: 1, move: 3, range: 3, men: 15, cost: 0, upkeep: 0, recruit: null, march: 12 },
+  // Quest-encounter monsters (Q02, Q03, Q05). The cyclops telegraphs a boulder throw a turn before it lands.
+  cyclops: { id: 'cyclops', name: 'Cyclops', short: 'CYC', attack: 8, defense: 5, move: 3, range: 1, men: 10, cost: 0, upkeep: 0, recruit: null, march: 9, boulder: { range: 4, factor: 2.5 } },
+  minotaur: { id: 'minotaur', name: 'Minotaur', short: 'MIN', attack: 10, defense: 6, move: 4, range: 1, men: 8, cost: 0, upkeep: 0, recruit: null, march: 12 },
+  goblinSkirmishers: { id: 'goblinSkirmishers', name: 'Goblin Skirmishers', short: 'GOB', attack: 2, defense: 1, move: 4, range: 1, men: 18, cost: 0, upkeep: 0, recruit: null, march: 14 },
   troll: { resistances: { cold: 25 }, id: 'troll', name: 'Troll', short: 'TRL', attack: 9, defense: 5, move: 3, range: 1, men: 6, cost: 0, upkeep: 0, recruit: null, march: 9 },
 
   // Heroes: `men` is base hit points, `cost` the hiring fee.

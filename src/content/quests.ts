@@ -223,6 +223,93 @@ export const M04_INCURSION: QuestDefinition = {
   onLocationLost: CAPITAL_LOST,
 };
 
+/*
+ * Western chapter side quests with encounters (9c). Each fight happens at a landmark; your army must be there.
+ * Losing or retreating leaves the quest open to try again, until its deadline if it has one.
+ */
+export const Q02_ONE_EYE: QuestDefinition = {
+  id: 'Q02', campaignIds: WEST, kind: 'side', name: 'One Eye at the Quarry', giver: 'Quarrymen at court', at: 'aldenhold',
+  summary: 'A cyclops has driven the quarrymen out of the Old Quarry. Ore from the hills has slowed to a trickle.',
+  prerequisites: [{ kind: 'month', atLeast: 4 }], needsEnvoy: false,
+  stages: [{
+    id: 'rumor',
+    text: 'Hunt the cyclops at the Old Quarry (it hurls boulders, but warns you a turn ahead), or divert the workers to safer ground: your ore mines produce a quarter less.',
+    choices: [
+      { id: 'hunt', label: 'Hunt the cyclops', then: { encounter: {
+        site: 'quarry', owner: 'orcs', troops: ['cyclops'],
+        win: { status: 'succeeded', effects: [{ kind: 'flag', flag: 'quarry-cleared' }, { kind: 'gold', amount: 100 }],
+          journal: 'The cyclops of the Old Quarry is dead. The quarrymen are back, and your ore mines produce a quarter more.' },
+        lose: { stage: 'rumor' },
+      } } },
+      { id: 'divert', label: 'Divert the workers', then: {
+        status: 'failed', effects: [{ kind: 'flag', flag: 'quarry-diverted' }],
+        journal: 'The quarrymen were moved to poorer seams. The cyclops keeps the Old Quarry, and your ore mines produce a quarter less.',
+      } },
+    ],
+  }],
+  onLocationLost: CAPITAL_LOST,
+};
+
+export const Q03_OLD_TOWER: QuestDefinition = {
+  id: 'Q03', campaignIds: WEST, kind: 'side', name: 'Beneath the Old Tower', giver: 'An old soldier at the watchtower', at: 'aldenhold',
+  summary: 'Below the Old Watchtower is a vault where a minotaur guards the tower\u2019s last pay chest. Only heroes fit through the passage.',
+  prerequisites: [{ kind: 'army-at', place: 'watchtower' }], needsEnvoy: false,
+  stages: [{
+    id: 'trial',
+    text: 'Send your heroes into the vault (your lord stays outside, and the rest of the army waits), or leave the tower be. Heroes may retreat from the fight.',
+    choices: [
+      { id: 'enter', label: 'Send in your heroes', then: { encounter: {
+        site: 'watchtower', owner: 'orcs', troops: ['minotaur'], heroesOnly: true,
+        win: { status: 'succeeded', effects: [{ kind: 'gold', amount: 250 }, { kind: 'item', item: 'healing-draught' }],
+          journal: 'Your heroes slew the minotaur beneath the Old Watchtower and carried out the pay chest: 250 gold and a healing draught.' },
+        lose: { stage: 'trial' },
+      } } },
+      { id: 'leave', label: 'Leave the tower be', then: { status: 'failed', effects: [], journal: 'You left the vault beneath the Old Watchtower sealed.' } },
+    ],
+  }],
+  onLocationLost: CAPITAL_LOST,
+};
+
+export const Q05_MISSING_CARAVAN: QuestDefinition = {
+  id: 'Q05', campaignIds: WEST, kind: 'side', name: 'The Missing Caravan', giver: 'Merra, a Fenwick merchant', at: 'fenwick',
+  summary: 'Goblins took Merra\u2019s caravan on the north road and dragged it into the Abandoned Mine.',
+  prerequisites: [{ kind: 'month', atLeast: 5 }, { kind: 'any', of: [
+    { kind: 'town-owner', town: 'fenwick', owner: 'neutral' },
+    { kind: 'town-owner', town: 'fenwick', owner: 'player' },
+  ] }],
+  needsEnvoy: true,
+  survivesConquest: true,
+  stages: [
+    {
+      id: 'plea', text: 'Track the goblins to the Abandoned Mine within three months, or pay their 200 gold ransom for the survivors.',
+      choices: [
+        { id: 'track', label: 'Track the goblins', then: { stage: 'track' } },
+        { id: 'ransom', label: 'Pay the ransom', gold: 200, then: {
+          status: 'succeeded', effects: [{ kind: 'flag', flag: 'caravan-ransomed' }],
+          journal: 'You paid the goblins. Merra\u2019s drivers came home; her goods did not.',
+        } },
+      ],
+    },
+    {
+      id: 'track', text: 'Clear the goblins out of the Abandoned Mine.',
+      choices: [
+        { id: 'raid', label: 'Storm the mine', then: { encounter: {
+          site: 'mine', owner: 'orcs', troops: ['goblinSkirmishers', 'goblinSkirmishers', 'orcArchers'],
+          win: { status: 'succeeded', effects: [{ kind: 'flag', flag: 'caravan-rescued' }, { kind: 'gold', amount: 150 }, { kind: 'item', item: 'healing-draught', qty: 2 }],
+            journal: 'You freed Merra\u2019s drivers and her wagons from the Abandoned Mine. She paid 150 gold and two healing draughts from her stock.' },
+          lose: { stage: 'track' },
+        } } },
+      ],
+      deadline: { months: 3, outcome: {
+        status: 'failed', effects: [{ kind: 'flag', flag: 'caravan-lost' }],
+        journal: 'Three months passed. The goblins sold Merra\u2019s caravan off piece by piece, and her drivers were never seen again.',
+      } },
+    },
+  ],
+  onLocationLost: { status: 'superseded', effects: [], journal: 'Fenwick fell, and Merra fled west with what she had left.' },
+  refusals: { envoy: 'Send an army to Fenwick or a neighbouring road to hear Merra out.', battle: 'Not during a battle.' },
+};
+
 export const QUESTS: Record<string, QuestDefinition> = {
   [FENWICK_CHARTER.id]: FENWICK_CHARTER,
   [WOODLAND_ACCORD.id]: WOODLAND_ACCORD,
@@ -230,4 +317,7 @@ export const QUESTS: Record<string, QuestDefinition> = {
   [M02_BREAD_AND_LAW.id]: M02_BREAD_AND_LAW,
   [M03_CROSSING.id]: M03_CROSSING,
   [M04_INCURSION.id]: M04_INCURSION,
+  [Q02_ONE_EYE.id]: Q02_ONE_EYE,
+  [Q03_OLD_TOWER.id]: Q03_OLD_TOWER,
+  [Q05_MISSING_CARAVAN.id]: Q05_MISSING_CARAVAN,
 };

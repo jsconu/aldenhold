@@ -1,12 +1,13 @@
 import { QUESTS } from '../content/quests';
-import { armyAt, deed, makeTroop, nodeName, neighborsOf, startLocation } from './campaign';
+import { armyAt, deed, findArmy, makeTroop, nodeName, neighborsOf, startBattle, startLocation } from './campaign';
 import { relationWith } from './diplomacy';
 import { isHero } from './units';
 import { recordPurchase, recordReceipt } from './economy';
 import { archiveItem, grantItem, heldQty } from './items';
 import { ITEMS } from '../content/items';
 import type {
-  FactionId, GameState, QuestChoice, QuestCondition, QuestDefinition, QuestProgress, QuestResolution, QuestStage,
+  Battle, FactionId, GameState, QuestChoice, QuestCondition, QuestDefinition, QuestEncounter, QuestNext, QuestProgress,
+  QuestResolution, QuestStage,
 } from './types';
 import { townLocation } from './world';
 
@@ -55,6 +56,15 @@ export function trackedQuests(state: GameState): QuestDefinition[] {
     .slice(0, MAX_TRACKED);
 }
 
+/** Open quests with an encounter waiting at this town or landmark, so you can fight from where you stand. */
+export function questsAtSite(state: GameState, placeId: string): QuestDefinition[] {
+  return campaignQuests(state).filter((def) => {
+    const progress = state.quests[def.id];
+    return isOpen(progress) && def.at !== placeId && (stageOf(def, progress.stage)?.choices ?? [])
+      .some((c) => 'encounter' in c.then && c.then.encounter.site === placeId);
+  });
+}
+
 /** Quests offered at a town in this campaign. */
 export function questsAt(state: GameState, townId: string): QuestDefinition[] {
   return campaignQuests(state).filter((q) => q.at === townId);
@@ -62,6 +72,20 @@ export function questsAt(state: GameState, townId: string): QuestDefinition[] {
 
 export function stageOf(def: QuestDefinition, stageId: string): QuestStage | undefined {
   return def.stages.find((s) => s.id === stageId);
+}
+
+/** Every way a choice can turn out: its next step, or both results of its encounter. */
+export function choiceOutcomes(choice: QuestChoice): QuestNext[] {
+  return 'encounter' in choice.then ? [choice.then.encounter.win, choice.then.encounter.lose] : [choice.then];
+}
+
+export function isResolution(next: QuestNext): next is QuestResolution {
+  return 'status' in next;
+}
+
+/** History marker for an encounter's result: the choice that started it, and whether you won. */
+export function encounterMark(choiceId: string, won: boolean): string {
+  return `${choiceId}:${won ? 'won' : 'lost'}`;
 }
 
 /** The number a counting condition measures now, for checks and for progress shown to the player. */
@@ -84,6 +108,7 @@ export function conditionHolds(state: GameState, c: QuestCondition): boolean {
     case 'flag': return state.flags.includes(c.flag);
     case 'month': return state.turn >= c.atLeast;
     case 'any': return c.of.some((x) => conditionHolds(state, x));
+    case 'army-at': return !!armyAt(state, startLocation(state, c.place), 'player');
     default: return (measure(state, c) ?? 0) >= c.atLeast;
   }
 }
@@ -102,6 +127,7 @@ export function conditionText(state: GameState, c: QuestCondition): string {
     case 'formations': return `Field ${c.atLeast} formations${progress}`;
     case 'food': return `Store ${c.atLeast} food in ${nodeName(state, c.town)}${progress}`;
     case 'any': return c.of.map((x) => conditionText(state, x)).join(', or ');
+    case 'army-at': return `Bring an army to ${nodeName(state, startLocation(state, c.place))}`;
   }
 }
 
@@ -134,12 +160,7 @@ function checkObjectives(state: GameState, def: QuestDefinition) {
     const objective = stageOf(def, progress.stage)?.objectives?.find((o) => o.when.every((c) => conditionHolds(state, c)));
     if (!objective) return;
     progress.history.push({ stage: progress.stage, choice: objective.id, turn: state.turn });
-    if ('stage' in objective.then) {
-      progress.status = 'active';
-      enterStage(state, def, objective.then.stage);
-    } else {
-      resolveQuest(state, def, objective.then, 'objective');
-    }
+    goTo(state, def, objective.then, 'objective');
   }
 }
 
@@ -178,13 +199,83 @@ export function questQuote(state: GameState, questId: string, choiceId: string):
   if (!choice) return refuse('That choice is not open now.');
   const missing = choice.requires?.find((item) => heldQty(state, item) < 1);
   if (missing) return refuse(`You need the ${ITEMS[missing]?.name ?? missing}.`);
-  if (def.needsEnvoy) {
+  // Talking needs an envoy near the giver; an encounter instead needs your army at its site (checked below).
+  if (def.needsEnvoy && !('encounter' in choice.then)) {
     const at = townLocation(state, def.at);
     const inRange = state.armies.some((a) => a.owner === 'player' && (a.at === at || neighborsOf(state, at).includes(a.at)));
     if (!inRange) return refuse(def.refusals?.envoy ?? `Bring an army to ${nodeName(state, def.at)} or next to it first.`);
   }
+  if ('encounter' in choice.then) {
+    const enc = choice.then.encounter;
+    const army = armyAt(state, startLocation(state, enc.site), 'player');
+    if (!army) return refuse(`Bring an army to ${nodeName(state, startLocation(state, enc.site))} first.`);
+    if (enc.heroesOnly && !partyOf(army.troops).length) return refuse('Only heroes may enter, and the council will not risk your lord. Bring a hired hero.');
+  }
   if (state.gold < gold) return refuse(`You need ${gold} gold.`);
   return { gold, reason: null };
+}
+
+/** The heroes who may enter a heroes-only encounter: everyone but the lord. */
+function partyOf(troops: GameState['armies'][number]['troops']) {
+  return troops.filter((t) => isHero(t.type) && t.type !== 'lord');
+}
+
+/** Move a quest on: to another stage, or to its end. */
+function goTo(state: GameState, def: QuestDefinition, next: QuestNext, by: QuestProgress['resolvedBy']) {
+  if (isResolution(next)) {
+    resolveQuest(state, def, next, by);
+  } else {
+    state.quests[def.id].status = 'active';
+    enterStage(state, def, next.stage);
+  }
+}
+
+/**
+ * Start an encounter: the guardians appear at the site and your army there attacks them at once. For a
+ * heroes-only encounter the heroes split off as a party; they rejoin the army when the fight ends.
+ */
+function startEncounter(state: GameState, def: QuestDefinition, choice: QuestChoice, enc: QuestEncounter) {
+  const at = startLocation(state, enc.site);
+  const army = armyAt(state, at, 'player')!;
+  let fighters = army;
+  let party: number | undefined;
+  if (enc.heroesOnly) {
+    const heroes = partyOf(army.troops);
+    if (heroes.length < army.troops.length) {
+      army.troops = army.troops.filter((t) => !heroes.includes(t));
+      fighters = { id: state.nextId++, owner: 'player', at, from: null, troops: heroes };
+      state.armies.push(fighters);
+      party = fighters.id;
+    }
+  }
+  const troops = enc.troops.map((t) => (typeof t === 'string' ? makeTroop(state, t) : makeTroop(state, t.type, t.name)));
+  const guardian = { id: state.nextId++, owner: enc.owner, at, from: null, troops };
+  state.armies.push(guardian);
+  startBattle(state, fighters.id, guardian.id);
+  state.battle!.encounter = { quest: def.id, choice: choice.id, guardian: guardian.id, army: army.id, ...(party ? { party } : {}) };
+}
+
+/**
+ * An encounter's battle has ended (losses already written back). The guardians leave, the hero party rejoins its
+ * army, and the quest follows the result: winning takes `win`; losing or retreating takes `lose`.
+ */
+export function endEncounter(state: GameState, b: Battle) {
+  const e = b.encounter!;
+  state.armies = state.armies.filter((a) => a.id !== e.guardian);
+  const party = e.party === undefined ? undefined : findArmy(state, e.party);
+  const army = findArmy(state, e.army);
+  if (party && army) {
+    army.troops.push(...party.troops);
+    state.armies = state.armies.filter((a) => a !== party);
+  }
+  const def = QUESTS[e.quest];
+  const progress = state.quests[e.quest];
+  if (!def || !progress || !isOpen(progress)) return;
+  const choice = stageOf(def, progress.stage)?.choices.find((c) => c.id === e.choice);
+  if (!choice || !('encounter' in choice.then)) return;
+  const won = b.outcome === 'attacker';
+  progress.history.push({ stage: progress.stage, choice: encounterMark(choice.id, won), turn: state.turn });
+  goTo(state, def, won ? choice.then.encounter.win : choice.then.encounter.lose, 'encounter');
 }
 
 /** Make a quest choice. Returns the refusal reason, or null. */
@@ -200,11 +291,11 @@ export function chooseQuest(state: GameState, questId: string, choiceId: string)
   }
   progress.history.push({ stage: progress.stage, choice: choice.id, turn: state.turn });
   progress.choice = choice.id;
-  if ('stage' in choice.then) {
+  if ('encounter' in choice.then) {
     progress.status = 'active';
-    enterStage(state, def, choice.then.stage);
+    startEncounter(state, def, choice, choice.then.encounter);
   } else {
-    resolveQuest(state, def, choice.then, 'choice');
+    goTo(state, def, choice.then, 'choice');
   }
   return null;
 }
@@ -273,6 +364,7 @@ export function onTownOwnershipChange(state: GameState, townId: string, owner: F
   for (const def of questsAt(state, townId)) {
     // Taking the town may be the quest's goal: that is checked first, so it isn't mistaken for losing it.
     checkObjectives(state, def);
+    if (owner === 'player' && def.survivesConquest) continue;
     if (isOpen(state.quests[def.id])) resolveQuest(state, def, def.onLocationLost, 'location-lost');
   }
 }
@@ -285,10 +377,17 @@ export function resolutionOf(def: QuestDefinition, progress: QuestProgress): Que
   if (!last) return null;
   const stage = stageOf(def, last.stage);
   if (progress.resolvedBy === 'deadline') return stage?.deadline?.outcome ?? null;
-  const step = progress.resolvedBy === 'objective'
-    ? stage?.objectives?.find((o) => o.id === last.choice)
-    : stage?.choices.find((c) => c.id === last.choice);
-  return step && !('stage' in step.then) ? step.then : null;
+  if (progress.resolvedBy === 'encounter') {
+    const [choiceId, result] = last.choice.split(':');
+    const choice = stage?.choices.find((c) => c.id === choiceId);
+    if (!choice || !('encounter' in choice.then)) return null;
+    const next = result === 'won' ? choice.then.encounter.win : choice.then.encounter.lose;
+    return isResolution(next) ? next : null;
+  }
+  const next = progress.resolvedBy === 'objective'
+    ? stage?.objectives?.find((o) => o.id === last.choice)?.then
+    : stage?.choices.find((c) => c.id === last.choice)?.then;
+  return next && !('encounter' in next) && isResolution(next) ? next : null;
 }
 
 /** A short status line for the journal and panels. */

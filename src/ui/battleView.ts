@@ -76,6 +76,7 @@ export function renderBattle(state: GameState, ui: UIState): string {
         'unit', mine ? 'mine' : 'foe', hero ? 'hero' : '', sel?.id === u.id ? 'sel' : '', u.routing ? 'routing' : '', spent ? 'spent' : '',
         targets.has(u.id) ? (u.side === sel?.side ? 'boon' : 'target') : '', affected.includes(u) ? 'spell-affected' : '',
       ].filter(Boolean).join(' ');
+      const aimedBy = b.units.find((x) => x.aim === u.id && x.men > 0 && !x.fled);
       const frac = Math.min(1, u.men / u.maxMen);
       const morale = hero ? 1 : u.morale / 100;
       return `<g class="${cls}" data-action="hex" data-col="${u.col}" data-row="${u.row}">
@@ -87,6 +88,7 @@ export function renderBattle(state: GameState, ui: UIState): string {
         <text x="${cx}" y="${cy + 17}" class="men">${u.routing ? 'RUN' : u.men}</text>
         <rect x="${cx - 14}" y="${cy + 19}" width="28" height="3" class="hp-bg"/>
         <rect x="${cx - 14}" y="${cy + 19}" width="${(28 * frac).toFixed(1)}" height="3" class="hp"/>
+        ${aimedBy ? `<g class="aimed"><title>${esc(unitLabel(b, aimedBy))} will throw a boulder here next turn if this formation is still within ${UNIT_TYPES[aimedBy.type].boulder!.range} hexes.</title><circle cx="${cx}" cy="${cy - 2}" r="24" class="aim-ring"/><text x="${cx - 18}" y="${cy - 14}" class="aim-mark">!</text></g>` : ''}
         ${u.effects.length ? `<text x="${cx + 16}" y="${cy - 10}" class="effect-badge"><title>${esc(u.effects.map((e) => `${EFFECTS[e.id].name}: ${e.turns} turns`).join('; '))}</title>✦</text>` : ''}
         ${hero ? '' : `<rect x="${cx - 14}" y="${cy + 22}" width="28" height="2" class="hp-bg"/>
         <rect x="${cx - 14}" y="${cy + 22}" width="${(28 * morale).toFixed(1)}" height="2" class="morale${u.morale < 40 ? ' low' : ''}"/>`}
