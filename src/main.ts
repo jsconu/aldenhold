@@ -19,6 +19,9 @@ import { beginRefit, EQUIPMENT } from './game/equipment';
 import { log } from './game/campaign';
 import type { BuildingId, EquipmentId } from './game/types';
 import { validateContent } from './content/validate';
+import { captureRecovery, clearRecovery, readManualSlot, readRecovery, writeManualSlot } from './game/saveSlots';
+import { questQuote } from './game/quests';
+import { renderSaveManager } from './ui/saveManagerView';
 
 // Access localStorage inside the adapter: even reading the browser property can throw.
 const storage = {
@@ -35,10 +38,37 @@ const loaded = loadGame(storage);
 let saveWarning = loaded.warning;
 let autosaveBlocked = loaded.blocked;
 let state = loaded.state ?? newGame();
+let hasGame = loaded.state !== null;
+let savesOpen = false;
+let recoveryWarning = '';
 
 function save() {
-  if (autosaveBlocked) return;
+  if (autosaveBlocked || !hasGame) return;
   saveWarning = saveGame(storage, state) ?? '';
+}
+
+function checkpoint(reason: Parameters<typeof captureRecovery>[2]): boolean {
+  if (!hasGame) return true;
+  recoveryWarning = captureRecovery(storage, state, reason) ?? '';
+  return !recoveryWarning || confirm(`${recoveryWarning} Continue without a local recovery position?`);
+}
+
+function activate(next: GameState) {
+  state = next;
+  hasGame = true;
+  autosaveBlocked = false;
+  saveWarning = '';
+  savesOpen = false;
+  ui.choosing = false;
+  ui.battleUnit = null;
+  ui.battleSpell = null;
+  ui.battleTarget = null;
+  ui.battleDestination = null;
+  ui.message = '';
+  ui.view = 'map';
+  ui.routeOrigin = null;
+  ui.routeDestination = null;
+  selectNode(capitalOf(state));
 }
 
 function exportSave() {
@@ -66,11 +96,14 @@ const app = document.getElementById('app')!;
 
 function render() {
   app.innerHTML = `<nav class="save-bar" aria-label="Saved games">
-    <button data-action="export-save">Export save</button>
+    <button data-action="saved-games" aria-expanded="${savesOpen}" aria-controls="save-content">${savesOpen ? 'Back to game' : 'Saved games'}</button>
+    <button data-action="export-save" ${hasGame ? '' : 'disabled'}>Export save</button>
     <button data-action="import-save">Import save</button>
     <input id="save-file" type="file" accept=".json,application/json" hidden>
     ${saveWarning ? `<p class="msg" role="alert">${esc(saveWarning)}</p>` : ''}
-    </nav>` + (state.battle ? renderBattle(state, ui) : renderCampaign(state, ui));
+    ${recoveryWarning ? `<p class="msg" role="alert">${esc(recoveryWarning)}</p>` : ''}
+    </nav><div id="save-content">${savesOpen ? renderSaveManager(storage, hasGame) :
+    state.battle ? renderBattle(state, ui) : renderCampaign(state, ui)}</div>`;
 }
 
 function selectNode(id: string) {
@@ -89,16 +122,8 @@ function onAction(action: string, data: DOMStringMap) {
       ui.choosing = false;
       break;
     case 'start-campaign':
-      state = newGame(undefined, data.campaign as CampaignId);
-      autosaveBlocked = false;
-      saveWarning = '';
-      ui.choosing = false;
-      ui.battleUnit = null;
-      ui.battleSpell = null;
-      ui.view = 'map';
-      ui.routeOrigin = null;
-      ui.routeDestination = null;
-      selectNode(capitalOf(state));
+      if (!checkpoint('Before new campaign')) break;
+      activate(newGame(undefined, data.campaign as CampaignId));
       break;
     case 'plan-route':
       ui.routeOrigin = ui.selected;
@@ -143,6 +168,7 @@ function onAction(action: string, data: DOMStringMap) {
       break;
     }
     case 'quest-choice':
+      if (!questQuote(state, data.quest ?? '', data.choice ?? '').reason && !checkpoint('Before quest choice')) break;
       ui.message = chooseQuest(state, data.quest ?? '', data.choice ?? '') ?? '';
       break;
     case 'use-item':
@@ -171,6 +197,7 @@ function onAction(action: string, data: DOMStringMap) {
       break;
     }
     case 'end-turn':
+      if (state.status === 'playing' && !state.battle && !checkpoint('Before month')) break;
       endTurn(state);
       if (ui.selected) selectNode(ui.selected);
       break;
@@ -274,8 +301,46 @@ function onHex(col: number, row: number) {
 app.addEventListener('click', (e) => {
   const el = (e.target as Element).closest<HTMLElement | SVGElement>('[data-action]');
   if (!el) return;
+  if (el.dataset.action === 'saved-games') {
+    savesOpen = !savesOpen;
+    render();
+    (savesOpen ? app.querySelector<HTMLElement>('#saves-title') : app.querySelector<HTMLElement>('[data-action="saved-games"]'))?.focus();
+    return;
+  }
   if (el.dataset.action === 'export-save') { exportSave(); return; }
   if (el.dataset.action === 'import-save') { document.getElementById('save-file')!.click(); return; }
+  if (el.dataset.action === 'save-slot') {
+    const slot = Number(el.dataset.slot);
+    const existing = readManualSlot(storage, slot);
+    if (hasGame && (existing.status === 'empty' || confirm(`Overwrite Slot ${slot}?`))) {
+      const label = (app.querySelector<HTMLInputElement>(`#save-label-${slot}`)?.value ?? '').trim();
+      saveWarning = writeManualSlot(storage, slot, state, label) ?? '';
+    }
+    render();
+    app.querySelector<HTMLElement>(`[data-action="save-slot"][data-slot="${slot}"]`)?.focus();
+    return;
+  }
+  if (el.dataset.action === 'restore-slot' || el.dataset.action === 'restore-recovery') {
+    const slot = Number(el.dataset.slot);
+    const saved = el.dataset.action === 'restore-slot' ? readManualSlot(storage, slot) :
+      (() => { const history = readRecovery(storage); const entry = history.slots[slot];
+        return !history.invalid && entry ? { status: 'ready' as const, save: entry } : { status: 'invalid' as const }; })();
+    if (saved.status !== 'ready') saveWarning = 'That position could not be loaded. Your current game was not changed.';
+    else if ((!hasGame || confirm(`Replace your current game with ${saved.save.label || 'this position'}?`)) && checkpoint('Before restore')) {
+      activate(saved.save.state);
+      save();
+    }
+    render();
+    return;
+  }
+  if (el.dataset.action === 'clear-recovery') {
+    if (confirm('Permanently clear the unreadable recovery history? Your manual slots and current game will remain.')) {
+      saveWarning = clearRecovery(storage) ?? '';
+      if (!saveWarning) recoveryWarning = '';
+    }
+    render();
+    return;
+  }
   onAction(el.dataset.action!, el.dataset);
   save();
   render();
@@ -301,6 +366,7 @@ app.addEventListener('keydown', (e) => {
 
 app.addEventListener('change', async (e) => {
   const el = e.target as HTMLInputElement | HTMLSelectElement;
+  if (el.id.startsWith('save-label-')) return;
   if (el.id === 'save-file' && el instanceof HTMLInputElement) {
     const file = el.files?.[0];
     if (!file) return;
@@ -308,12 +374,12 @@ app.addEventListener('change', async (e) => {
       if (file.size > MAX_SAVE_BYTES) throw new Error('Save files must be 5 MB or smaller.');
       const imported = parseSave(await file.text());
       if (!confirm('Replace your current game with this imported save?')) return;
-      state = imported;
-      autosaveBlocked = false;
-      ui.battleUnit = null;
-      ui.battleSpell = null;
-      ui.message = '';
-      selectNode(capitalOf(state));
+      if (!checkpoint('Before import')) {
+        saveWarning = recoveryWarning;
+        render();
+        return;
+      }
+      activate(imported);
       save();
     } catch {
       saveWarning = 'Import failed: the file is invalid or uses an unsupported version. Your current game and saved progress have not been changed.';
