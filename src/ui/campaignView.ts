@@ -60,7 +60,7 @@ export function renderCampaign(state: GameState, ui: UIState): string {
     <button data-action="journal" class="ghost">${ui.view === 'journal' ? 'Back to the map' : `Journal (${state.journal.length})`}</button>
     <button data-action="new-game" class="ghost">New game</button>
     ${ui.view==='map' ? `<button data-action="march-mode" aria-pressed="${!!ui.marchMode}" class="${ui.marchMode?'primary':'ghost'}">${ui.marchMode?'Cancel movement':'Move selected army'}</button>` : ''}
-    ${ui.undoMoveLabel ? `<button data-action="undo-move" class="ghost">${esc(ui.undoMoveLabel)}</button>` : ''}
+    ${ui.undoMoveLabel ? `<button data-action="undo-move" class="ghost">${esc(ui.undoMoveLabel)}</button>` : ui.undoMoveBlocked ? `<button data-action="undo-move" class="ghost" disabled title="${esc(ui.undoMoveBlocked)}">Can’t undo</button>` : ''}
     <button data-action="end-turn" class="primary" ${state.status !== 'playing' ? 'disabled' : ''}>End month</button>
   </header>
   ${ui.choosing ? renderChooser(state) : ''}

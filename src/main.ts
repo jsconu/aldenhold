@@ -29,7 +29,7 @@ import { validateContent } from './content/validate';
 import { captureRecovery, clearRecovery, readManualSlot, readRecovery, writeManualSlot } from './game/saveSlots';
 import { questQuote } from './game/quests';
 import { renderSaveManager } from './ui/saveManagerView';
-import { captureMove, restoreMove, type MovementUndo } from './ui/movementUndo';
+import { captureMove, restoreMove, undoBlocked, type MovementUndo } from './ui/movementUndo';
 import { cityAssault } from './ui/cityAssault';
 import { assignScout } from './game/scouts';
 
@@ -53,6 +53,14 @@ let savesOpen = false;
 let recoveryWarning = '';
 let feedback:GameplayNotice[]=[];
 let undoMove: MovementUndo | null = null;
+/** Why the move just made can't be undone; shown until the next action. */
+let undoRefusal: string | null = null;
+
+/** After a successful move: offer to take it back, unless it had consequences that stand (see undoBlocked). */
+function offerUndo(before: MovementUndo) {
+  undoRefusal = undoBlocked(before.state, state);
+  undoMove = undoRefusal ? null : before;
+}
 
 function save() {
   if (autosaveBlocked || !hasGame) return;
@@ -176,6 +184,7 @@ function render() {
 
 function draw() {
   ui.undoMoveLabel = undoMove?.label;
+  ui.undoMoveBlocked = undoRefusal ?? undefined;
   app.innerHTML = `<div ${feedback.length ? 'inert' : ''}><nav class="save-bar" aria-label="Saved games">
     <button data-action="saved-games" aria-expanded="${savesOpen}" aria-controls="save-content">${savesOpen ? 'Back to game' : 'Saved games'}</button>
     <button data-action="export-save" ${hasGame ? '' : 'disabled'}>Export save</button>
@@ -194,6 +203,7 @@ function selectNode(id: string) {
 }
 
 function onAction(action: string, data: DOMStringMap, additive = false) {
+  undoRefusal = null;
   const before=feedbackSnapshot(state),previousState=state;
   const nameInput=app.querySelector<HTMLInputElement>('#ruler-name');
   if(ui.rulerDraft && nameInput)ui.rulerDraft.name=nameInput.value;
@@ -223,7 +233,7 @@ function onAction(action: string, data: DOMStringMap, additive = false) {
       ui.message = err ?? '';
       ui.assault = null;
       if (!err) {
-        undoMove = before;
+        offerUndo(before);
         ui.routeOrigin = null; ui.routeDestination = null;
         selectNode(decision.to);
       }
@@ -304,7 +314,7 @@ function onAction(action: string, data: DOMStringMap, additive = false) {
       const before = captureMove(state, ui, 'Undo march');
       ui.message = moveTroops(state, ui.routeOrigin, [...ui.checked], firstLeg) ?? '';
       if (!ui.message) {
-        undoMove = before;
+        offerUndo(before);
         ui.routeOrigin = null;
         ui.routeDestination = null;
         selectNode(firstLeg);
@@ -430,7 +440,7 @@ function onAction(action: string, data: DOMStringMap, additive = false) {
         const before = captureMove(state, ui, 'Undo march');
         const err = moveTroops(state, ui.selected, [...ui.checked], id);
         ui.message = err ?? '';
-        if (!err) { undoMove = before; selectNode(id); ui.marchMode = false; }
+        if (!err) { offerUndo(before); selectNode(id); ui.marchMode = false; }
       } else {
         selectNode(id);
       }
@@ -519,7 +529,7 @@ function onHex(col: number, row: number, additive = false) {
     if (groupReachable(b, group.map((u) => u.id)).has(hexKey({ col, row }))) {
       const before = captureMove(state, ui, 'Undo battle move');
       if (moveGroup(b, group.map((u) => u.id), { col, row })) {
-        undoMove = before;
+        offerUndo(before);
         ui.battleUnit = null;
         ui.battleUnits = new Set();
       }
@@ -531,7 +541,7 @@ function onHex(col: number, row: number, additive = false) {
     else { attackOrder(b, sel.id, clicked.id); ui.message = ''; undoMove = null; }
   } else if (reachable(b, sel).has(hexKey({ col, row }))) {
     const before = captureMove(state, ui, 'Undo battle move');
-    if (moveUnit(b, sel.id, { col, row })) undoMove = before;
+    if (moveUnit(b, sel.id, { col, row })) offerUndo(before);
   }
 }
 

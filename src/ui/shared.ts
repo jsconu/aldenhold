@@ -20,6 +20,8 @@ export interface UIState {
   battleUnits?: Set<number>;
   /** An in-session movement snapshot is available; it is never part of the save. */
   undoMoveLabel?: string;
+  /** Why the last move can't be undone (shown on a disabled Undo button right after it). */
+  undoMoveBlocked?: string;
   /** Spell the selected hero is about to cast. */
   battleSpell: SpellId | null;
   battleTarget?: number | null;
