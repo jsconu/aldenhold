@@ -1,4 +1,5 @@
 import {campaignObjectives,explored,DIFFICULTIES} from '../game/challenge';
+import { onWatch, SCOUT_RANGE } from '../game/scouts';
 import {replacementQuote} from '../game/replacements';
 import { renderRulerSelection } from './rulerSelection';
 import { questOutcome } from './gameplayFeedback';
@@ -61,7 +62,7 @@ export function renderCampaign(state: GameState, ui: UIState): string {
     <button data-action="new-game" class="ghost">New game</button>
     ${ui.view==='map' ? `<button data-action="march-mode" aria-pressed="${!!ui.marchMode}" class="${ui.marchMode?'primary':'ghost'}">${ui.marchMode?'Cancel movement':'Move selected army'}</button>` : ''}
     ${ui.undoMoveLabel ? `<button data-action="undo-move" class="ghost">${esc(ui.undoMoveLabel)}</button>` : ui.undoMoveBlocked ? `<button data-action="undo-move" class="ghost" disabled title="${esc(ui.undoMoveBlocked)}">Can’t undo</button>` : ''}
-    <button data-action="end-turn" class="primary" ${state.status !== 'playing' ? 'disabled' : ''}>End month</button>
+    <button data-action="end-turn" class="primary" title="End the month (Enter)" ${state.status !== 'playing' ? 'disabled' : ''}>End month</button>
   </header>
   ${ui.choosing ? renderChooser(state) : ''}
   ${state.status !== 'playing' ? `<div class="banner ${state.status}">${state.status === 'won' && state.endingReason === 'chapter-complete' ? `${esc(campaignOf(state).chapter!.title)} is complete. ${esc(campaignOf(state).chapter!.ending)}` : state.status === 'won' ? `You have won. ${isHexCampaign(state) ? 'The realm' : 'The valley'} is united.` : state.endingReason === 'lord-dead' ? 'You have lost. Your lord is dead.' : `You have lost. ${esc(nodeName(state, campaignOf(state).capital))} has fallen.`} <button data-action="new-game">Play again</button></div>` : ''}
@@ -440,12 +441,10 @@ function renderArmy(state: GameState, ui: UIState, a: Army): string {
   return `<div class="army-card own-${a.owner}"><h3>${mine ? 'Your troops' : a.owner === 'orcs' ? 'Orc host' : 'Town militia'}</h3>
     <ul class="troops">${rows}</ul>
     ${mine && ui.view==='city' ? renderReplacements(state,a) : ''}
-    ${mine ? a.troops.filter((t) => t.type === 'scout').map((t) => `<div class="scout-post"><b>Scout #${t.id}</b> · ${t.scoutPost === 'city' ? 'Watching this city' : t.scoutPost === 'road' ? 'Watching this road' : 'Unassigned'}
+    ${mine ? a.troops.filter((t) => t.type === 'scout').map((t) => `<div class="scout-post"><b>Scout #${t.id}</b> · ${onWatch(t) ? `On watch over ${esc(nodeName(state, a.at))}` : 'Not on watch'}
       <div class="save-actions">
-        ${townAt(state, a.at)?.owner === 'player' ? `<button data-action="scout-post" data-troop="${t.id}" data-post="city" ${t.scoutPost === 'city' ? 'disabled' : ''}>Watch city</button>` : ''}
-        ${hasRoad(state, a.at) ? `<button data-action="scout-post" data-troop="${t.id}" data-post="road" ${t.scoutPost === 'road' ? 'disabled' : ''}>Watch road</button>` : ''}
-        ${t.scoutPost ? `<button data-action="scout-post" data-troop="${t.id}" data-post="recall">Recall</button>` : ''}
-      </div><small class="sub">Move this scout to a new post using the map. Moving clears its current watch.</small></div>`).join('') : ''}
+        ${onWatch(t) ? `<button data-action="scout-post" data-troop="${t.id}" data-post="recall">Stop watching</button>` : `<button data-action="scout-post" data-troop="${t.id}" data-post="watch">Keep watch here</button>`}
+      </div><small class="sub">A scout on watch sees ${SCOUT_RANGE} hexes all around (shaded on the map) and reports any orc force that will come into sight within two months, with where it is heading. Marching the scout ends its watch.</small></div>`).join('') : ''}
     ${mine && ui.view==='city' && townAt(state, a.at)?.owner === 'player' ? renderRefitChoices(state, a, ui) : ''}
     ${mine ? '<p class="sub">In battle, your toughest melee formations set up in front; archers, casters and the leader start behind them.</p>' : ''}
     ${ready ? `<p class="hint">${hint}</p>` : ''}</div>`;

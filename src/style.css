@@ -607,3 +607,7 @@ button.travel-destination b { color: var(--gold); font-size: 11px; }
 .city-war-warning{border:2px solid #b2784e;background:#392c23;padding:14px;margin-bottom:16px}.city-war-warning h3{margin-top:0}.city-war-warning li{margin:8px 0}
 
 .city-screen,.ruler-selection{display:block;min-height:0}
+
+/* Scouts on watch: the hexes they can see. */
+.overland .watch-range { fill: rgba(150, 200, 255, 0.12); stroke: rgba(170, 215, 255, 0.35); stroke-width: 0.5; pointer-events: none; }
+.overland .watch-range.watched-here { fill: rgba(150, 200, 255, 0.24); stroke: rgba(200, 230, 255, 0.7); }

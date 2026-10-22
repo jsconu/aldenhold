@@ -1,5 +1,5 @@
 import { battleSpoils } from '../game/battleRewards';
-import { battleFigure, richBattleGround, richRuin } from './richBattle';
+import { battleFigure, richBattleGround, richRuin, scoutFigure } from './richBattle';
 import { EFFECTS } from '../content/spells';
 import {
   attackOf, attackOrderQuote, alive, commandOf, maxRounds, COMMAND_RANGE, defenseOf, escapeQuote, groupReachable, isAI, powerOf, knownSpells, playerSide, RALLY_AT, rangeOf, reachable, ROUT_AT, spellTargets,
@@ -96,7 +96,7 @@ export function renderBattle(state: GameState, ui: UIState): string {
         <title>${esc(unitLabel(b, u))}: ${u.men} ${hero ? 'HP' : `men, morale ${u.morale}${u.routing ? ', running' : ''}`}</title>
         <ellipse cx="${cx}" cy="${cy + 4}" rx="21" ry="17" class="mark"/>
         <ellipse cx="${cx}" cy="${cy + 9}" rx="15" ry="5" class="base"/>
-        ${battleFigure(u.type, cx, cy, u.side === 'defender', u.men, mine ? state.rulerAppearance : undefined, u.name ? (/^(Mother|Sister|Edith|Tamsin|Ysolde)/.test(u.name)?'female':'male') : (u.troopId%2?'female':'male')) || pixelSprite(u.type, mine ? 'mine' : 'foe', cx, cy + 10, 2.5, u.side === 'defender')}
+        ${u.type === 'scout' ? scoutFigure(cx, cy, u.side === 'defender', u.troopId) : battleFigure(u.type, cx, cy, u.side === 'defender', u.men, mine ? state.rulerAppearance : undefined, u.name ? (/^(Mother|Sister|Edith|Tamsin|Ysolde)/.test(u.name)?'female':'male') : (u.troopId%2?'female':'male')) || pixelSprite(u.type, mine ? 'mine' : 'foe', cx, cy + 10, 2.5, u.side === 'defender')}
         ${hero ? `<path d="m${cx + 15} ${cy - 23} 1.5 3 3.3.5-2.4 2.3.6 3.3-3-1.6-3 1.6.6-3.3-2.4-2.3 3.3-.5z" class="star"/>` : ''}
         <rect x="${cx - 18}" y="${cy + 3}" width="36" height="16" rx="4" class="unit-status-back"/>
         <text x="${cx}" y="${cy + 12}" class="men${hero ? ' hero-hp' : ''}">${u.routing ? 'RUN' : hero ? u.men+' HP' : u.men}</text>
@@ -137,7 +137,7 @@ export function renderBattle(state: GameState, ui: UIState): string {
            ${sel ? '<button data-action="battle-center" class="ghost" title="Scroll to the selected formation">Centre</button>' : ''}
          </span>
          <button data-action="battle-auto" class="ghost">Auto-resolve</button>
-         <button data-action="battle-end" class="primary">End turn</button>`}
+         <button data-action="battle-end" class="primary" title="End your turn (Enter)">End turn</button>`}
   </header>
   <main class="battle">
     <section class="field-wrap battle-scroll" tabindex="0" aria-label="Battlefield: drag or use the arrow keys to look around">

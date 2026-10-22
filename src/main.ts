@@ -214,7 +214,7 @@ function onAction(action: string, data: DOMStringMap, additive = false) {
     'route-preference', 'map-layer', 'map-zoom', 'hex-zoom', 'battle-zoom', 'view-quest', 'goto', 'journal', 'treasury', 'spell'].includes(action)) undoMove = null;
   switch (action) {
     case 'scout-post':
-      ui.message = assignScout(state, Number(data.troop), data.post as 'city' | 'road' | 'recall') ?? '';
+      ui.message = assignScout(state, Number(data.troop), data.post === 'recall' ? 'recall' : 'watch') ?? '';
       break;
     case 'assault-retreat':
       ui.assault = null;
@@ -576,6 +576,20 @@ app.addEventListener('click', (e) => {
   }
 }, true);
 app.addEventListener('scroll', (e) => { if ((e.target as Element).classList?.contains('battle-scroll')) syncMinimap(); }, true);
+// Enter ends your turn in battle, or the month on the overland map (unless typing, on a focused button, or a
+// dialog is open). It clicks the same button, so it is never available when the button isn't.
+window.addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter' || e.repeat || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+  const target = e.target as Element;
+  if (target.closest('input, textarea, select, button, a, [contenteditable]')) return;
+  if (savesOpen || feedback.length || ui.assault) return;
+  const button = state.battle
+    ? app.querySelector<HTMLButtonElement>('[data-action="battle-end"]:not(:disabled)')
+    : ui.view === 'map' ? app.querySelector<HTMLButtonElement>('[data-action="end-turn"]:not(:disabled)') : null;
+  if (!button) return;
+  e.preventDefault();
+  button.click();
+});
 // Arrow keys look around the battlefield (unless typing in a field).
 window.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && ui.assault) { e.preventDefault(); ui.assault = null; render(); return; }

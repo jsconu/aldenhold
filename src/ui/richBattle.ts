@@ -33,8 +33,28 @@ export function richRuin(cx:number,cy:number,seed:number):string{
 }
 
 /** A formation is a group of people; heroes and individual giant creatures keep a single silhouette. */
+const SKIN_ORDER = ['fair', 'olive', 'brown', 'deep'] as const;
+
+/** A scout's look, fixed for that scout: one of two figures and four skin tones, picked from its id. */
+export function scoutLook(troopId: number): { gender: 'male' | 'female'; skin: (typeof SKIN_ORDER)[number] } {
+  const h = Math.imul(troopId + 0x9e37, 2654435761) >>> 0;
+  return { gender: (h >>> 7) & 1 ? 'female' : 'male', skin: SKIN_ORDER[(h >>> 11) % 4] };
+}
+
+/** One scout figure from the scout atlas (4 skin tones across, male then female down). */
+export function scoutUnit(cx: number, cy: number, mirror: boolean, troopId: number): string {
+  const look = scoutLook(troopId);
+  const col = SKIN_ORDER.indexOf(look.skin), row = look.gender === 'female' ? 1 : 0;
+  return '<g class="rich-battle-unit" pointer-events="none"' + (mirror ? ' transform="translate(' + cx * 2 + ' 0) scale(-1 1)"' : '') + '><svg x="' + (cx - 25) + '" y="' + (cy - 40) + '" width="50" height="50" viewBox="' + col + ' ' + row + ' 1 1"><image href="/assets/battle/scouts-v1.png" width="4" height="2" preserveAspectRatio="none"/></svg></g>';
+}
+
+/** A scout in battle: a single figure at the scale of a formation's soldiers. */
+export function scoutFigure(cx: number, cy: number, mirror: boolean, troopId: number): string {
+  return '<g class="battle-formation" pointer-events="none" role="img" aria-label="Scout"><g transform="translate(' + cx + ' ' + (cy + 3) + ') scale(.64)">' + scoutUnit(0, 0, mirror, troopId) + '</g></g>';
+}
+
 export function battleFigure(type:string,cx:number,cy:number,mirror:boolean,men:number,appearance?:RulerAppearance,gender?:'male'|'female'):string{
- // A unit without illustrated art (the scout, for now) draws nothing here, so the caller falls back to its pixel sprite.
+ // A unit without illustrated art draws nothing here, so the caller falls back to its pixel sprite.
  if(!richUnit(type,0,0,false,appearance,gender))return '';
  if(UNIT_TYPES[type]?.hero){
   // Portrait cells are taller than square troop cells; normalize both to a roughly 32px person.

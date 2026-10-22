@@ -1,44 +1,97 @@
 import { describe, expect, it } from 'vitest';
+import { renderCampaign } from '../ui/campaignView';
+import { renderHexMap } from '../ui/hexMapView';
 import { armyAt, campaignOf, makeTroop, newGame, recruit } from './campaign';
 import { hexDistance, hexKey } from './hex';
 import { garrisonDefense } from './raids';
 import { parseSave } from './saves';
-import { assignScout, observeOrcRoutes } from './scouts';
-import { hasRoad, townLocation, worldOf } from './world';
+import { assignScout, inSight, observeOrcRoutes, SCOUT_RANGE } from './scouts';
+import type { GameState } from './types';
+import { parseKey, townLocation, worldOf } from './world';
 
-describe('local scout watch', () => {
-  it('posts scouts in cities and on roads, reports a crossing once, and reloads those orders', () => {
+/** Every hex of the western map at exactly `d` hexes from `from`. */
+function ring(s: GameState, from: string, d: number): string[] {
+  const world = worldOf(s);
+  if (world.kind !== 'hex') throw new Error('Western Realm should have hex geography');
+  return world.rows.flatMap((row, y) => [...row].map((_, x) => hexKey({ col: x, row: y })))
+    .filter((at) => hexDistance(parseKey(from), parseKey(at)) === d);
+}
+
+describe('scouts on watch', () => {
+  it('keeps watch where it stands, reports an orc force coming into sight once, and reloads the order', () => {
     const s = newGame(7, 'western-realm');
     const capital = campaignOf(s).capital;
     const home = townLocation(s, capital);
-    const cityArmy = armyAt(s, home, 'player')!;
     expect(recruit(s, capital, 'scout')).toBeNull();
-    const cityScout = cityArmy.troops.find((t) => t.type === 'scout')!;
+    const scout = armyAt(s, home, 'player')!.troops.find((t) => t.type === 'scout')!;
     const before = garrisonDefense(s, capital);
-    expect(assignScout(s, cityScout.id, 'city')).toBeNull();
+    expect(assignScout(s, scout.id, 'watch')).toBeNull();
+    expect(scout.scoutPost).toBe('watch');
     expect(garrisonDefense(s, capital)).toBe(before);
 
-    const [cx, cy] = home.split(',').map(Number);
-    const world = worldOf(s);
-    if (world.kind !== 'hex') throw new Error('Western Realm should have hex geography');
-    const roads = world.rows.flatMap((row, y) => [...row].map((_, x) => hexKey({ col: x, row: y })))
-      .filter((at) => hasRoad(s, at) && at !== home && hexDistance({ col: cx, row: cy }, { col: Number(at.split(',')[0]), row: Number(at.split(',')[1]) }) <= 3);
-    expect(roads.length).toBeGreaterThan(0);
-    const road = roads[0];
-    const roadScout = makeTroop(s, 'scout');
-    s.armies.push({ id: s.nextId++, owner: 'player', at: road, from: null, troops: [roadScout] });
-    expect(assignScout(s, roadScout.id, 'road')).toBeNull();
-    const enemy = { id: s.nextId++, owner: 'orcs' as const, at: road, from: null, troops: [makeTroop(s, 'warband')] };
+    // An orc force marching in from just beyond the scout's sight is reported, once.
+    const start = ring(s, home, SCOUT_RANGE + 1)[0];
+    const enemy = { id: s.nextId++, owner: 'orcs' as const, at: start, from: null, troops: [makeTroop(s, 'warband')] };
     s.armies.push(enemy);
-    const route = [road, home];
+    const route = [ring(s, home, SCOUT_RANGE).find((at) => hexDistance(parseKey(at), parseKey(start)) === 1)!, home];
     observeOrcRoutes(s, enemy, route);
-    expect(s.scoutReports?.length).toBeGreaterThan(0);
+    expect(s.journal.at(-1)!.text).toMatch(/^Scout at Aldenhold reports an orc force moving toward Aldenhold/);
     const count = s.journal.length;
     observeOrcRoutes(s, enemy, route);
     expect(s.journal).toHaveLength(count);
+
     const loaded = parseSave(JSON.stringify(s));
     expect(loaded.scoutReports).toEqual(s.scoutReports);
-    expect(loaded.armies.flatMap((a) => a.troops).find((t) => t.id === roadScout.id)?.scoutPost).toBe('road');
-    expect(assignScout(loaded, roadScout.id, 'recall')).toBeNull();
+    expect(loaded.armies.flatMap((a) => a.troops).find((t) => t.id === scout.id)?.scoutPost).toBe('watch');
+    expect(assignScout(loaded, scout.id, 'recall')).toBeNull();
+  });
+
+  it('sees nothing beyond its range', () => {
+    const s = newGame(7, 'western-realm');
+    const home = townLocation(s, campaignOf(s).capital);
+    const scout = makeTroop(s, 'scout');
+    armyAt(s, home, 'player')!.troops.push(scout);
+    expect(assignScout(s, scout.id, 'watch')).toBeNull();
+    const far = ring(s, home, SCOUT_RANGE + 4);
+    const enemy = { id: s.nextId++, owner: 'orcs' as const, at: far[0], from: null, troops: [makeTroop(s, 'warband')] };
+    s.armies.push(enemy);
+    expect(ring(s, home, SCOUT_RANGE).every((at) => inSight(s, home, at))).toBe(true);
+    expect(ring(s, home, SCOUT_RANGE + 1).some((at) => inSight(s, home, at))).toBe(false);
+    const count = s.journal.length;
+    observeOrcRoutes(s, enemy, [far[1]]);
+    expect(s.journal).toHaveLength(count);
+  });
+
+  it('reads older city and road posts as the same watch', () => {
+    const s = newGame(7, 'western-realm');
+    const home = townLocation(s, campaignOf(s).capital);
+    const scout = makeTroop(s, 'scout');
+    scout.scoutPost = 'road';
+    armyAt(s, home, 'player')!.troops.push(scout);
+    const loaded = parseSave(JSON.stringify(s));
+    expect(loaded.armies.flatMap((a) => a.troops).find((t) => t.id === scout.id)?.scoutPost).toBe('road');
+    const enemy = { id: loaded.nextId++, owner: 'orcs' as const, at: ring(loaded, home, 2)[0], from: null, troops: [makeTroop(loaded, 'warband')] };
+    loaded.armies.push(enemy);
+    observeOrcRoutes(loaded, enemy, [home]);
+    expect(loaded.journal.at(-1)!.text).toMatch(/^Scout at Aldenhold reports/);
+  });
+
+  it('says plainly what it watches, and the map shades its range', () => {
+    const s = newGame(7, 'western-realm');
+    const home = townLocation(s, campaignOf(s).capital);
+    const scout = makeTroop(s, 'scout');
+    armyAt(s, home, 'player')!.troops.push(scout);
+    const ui = { selected: home, checked: new Set<number>(), battleUnit: null, battleSpell: null, message: '', view: 'map' as const };
+    expect(renderCampaign(s, ui)).toContain('Keep watch here');
+    expect(renderCampaign(s, ui)).not.toContain('Watch road');
+    expect(assignScout(s, scout.id, 'watch')).toBeNull();
+    const panel = renderCampaign(s, ui);
+    expect(panel).toContain('On watch over Aldenhold');
+    expect(panel).toContain(`sees ${SCOUT_RANGE} hexes all around (shaded on the map)`);
+    const world = worldOf(s);
+    if (world.kind !== 'hex') throw new Error('hex map');
+    const map = renderHexMap(s, ui, world, new Map());
+    const shaded = (map.match(/class="watch-range watched-here"/g) ?? []).length;
+    expect(shaded).toBe([0, 1, 2, 3].reduce((n, d) => n + ring(s, home, d).length, 0));
   });
 });
