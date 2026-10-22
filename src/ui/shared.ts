@@ -7,6 +7,8 @@ export interface UIState {
   selected: string | null;
   /** Troops ticked to march from the selected node. */
   checked: Set<number>;
+  /** Choice before committing a march into a defended hostile settlement. */
+  assault?: { from: string; to: string; troopIds: number[] } | null;
   /** Selected unit in the current battle. */
   battleUnit: number | null;
   /** Tactical formation IDs selected for a simultaneous move (the battleUnit is the lead). */

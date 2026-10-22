@@ -25,6 +25,7 @@ import { conditionHolds, conditionText, isOpen, questQuote, questsAt, questsAtSi
 import { esc, type UIState } from './shared';
 import { renderOverland } from './overlandMap';
 import { previewRoute, type RoutePreview } from '../game/overlandRoutes';
+import { renderCityAssault } from './cityAssault';
 
 const OWNER_LABEL = (owner: FactionId) => FACTIONS[owner].ownerLabel;
 
@@ -42,7 +43,7 @@ export function renderCampaign(state: GameState, ui: UIState): string {
   const operating = totalCityMaintenance(state);
   const net = income - upkeep - operating;
   return `
-  <header class="bar">
+  <header class="bar" ${ui.assault ? 'inert' : ''}>
     <h1>Aragon <small>${esc(campaignOf(state).name)}</small></h1>
     <span class="date">${dateLabel(state.turn)}</span>
     <span class="gold" title="Taxes ${income}, troop wages ${upkeep}, city maintenance ${operating}">Gold <b>${state.gold}</b>
@@ -57,7 +58,7 @@ export function renderCampaign(state: GameState, ui: UIState): string {
   </header>
   ${ui.choosing ? renderChooser(state) : ''}
   ${state.status !== 'playing' ? `<div class="banner ${state.status}">${state.status === 'won' && state.endingReason === 'chapter-complete' ? `${esc(campaignOf(state).chapter!.title)} is complete. ${esc(campaignOf(state).chapter!.ending)}` : state.status === 'won' ? `You have won. ${isHexCampaign(state) ? 'The realm' : 'The valley'} is united.` : state.endingReason === 'lord-dead' ? 'You have lost. Your lord is dead.' : `You have lost. ${esc(nodeName(state, campaignOf(state).capital))} has fallen.`} <button data-action="new-game">Play again</button></div>` : ''}
-  ${ui.view === 'treasury' ? renderTreasury(state) : ui.view === 'journal' ? renderJournal(state) : `<main class="campaign">
+  ${ui.view === 'treasury' ? renderTreasury(state) : ui.view === 'journal' ? renderJournal(state) : `<main class="campaign" ${ui.assault ? 'inert' : ''}>
     ${isHexCampaign(state) ? renderHexSection(state, ui) : `<section class="map-wrap">
       ${renderMapToolbar(state, ui)}
       ${renderOverland(state, ui, [...moveTargets(state, ui).keys()], plannedRoute(state, ui)?.stops.map((s) => s.id) ?? [])}
@@ -79,7 +80,8 @@ export function renderCampaign(state: GameState, ui: UIState): string {
       ${ui.selected ? renderNodePanel(state, ui, ui.selected) : '<p class="hint">Click a place on the map. Your troops show as blue shields.</p>'}
       <details class="log" open><summary>Chronicle</summary><ul>${state.log.slice(0, 14).map((l) => `<li>${esc(l)}</li>`).join('')}</ul></details>
     </aside>
-  </main>`}`;
+  </main>`}
+  ${ui.assault ? renderCityAssault(state, ui.assault) : ''}`;
 }
 
 /** Keep the immediate march action visible even when the troop list is farther down the sidebar. */

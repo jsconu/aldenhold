@@ -33,4 +33,6 @@ At an encounter site, expand **Expedition** to inspect the troops that will depl
 
 Battles set up your army automatically: healthy, strong melee formations go in front, while archers, priests, mages and the ruler start behind the screen. There is no formation grid in the city panel. Older saves with custom army plans still load, but new battles use the automatic layout; a battle already in progress keeps its saved positions.
 
+Marching into a defended hostile town opens an assault preview first. It shows the known defenders and the movement cost. Choose **Attack** to march and fight, or **Retreat** to stay at your current location without spending movement. **Besiege** is visible but unavailable until the siege rules are built. Empty towns and lairs use the current arrival rules.
+
 The **Treasury** shows posted receipts and payments by category and location, the cash reconciliation, and unpaid bills. Quest rewards and item sales appear alongside taxes; current-month activity remains separate from closed months.

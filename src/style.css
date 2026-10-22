@@ -551,4 +551,8 @@ button.travel-destination b { color: var(--gold); font-size: 11px; }
 .hex-scroll { max-height: 72vh; overflow: auto; border-radius: 6px; background: #44543c; cursor: grab; overscroll-behavior: contain; }
 .hex-scroll svg.map.overland { width: auto; max-width: none; height: auto; display: block; border-radius: 0; }
 .hex-scroll .terrain { image-rendering: pixelated; }
+.assault-shade { position: fixed; z-index: 30; inset: 0; background: #080d0bbb; display: grid; place-items: center; padding: 16px; }
+.assault-prompt { max-width: 560px; max-height: min(90vh, 700px); overflow: auto; padding: 24px; border: 2px solid var(--gold); border-radius: 10px; background: var(--panel); box-shadow: 0 18px 50px #0009; }
+.assault-prompt h2 { margin-top: 0; }
+.assault-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 22px; }
 .overland .cell:hover { fill: rgba(255, 246, 210, 0.2); stroke: #fff1c2 !important; stroke-width: 0.8; }
