@@ -27,4 +27,6 @@ Use the Journal’s **Show** links to locate an active encounter on the map. Tra
 
 At an encounter site, expand **Expedition** to inspect the troops that will deploy, remain in reserve or wait outside. Hero-only trials leave your ruler and formations outside.
 
+Battles set up your army automatically: healthy, strong melee formations go in front, while archers, priests, mages and the ruler start behind the screen. There is no formation grid in the city panel. Older saves with custom army plans still load, but new battles use the automatic layout; a battle already in progress keeps its saved positions.
+
 The **Treasury** shows posted receipts and payments by category and location, the cash reconciliation, and unpaid bills. Quest rewards and item sales appear alongside taxes; current-month activity remains separate from closed months.

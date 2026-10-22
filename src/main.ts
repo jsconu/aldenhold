@@ -1,7 +1,7 @@
 import './style.css';
 import { HEX_ZOOMS, hexZoom } from './ui/hexMapView';
 import {
-  attack, attackTargets, autoResolve, castSpell, escapeQuote, moveUnit, planDeployment, playerEndTurn, playerSide, reachable, spellTargets, teleportDestinations, tryEscape, unitAt,
+  attack, attackTargets, autoResolve, castSpell, escapeQuote, moveUnit, playerEndTurn, playerSide, reachable, spellTargets, teleportDestinations, tryEscape, unitAt,
 } from './game/battle';
 import { applyBattle, armyAt, campaignOf, endTurn, hireHero, moveTroops, newGame, recruit, setTax } from './game/campaign';
 import { townLocation } from './game/world';
@@ -15,8 +15,7 @@ import { CATALOG } from './content';
 import { chooseQuest } from './game/quests';
 import { discardItem, equipItem, sellItem, unequipItem, useItem } from './game/items';
 import { buyItem } from './game/merchants';
-import { placeFormation, setStance } from './game/tactics';
-import type { HeroSlot, Stance } from './game/types';
+import type { HeroSlot } from './game/types';
 import { questFocus } from './ui/questNavigation';
 import { buildCity, BUILDINGS } from './game/cities';
 import { beginRefit, EQUIPMENT } from './game/equipment';
@@ -243,23 +242,6 @@ function onAction(action: string, data: DOMStringMap) {
       if (!questQuote(state, data.quest ?? '', data.choice ?? '').reason && !checkpoint('Before quest choice')) break;
       ui.message = chooseQuest(state, data.quest ?? '', data.choice ?? '') ?? '';
       break;
-    case 'set-stance':
-      ui.message = setStance(state, Number(data.army), data.stance as Stance) ?? '';
-      ui.tacticsTroop = null;
-      break;
-    case 'tactics-cell': {
-      const army = state.armies.find((a) => a.id === Number(data.army));
-      if (!army) break;
-      const cell = { depth: Number(data.depth), row: Number(data.row) };
-      const here = [...planDeployment(army)].find(([, c]) => c.depth === cell.depth && c.row === cell.row)?.[0];
-      if (ui.tacticsTroop != null && army.troops.some((t) => t.id === ui.tacticsTroop)) {
-        if (here !== ui.tacticsTroop) ui.message = placeFormation(state, army.id, ui.tacticsTroop, cell) ?? '';
-        ui.tacticsTroop = null;
-      } else if (here !== undefined) {
-        ui.tacticsTroop = here;
-      }
-      break;
-    }
     case 'buy-item':
       ui.message = buyItem(state, data.merchant ?? '', data.item ?? '') ?? '';
       break;

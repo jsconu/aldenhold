@@ -13,9 +13,7 @@ import { heroLevel, heroMaxHp, heroMaxMana, level } from '../game/units';
 import { EQUIPMENT, refitQuote, equipmentUpkeep, usesBow } from '../game/equipment';
 import { RELATION_LABEL, relationWith } from '../game/diplomacy';
 import { FACTIONS } from '../content/factions';
-import type { Army, CampaignId, FactionId, GameState, QuestDefinition, Stance, Town, Troop } from '../game/types';
-import { planDeployment } from '../game/battle';
-import { STANCES } from '../game/tactics';
+import type { Army, CampaignId, FactionId, GameState, QuestDefinition, Town, Troop } from '../game/types';
 import { HERO_SLOTS, unequipQuote } from '../game/items';
 import { buyQuote, merchantsAt, merchantStatus } from '../game/merchants';
 import { ITEMS } from '../content/items';
@@ -390,33 +388,6 @@ function renderKit(state: GameState, hero: Troop): string {
   }).join('')}</div>`;
 }
 
-/**
- * The army's battle plan: stance buttons, and the 3x9 deployment zone showing where each formation will start
- * (front column toward the enemy). Click a formation, then a cell, to move it there (the plan becomes Custom).
- */
-function renderTactics(ui: UIState, a: Army): string {
-  const stance = a.tactics?.stance ?? 'offensive';
-  const plan = planDeployment(a);
-  const at = new Map([...plan].map(([id, c]) => [`${c.depth},${c.row}`, a.troops.find((t) => t.id === id)!]));
-  const picked = a.troops.some((t) => t.id === ui.tacticsTroop) ? ui.tacticsTroop : null;
-  const label = (t: Troop) => esc(t.name ?? UNIT_TYPES[t.type].short);
-  const rows = Array.from({ length: 9 }, (_, row) => `<tr>${[2, 1, 0].map((depth) => {
-    const t = at.get(`${depth},${row}`);
-    const cls = [t ? 'filled' : '', t && t.id === picked ? 'picked' : '', t && UNIT_TYPES[t.type].hero ? 'hero' : ''].filter(Boolean).join(' ');
-    return `<td><button class="cell ${cls}" data-action="tactics-cell" data-army="${a.id}" data-depth="${depth}" data-row="${row}"
-      title="${t ? esc(`${t.name ?? UNIT_TYPES[t.type].name}: click, then click another cell to move it`) : picked ? 'Move the picked formation here' : 'Empty'}">${t ? label(t) : ''}</button></td>`;
-  }).join('')}</tr>`).join('');
-  const reserves = a.troops.filter((t) => !plan.has(t.id));
-  return `<details class="tactics" ${ui.tacticsTroop && picked ? 'open' : ''}><summary>Battle plan: ${STANCES[stance].name}</summary>
-    <div class="stances">${(Object.keys(STANCES) as Stance[]).map((s) => `<button data-action="set-stance" data-army="${a.id}" data-stance="${s}"
-      class="${s === stance ? 'primary' : 'ghost'}" title="${esc(STANCES[s].text)}">${STANCES[s].name}</button>`).join('')}</div>
-    <p class="sub">${esc(STANCES[stance].text)}</p>
-    <table class="deploy-grid"><thead><tr><th>Back</th><th>Middle</th><th>Front</th></tr></thead><tbody>${rows}</tbody></table>
-    <p class="sub">${picked ? 'Now click the cell to move it to.' : 'Click a formation, then a cell, to place it yourself (the plan becomes Custom).'} The front column faces the enemy.</p>
-    ${reserves.length ? `<p class="sub">Won’t fit on the field: ${reserves.map((t) => label(t)).join(', ')}.</p>` : ''}
-  </details>`;
-}
-
 function renderArmy(state: GameState, ui: UIState, a: Army): string {
   const mine = a.owner === 'player';
   const hexWorld = isHexCampaign(state);
@@ -449,7 +420,7 @@ function renderArmy(state: GameState, ui: UIState, a: Army): string {
   return `<div class="army-card own-${a.owner}"><h3>${mine ? 'Your troops' : a.owner === 'orcs' ? 'Orc host' : 'Town militia'}</h3>
     <ul class="troops">${rows}</ul>
     ${mine && townAt(state, a.at)?.owner === 'player' ? renderRefitChoices(state, a) : ''}
-    ${mine ? renderTactics(ui, a) : ''}
+    ${mine ? '<p class="sub">In battle, your toughest melee formations set up in front; archers, casters and the leader start behind them.</p>' : ''}
     ${ready ? `<p class="hint">${hint}</p>` : ''}</div>`;
 }
 
