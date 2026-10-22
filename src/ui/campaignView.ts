@@ -1,3 +1,7 @@
+import {campaignObjectives,explored,DIFFICULTIES} from '../game/challenge';
+import {replacementQuote} from '../game/replacements';
+import { renderRulerSelection } from './rulerSelection';
+import { questOutcome } from './gameplayFeedback';
 import { LAIRS, SPECIES, type LairDefinition } from '../content/lairs';
 import { DETERRENCE, monthsAway, raidLine, raidOdds, raidsOn, raidStakes } from '../game/raids';
 import { lairAt, lairGarrison } from '../game/lairs';
@@ -40,6 +44,7 @@ export function moveTargets(state: GameState, ui: UIState): Map<string, MarchSte
 const isHexCampaign = (state: GameState) => worldOf(state).kind === 'hex';
 
 export function renderCampaign(state: GameState, ui: UIState): string {
+  if(ui.creatingFor && ui.rulerDraft)return renderRulerSelection(ui);
   const income = monthlyIncome(state);
   const upkeep = monthlyUpkeep(state);
   const operating = totalCityMaintenance(state);
@@ -74,6 +79,7 @@ export function renderCampaign(state: GameState, ui: UIState): string {
     </section>`}
     <aside class="side">
       ${ui.message ? `<p class="msg">${esc(ui.message)}</p>` : ''}
+      ${renderCampaignObjectives(state)}
       ${renderOfferNotice(state, ui)}
       ${isHexCampaign(state) ? renderMarchGuide(state, ui) : ''}
       ${isHexCampaign(state) ? '' : renderRoutePlanner(state, ui)}
@@ -198,6 +204,7 @@ function renderRecruit(state: GameState, town: Town, title = 'Raise troops'): st
 
 /** Side panel for a location: its town (if any), the land on a hex map, and the armies there. */
 function renderNodePanel(state: GameState, ui: UIState, at: string): string {
+  if(!explored(state,at))return '<h2>Unexplored frontier</h2><p>March into an adjacent gold-bordered frontier hex to scout it. Terrain and nearby sites are revealed by your army; monsters can interrupt travel.</p>';
   const town = townAt(state, at);
   const id = town?.id ?? at;
   const armies = state.armies.filter((a) => a.at === at);
@@ -292,7 +299,7 @@ function renderQuests(state: GameState, defs: QuestDefinition[]): string {
     if (!isOpen(q)) {
       const passage = q.status === 'succeeded' && state.treaties[def.at]?.passage
         ? `<p class="sub">Your armies may share this town with its neutral garrison. ${esc(nodeName(state, def.at))} remains independent and pays no tax.</p>` : '';
-      return `${head}<p>${esc(questSummary(state, def.id))}.</p>${passage}</div>`;
+      return `${head}<p>${esc(questSummary(state, def.id))}.</p>${questOutcome(state,def.id)}${passage}</div>`;
     }
     const stage = stageOf(def, q.stage)!;
     const quotes = stage.choices.map((c) => ({ c, quote: questQuote(state, def.id, c.id) }));
@@ -409,14 +416,14 @@ function renderTactics(ui: UIState, a: Army): string {
       title="${t ? esc(`${t.name ?? UNIT_TYPES[t.type].name}: click, then click another cell to move it`) : picked ? 'Move the picked formation here' : 'Empty'}">${t ? label(t) : ''}</button></td>`;
   }).join('')}</tr>`).join('');
   const reserves = a.troops.filter((t) => !plan.has(t.id));
-  return `<details class="tactics" ${ui.tacticsTroop && picked ? 'open' : ''}><summary>Battle plan: ${STANCES[stance].name}</summary>
+  return `<section class="tactics" aria-label="Battle plan"><h3>Battle plan: ${STANCES[stance].name}</h3><p>Choose how this army starts its next battle. This sets starting positions and automatic fighting behavior. You can still command each unit during battle.</p>
     <div class="stances">${(Object.keys(STANCES) as Stance[]).map((s) => `<button data-action="set-stance" data-army="${a.id}" data-stance="${s}"
-      class="${s === stance ? 'primary' : 'ghost'}" title="${esc(STANCES[s].text)}">${STANCES[s].name}</button>`).join('')}</div>
+      aria-pressed="${s===stance}" class="${s === stance ? 'primary' : 'ghost'}" title="${esc(STANCES[s].text)}">${STANCES[s].name}<small>${esc(STANCES[s].text)}</small></button>`).join('')}</div>
     <p class="sub">${esc(STANCES[stance].text)}</p>
-    <table class="deploy-grid"><thead><tr><th>Back</th><th>Middle</th><th>Front</th></tr></thead><tbody>${rows}</tbody></table>
+    <details class="custom-deployment"><summary>Arrange individual starting positions</summary><table class="deploy-grid"><thead><tr><th>Back</th><th>Middle</th><th>Front</th></tr></thead><tbody>${rows}</tbody></table>
     <p class="sub">${picked ? 'Now click the cell to move it to.' : 'Click a formation, then a cell, to place it yourself (the plan becomes Custom).'} The front column faces the enemy.</p>
     ${reserves.length ? `<p class="sub">Won’t fit on the field: ${reserves.map((t) => label(t)).join(', ')}.</p>` : ''}
-  </details>`;
+  </details></section>`;
 }
 
 function renderArmy(state: GameState, ui: UIState, a: Army): string {
@@ -434,7 +441,7 @@ function renderArmy(state: GameState, ui: UIState, a: Army): string {
       if (type.hero) {
         const mana = type.hero.mana ? ` · ${t.mana ?? 0}/${heroMaxMana(t.type, t.xp)} mana` : '';
         return `<li class="hero ${spent && mine ? 'done' : ''}"><label>${box}<span class="tname">★ ${esc(t.name ?? type.name)}
-          <small>${type.name}</small></span><span class="men">${t.men}/${heroMaxHp(t.type, t.xp)} HP${mana}</span>
+          <small>${t.type==='lord' && state.rulerAppearance ? 'Knight' : type.name}</small></span><span class="men">${t.men}/${heroMaxHp(t.type, t.xp)} HP${mana}</span>
           <span class="lv">Lv ${heroLevel(t.xp)}</span>${marched}</label>${mine ? renderKit(state, t) : ''}</li>`;
       }
       const lv = level(t.xp);
@@ -450,17 +457,18 @@ function renderArmy(state: GameState, ui: UIState, a: Army): string {
     : 'Tick the troops to send, then click a glowing place on the map.';
   return `<div class="army-card own-${a.owner}"><h3>${mine ? 'Your troops' : a.owner === 'orcs' ? 'Orc host' : 'Town militia'}</h3>
     <ul class="troops">${rows}</ul>
-    ${mine && townAt(state, a.at)?.owner === 'player' ? renderRefitChoices(state, a) : ''}
+    ${mine ? renderReplacements(state,a) : ''}
+    ${mine && townAt(state, a.at)?.owner === 'player' ? renderRefitChoices(state, a, ui) : ''}
     ${mine ? renderTactics(ui, a) : ''}
     ${ready ? `<p class="hint">${hint}</p>` : ''}</div>`;
 }
 
-function renderRefitChoices(state: GameState, army: Army): string {
+function renderRefitChoices(state: GameState, army: Army, ui:UIState): string {
   // Formations the player can raise (orc troops captured in some future rule would not qualify).
   const choices = army.troops.filter((t) => !UNIT_TYPES[t.type].hero && UNIT_TYPES[t.type].recruit !== null);
   if (!choices.length) return '';
-  return `<details class="refit-panel"><summary>Equip veteran formations</summary>
-    <p class="sub">Upgrades require experience, a friendly city, enough gold and local materials. Refitting takes the rest of this month; the previous equipment remains in use until completion.</p>
+  return `<section class="refit-panel" aria-label="Troop equipment"><h3>Troop equipment upgrades</h3>
+    <p class="sub">Select an upgrade to inspect it. Chain armor needs level 2 troops and a Tool Forge; better bows and plate need more experience. Heroes use Journal → Inventory instead. Upgrades require experience, an owned city, enough gold and local materials. Refitting takes the rest of this month; the previous equipment remains in use until completion.</p>
     ${choices.map((troop) => {
       const options = usesBow(troop.type) ? ['long-bow', 'compound-bow', 'chain'] as const : ['chain', 'plate'] as const;
       return `<div class="refit-row"><b>${UNIT_TYPES[troop.type].name} #${troop.id}</b>
@@ -470,16 +478,16 @@ function renderRefitChoices(state: GameState, army: Army): string {
           const quote = refitQuote(state, townId, troop.id, id);
           const gear = EQUIPMENT[id];
           const inputs = Object.entries(quote.materials).map(([g, qty]) => `${qty} ${g}`).join(' + ');
-          return `<div class="refit-option"><button data-action="refit" data-node="${townId}"
-            data-troop="${troop.id}" data-item="${id}" ${quote.reason ? 'disabled' : ''}
-            title="${esc(quote.reason ?? 'Pay now; equipment arrives at month end')}">
+          return `<div class="refit-option"><button data-action="inspect-refit" data-node="${townId}"
+            data-troop="${troop.id}" data-item="${id}" aria-pressed="${ui.refitChoice?.troop===troop.id && ui.refitChoice.item===id}"
+            title="${esc(quote.reason ?? 'Inspect this upgrade and its cost')}">
             ${gear.name} · ${quote.gold}g${inputs ? ' + ' + inputs : ''}</button>
             <small>Lv ${gear.level}+ · ${gear.slot === 'bow' ? `Damage ×${gear.attackFactor}, range +${gear.rangeBonus}` :
               `Defense +${gear.defenseBonus}`} · upkeep ${gear.upkeep}g/mo
-              ${quote.reason ? ' · ' + esc(quote.reason) : ''}</small></div>`;
+              ${quote.reason ? ' · ' + esc(quote.reason) : ''}</small>${ui.refitChoice?.troop===troop.id && ui.refitChoice.item===id ? `<div class="refit-preview"><p>${quote.reason ? esc(quote.reason)+' Earn experience in battle, build the required forge and keep this formation in town to refit.' : 'Ready to order. Pay now; equipment arrives at month end.'}</p><button data-action="refit" data-node="${townId}" data-troop="${troop.id}" data-item="${id}" ${quote.reason?'disabled':''}>Confirm refit · ${quote.gold}g</button></div>` : ''}</div>`;
         }).join('')}</div>`;
     }).join('')}
-  </details>`;
+  </section>`;
 }
 
 function heroSummary(typeId: string): string {
@@ -550,4 +558,13 @@ function renderChooser(state: GameState): string {
   return `<div class="chooser" role="dialog" aria-label="Choose a campaign"><div class="chooser-box">
     <h2>Choose a campaign</h2>${warning}<div class="campaign-cards">${cards}</div>
     <button class="ghost" data-action="cancel-choose">Cancel</button></div></div>`;
+}
+
+function renderReplacements(state:GameState,army:Army):string{
+ const wounded=army.troops.filter(t=>!UNIT_TYPES[t.type].hero && t.men<UNIT_TYPES[t.type].men);if(!wounded.length)return '';
+ return '<section class="refit-panel"><h3>Recruit replacements</h3><p>Fill depleted formations at a town you rule. New recruits cost gold and population, dilute experience, and use the formation’s remaining movement this month. Existing equipment is retained; outfitting replacements is included in the price.</p>'+wounded.map(t=>{const q=replacementQuote(state,t.id);return '<p><b>'+esc(UNIT_TYPES[t.type].name)+' #'+t.id+'</b> · '+t.men+'/'+UNIT_TYPES[t.type].men+'<br><button data-action="replacements" data-troop="'+t.id+'" '+(q.reason?'disabled':'')+'>Recruit '+q.men+' replacements · '+q.gold+'g</button>'+(q.reason?'<small>'+esc(q.reason)+'</small>':'')+'</p>';}).join('')+'</section>';
+}
+function renderCampaignObjectives(state:GameState):string{
+ const objectives=campaignObjectives(state);if(!objectives.length)return '';
+ return '<section class="campaign-objectives"><h2>Unite the Western Realm</h2><p>'+DIFFICULTIES[state.challenge!.difficulty].name+' · '+(state.challenge!.fog?'Explore to reveal the map. ':'')+'Gharzak Hold is the final battle. Prepare the realm and gather all three relics before the assault.</p><ol>'+objectives.map(o=>'<li class="'+(o.done?'objective-done':'')+'">'+(o.done?'✓ ':'○ ')+esc(o.label)+(o.at?'<button class="link" data-action="goto" data-node="'+esc(startLocation(state,o.at))+'">Show objective</button>':'')+'</li>').join('')+'</ol></section>';
 }

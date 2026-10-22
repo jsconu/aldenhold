@@ -1,6 +1,11 @@
+import type { CampaignId } from '../game/types';
+import type { RulerChoice } from '../game/rulerCreation';
 import type { SpellId } from '../game/types';
 
 export interface UIState {
+  refitChoice?: {troop:number;item:import('../game/types').EquipmentId};
+  creatingFor?: CampaignId;
+  rulerDraft?: RulerChoice;
   /** The campaign chooser is open. */
   choosing?: boolean;
   /** Selected map node. */

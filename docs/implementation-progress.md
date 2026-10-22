@@ -842,3 +842,27 @@ Validation: production build passed; full regression suite passed, 446 tests acr
 The first timber-art integration placed one small sprite per water hex and kept old plank strokes. Crossings now group contiguous road/water cells, draw one larger illustration between the two banks, and align it from the full span. The two-cell southern crossing uses one bridge; the named Stone Bridge keeps its separate masonry asset. Added a regression check for all three wooden crossings and removal of legacy plank strokes.
 
 Bridge perspective correction: replacing whole-sprite rotation with three purpose-drawn views (horizontal and both diagonals). Support posts remain upright in screen space; a renderer check prevents reintroducing rotation. New source atlas: `wood-bridges-v2.png`.
+
+## Playtest clarity and opening character selection
+
+Replaced flat city-development primitives with a transparent nine-cell illustration atlas (two tiers per production building plus scaffolding); reduced foreground sizes and kept actual saved levels. Battle ruins now use four weathered-stone variants over grass instead of flat glyphs on brown patches. Legal moves use gold-bordered hexes with dark outlines in both maps; combat destinations and spell areas retain distinct colors/patterns.
+
+Side-quest resolution now opens an acknowledgement panel listing the actual outcome, items and item rules, gold earned/paid and realm consequences. Reports can be reopened in Journal and quest cards. Newly joined heroes get role, upkeep, location, movement timing, equipment and spell instructions; the Journal retains each hero’s guide. Feedback is UI-only, applies no rewards, and has focus handling and an inert background.
+
+Starting a campaign now opens a ruler-selection screen: editable name, male/female presentation and four skin tones, with twenty-four original character illustrations across Knight, Priest and Mage. Appearance persists in saves and changes the ruler’s battlefield image; gender and skin tone are cosmetic while class changes abilities. Legacy saves keep their existing ruler.
+
+### Ruler classes
+Knight, Priest and Mage are now selectable rulers. Each class offers male/female characters across four skin tones with matching original portraits and battlefield art. Priest and Mage use their own hero stats, mana and spells. All classes preserve ruler-death defeat, ruler adventures and ruler-only relic access; legacy games retain Knight rulers.
+
+### Equipment and battle plan discoverability
+Equipment upgrades and army plan choices stay visible. Locked upgrades can be selected for inspection; their reason and cost are shown with a separate guarded purchase confirmation. Offensive, Defensive and Skirmish plans show explanations alongside their buttons; individual placement remains optional.
+
+### Formation silhouettes
+Regular battlefield formations render up to three smaller figures (mixed male/female humans); heroes remain single larger figures with the existing star marker. Very depleted formations show fewer figures. Individual giant creatures keep a single silhouette. These changes are visual and do not alter casualties, range or hit areas.
+
+### Campaign difficulty, preparation and replacements (owner playtest feedback)
+New campaigns offer Easy, Normal and Hard. New Western campaigns require M01–M04, Farms 2 plus a Tool Forge in Aldenhold, two upgraded formations, the Oathlance, Keeper’s Signet and Hillcrest Medallion, and conquest of Gharzak Hold. M04 no longer ends these campaigns early. Normal/Hard use permanent exploration: armies reveal nearby terrain; unknown hexes stop blind path expansion and hide site/army labels. Existing saves retain their previous rules.
+The Hold starts with 8/10/12 formations and progressively more experience; raids leave at least eight defenders. Other hostile armies gain experience by difficulty. Replacements restore existing formations at owned towns, cost population and gold including outfitting, dilute XP and spend remaining movement. Female figures now cover all nine human combat classes.
+The Barrow allows paid atonement after an initially rejected oath, preventing its required relic from silently making a campaign unwinnable. Difficulty and exploration are saved and validated.
+
+Validation: production build passes. The 476-test full run passed 474 checks; the two long legacy simulations exceeded their limits under load and both passed in a 29-test isolated recheck. The added scouting workflow and prepared-Hold battle checks pass, bringing coverage to 478 tests across these runs. Six Normal/Hard seeded starting-army assaults failed; a developed twelve-formation Normal army won with the ruler alive. Browser checks verified class selection, upgrade inspection, direct stance changes, and hired-hero guidance. Owner playtesting remains the balance acceptance step.

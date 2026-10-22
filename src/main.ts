@@ -1,3 +1,6 @@
+import {recruitReplacements} from './game/replacements';
+import { createRulerCampaign, SKIN_TONES } from './game/rulerCreation';
+import { feedbackSnapshot, newFeedback, renderFeedback, type GameplayNotice } from './ui/gameplayFeedback';
 import './style.css';
 import { HEX_ZOOMS, hexZoom } from './ui/hexMapView';
 import {
@@ -45,6 +48,7 @@ let state = loaded.state ?? newGame();
 let hasGame = loaded.state !== null;
 let savesOpen = false;
 let recoveryWarning = '';
+let feedback:GameplayNotice[]=[];
 
 function save() {
   if (autosaveBlocked || !hasGame) return;
@@ -58,12 +62,15 @@ function checkpoint(reason: Parameters<typeof captureRecovery>[2]): boolean {
 }
 
 function activate(next: GameState) {
+  feedback=[];
   state = next;
   hasGame = true;
   autosaveBlocked = false;
   saveWarning = '';
   savesOpen = false;
   ui.choosing = false;
+  ui.creatingFor=undefined;
+  ui.rulerDraft=undefined;
   ui.battleUnit = null;
   ui.battleSpell = null;
   ui.battleTarget = null;
@@ -156,10 +163,11 @@ function render() {
     app.querySelector('.unit.mine')?.scrollIntoView({ block: 'center', inline: 'center' });
   }
   syncMinimap();
+  app.querySelector<HTMLElement>('#feedback-heading')?.focus({preventScroll:true});
 }
 
 function draw() {
-  app.innerHTML = `<nav class="save-bar" aria-label="Saved games">
+  app.innerHTML = `<div ${feedback.length ? 'inert' : ''}><nav class="save-bar" aria-label="Saved games">
     <button data-action="saved-games" aria-expanded="${savesOpen}" aria-controls="save-content">${savesOpen ? 'Back to game' : 'Saved games'}</button>
     <button data-action="export-save" ${hasGame ? '' : 'disabled'}>Export save</button>
     <button data-action="import-save">Import save</button>
@@ -167,7 +175,7 @@ function draw() {
     ${saveWarning ? `<p class="msg" role="alert">${esc(saveWarning)}</p>` : ''}
     ${recoveryWarning ? `<p class="msg" role="alert">${esc(recoveryWarning)}</p>` : ''}
     </nav><div id="save-content">${savesOpen ? renderSaveManager(storage, hasGame) :
-    state.battle ? renderBattle(state, ui) : renderCampaign(state, ui)}</div>`;
+    state.battle ? renderBattle(state, ui) : renderCampaign(state, ui)}</div></div>${renderFeedback(state,feedback)}`;
 }
 
 function selectNode(id: string) {
@@ -177,8 +185,13 @@ function selectNode(id: string) {
 }
 
 function onAction(action: string, data: DOMStringMap) {
+  const before=feedbackSnapshot(state),previousState=state;
+  const nameInput=app.querySelector<HTMLInputElement>('#ruler-name');
+  if(ui.rulerDraft && nameInput)ui.rulerDraft.name=nameInput.value;
   ui.message = '';
   switch (action) {
+    case 'feedback-dismiss': feedback.shift(); break;
+    case 'feedback-journal': feedback=[]; ui.view='journal'; break;
     case 'new-game':
       ui.choosing = true;
       break;
@@ -186,8 +199,27 @@ function onAction(action: string, data: DOMStringMap) {
       ui.choosing = false;
       break;
     case 'start-campaign':
-      if (!checkpoint('Before new campaign')) break;
-      activate(newGame(undefined, data.campaign as CampaignId));
+      ui.creatingFor=data.campaign as CampaignId;ui.choosing=false;
+      ui.rulerDraft={name:'Aldric',gender:'male',skin:'fair'};
+      break;
+    case 'ruler-gender':
+      if(ui.rulerDraft && (data.value==='male'||data.value==='female')){
+        if(['Aldric','Elara'].includes(ui.rulerDraft.name))ui.rulerDraft.name=data.value==='female'?'Elara':'Aldric';
+        ui.rulerDraft.gender=data.value;
+      }
+      break;
+    case 'ruler-difficulty':
+      if(ui.rulerDraft && ['easy','normal','hard'].includes(data.value??''))ui.rulerDraft.difficulty=data.value as 'easy'|'normal'|'hard';
+      break;
+    case 'ruler-class':
+      if(ui.rulerDraft && ['knight','priest','mage'].includes(data.value??''))ui.rulerDraft.rulerClass=data.value as 'knight'|'priest'|'mage';
+      break;
+    case 'ruler-skin':
+      if(ui.rulerDraft && SKIN_TONES.some(s=>s===data.value))ui.rulerDraft.skin=data.value as typeof ui.rulerDraft.skin;
+      break;
+    case 'ruler-back':ui.creatingFor=undefined;ui.choosing=true;break;
+    case 'confirm-ruler':
+      if(ui.creatingFor && ui.rulerDraft && checkpoint('Before new campaign'))activate(createRulerCampaign(ui.creatingFor,ui.rulerDraft));
       break;
     case 'plan-route':
       ui.routeOrigin = ui.selected;
@@ -278,6 +310,12 @@ function onAction(action: string, data: DOMStringMap) {
     case 'discard-item':
       ui.message = discardItem(state, data.item ?? '') ?? '';
       break;
+    case 'replacements':
+      ui.message=recruitReplacements(state,Number(data.troop))??'Replacements recruited. This formation will be ready next month.';
+      break;
+    case 'inspect-refit':
+      if(Object.hasOwn(EQUIPMENT,data.item??''))ui.refitChoice={troop:Number(data.troop),item:data.item as EquipmentId};
+      break;
     case 'refit': {
       const item = data.item as EquipmentId;
       if (!Object.hasOwn(EQUIPMENT, item)) { ui.message = 'Unknown equipment.'; break; }
@@ -312,6 +350,7 @@ function onAction(action: string, data: DOMStringMap) {
       ui.view = ui.view === 'journal' ? 'map' : 'journal';
       break;
     case 'goto':
+      feedback=[];
       ui.view = 'map';
       selectNode(data.node!);
       break;
@@ -376,6 +415,7 @@ function onAction(action: string, data: DOMStringMap) {
       if (ui.selected) selectNode(ui.selected);
       break;
   }
+  if(state===previousState) feedback.push(...newFeedback(state,before));
 }
 
 function onHex(col: number, row: number) {
@@ -520,6 +560,17 @@ app.addEventListener('click', (e) => {
   render();
 });
 
+// Keep keyboard focus inside an outcome dialog until it is acknowledged.
+app.addEventListener('keydown',e=>{
+ const dialog=app.querySelector<HTMLElement>('.feedback-sheet');if(!dialog)return;
+ if(e.key==='Escape'){e.preventDefault();feedback.shift();render();return;}
+ if(e.key==='Tab'){
+  const buttons=[...dialog.querySelectorAll<HTMLElement>('button:not([disabled]),a[href]')];
+  const first=buttons[0],last=buttons.at(-1);if(!first||!last)return;
+  if(e.shiftKey && (document.activeElement===first||document.activeElement?.id==='feedback-heading')){e.preventDefault();last.focus();}
+  else if(!e.shiftKey && document.activeElement===last){e.preventDefault();first.focus();}
+ }
+});
 // SVG location groups are keyboard-operable, not mouse-only.
 app.addEventListener('keydown', (e) => {
   if (e.key !== 'Enter' && e.key !== ' ') return;

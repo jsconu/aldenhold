@@ -1,3 +1,4 @@
+import {explore,holdApproachReason,challengeVictoryReady} from './challenge';
 import { SPECIES } from '../content/lairs';
 import { endRaid, planRaids, resolveRaids } from './raids';
 import { discoverLairs, newLairState, settleLairs } from './lairs';
@@ -14,7 +15,7 @@ import { basicLoadout, finishRefits, troopUpkeep } from './equipment';
 import { HERO_NAMES, HIREABLE_HEROES, UNIT_TYPES } from './data';
 import { random } from './rng';
 import type { Army, Battle, CampaignDefinition, CampaignId, DeedKind, FactionId, GameState, HeroOffer, MonsterSpecies, MonthlyLedger, Town, Troop } from './types';
-import { heroLevel, heroMaxHp, heroMaxMana, isHero } from './units';
+import { heroLevel, heroMaxHp, heroMaxMana, isHero, isRulerType } from './units';
 import {
   landAt, locationName, marchOptions, marchRate, neighbors, pathTo, stepCost, townAt, townLocation, worldOf,
 } from './world';
@@ -97,7 +98,7 @@ export function makeTroop(state: GameState, type: string, name?: string): Troop 
 }
 
 export function lordOf(state: GameState): Troop | undefined {
-  return state.armies.filter((a) => a.owner === 'player').flatMap((a) => a.troops).find((t) => t.type === 'lord');
+  return state.armies.filter((a) => a.owner === 'player').flatMap((a) => a.troops).find((t) => isRulerType(t.type));
 }
 
 /**
@@ -272,7 +273,9 @@ export function sharedMp(troops: Troop[]): number {
 /** Where the chosen troops at `from` can get to this month, with the cheapest route to each. */
 export function playerMarchOptions(state: GameState, from: string, troopIds: number[]) {
   const moving = armyAt(state, from, 'player')?.troops.filter((t) => troopIds.includes(t.id) && t.mp > 0 && !t.refit) ?? [];
-  return marchOptions(state, from, 'player', sharedMp(moving));
+  const options=marchOptions(state, from, 'player', sharedMp(moving));
+  for(const at of options.keys())if(holdApproachReason(state,at))options.delete(at);
+  return options;
 }
 
 /**
@@ -330,6 +333,7 @@ export interface MarchQuote {
 export function marchQuote(state: GameState, from: string, troopIds: number[], to: string): MarchQuote {
   const refuse = (reason: string): MarchQuote => ({ cost: 0, path: [], troopIds: [], ends: null, reason });
   if (state.battle || state.status !== 'playing') return refuse('Not now.');
+  const gate=holdApproachReason(state,to);if(gate)return refuse(gate);
   const src = armyAt(state, from, 'player');
   if (!src) return refuse('You have no troops there.');
   const moving = src.troops.filter((t) => troopIds.includes(t.id) && t.mp > 0 && !t.refit);
@@ -376,6 +380,7 @@ export function marchAlong(state: GameState, army: Army, path: string[]) {
   for (const at of path) {
     army.from = army.at;
     army.at = at;
+    if(army.owner==='player')explore(state);
     const enemy = state.armies.find((a) => blocks(state, army, a, at));
     if (enemy) {
       startBattle(state, army.id, enemy.id);
@@ -546,7 +551,7 @@ export function fallBack(state: GameState, army: Army) {
     return;
   }
   removeArmy(state, army);
-  const lord = army.troops.find((t) => t.type === 'lord');
+  const lord = army.troops.find((t) => isRulerType(t.type));
   const capitalId = campaignOf(state).capital;
   const capital = townLocation(state, capitalId);
   const where = army.at;
@@ -576,9 +581,9 @@ export function endingReason(state: GameState): GameState['endingReason'] {
   if (state.towns[capital].owner !== 'player') return 'capital-lost';
   if (!lordOf(state)?.men) return 'lord-dead';
   if (state.battle || state.pending.length || runningMonths.has(state)) return null;
-  if (state.towns[lair].owner === 'player') return 'lair-captured';
+  if (state.towns[lair].owner === 'player' && (!state.challenge || state.campaignId!=='western-realm' || challengeVictoryReady(state))) return 'lair-captured';
   const chapter = campaignOf(state).chapter;
-  if (chapter && state.quests[chapter.finale]?.status === 'succeeded') return 'chapter-complete';
+  if ((!state.challenge || state.campaignId!=='western-realm') && chapter && state.quests[chapter.finale]?.status === 'succeeded') return 'chapter-complete';
   return null;
 }
 
@@ -764,6 +769,7 @@ export function advanceMonth(state: GameState): MonthReport | null {
   finishBattles(state);
   report.ledger = ctx.ledger;
   report.battlePending = state.battle !== null || state.pending.length > 0;
+  explore(state);
   return report;
 }
 

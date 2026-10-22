@@ -14,7 +14,7 @@ import { BUILDING_IDS, BUILDINGS, developmentSites, GOODS, MAX_BUILDING_LEVEL, M
 import { basicLoadout, EQUIPMENT, equipmentQuoteGold, usesBow } from './equipment';
 import { endingReason, makeTroop, startLocation } from './campaign';
 import { TERRAIN, UNIT_TYPES } from './data';
-import { heroMaxHp, heroMaxMana, isHero } from './units';
+import { heroMaxHp, heroMaxMana, isHero, heroCanUse } from './units';
 import { isLocation } from './world';
 import type { CampaignId, DeedKind, GameState, JournalEntry, LedgerCategory, Town, EquipmentId } from './types';
 
@@ -54,8 +54,10 @@ const ledgerCategories: LedgerCategory[] = ['tax', 'wages', 'recruitment', 'hero
 function validate(value: unknown, allowMissingBattleTroops = false): asserts value is GameState {
   const s = object(value);
   requireValue(s.version === 16, 'unsupported schema version');
+  if(s.rulerAppearance!==undefined){const look=object(s.rulerAppearance);requireValue(oneOf(look.gender,['male','female']) && oneOf(look.skin,['fair','olive','brown','deep']) && (look.rulerClass===undefined || oneOf(look.rulerClass,['knight','priest','mage'])),'ruler appearance');}
   requireValue(text(s.campaignId) && Object.hasOwn(CATALOG.campaigns, s.campaignId), 'unknown campaign');
   const def = getCampaign(s.campaignId as CampaignId);
+  if(s.challenge!==undefined){const c=object(s.challenge);requireValue(oneOf(c.difficulty,['easy','normal','hard']) && typeof c.fog==='boolean' && Array.isArray(c.explored) && c.explored.length<=10000 && c.explored.every(at=>typeof at==='string' && isLocation(value as GameState,at)) && new Set(c.explored).size===c.explored.length,'campaign difficulty and exploration');}
   requireValue(s.campaignRevision === def.revision, 'unsupported campaign revision');
   requireValue(integer(s.turn, 1) && integer(s.gold) && integer(s.nextId, 1) && integer(s.seed, -2147483648, 2147483647), 'campaign numbers');
   requireValue(oneOf(s.status, ['playing', 'won', 'lost']), 'campaign status');
@@ -121,7 +123,7 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
         const kit = object(t.kit);
         requireValue(isHero(t.type as string) && a.owner === 'player' && Object.keys(kit).length > 0 &&
           Object.entries(kit).every(([slot, id]) => oneOf(slot, ['weapon', 'armor', 'accessory']) && text(id) &&
-            ITEMS[id]?.equip?.slot === slot && (!ITEMS[id].equip!.heroes || ITEMS[id].equip!.heroes!.includes(t.type as string))), 'hero equipment');
+            ITEMS[id]?.equip?.slot === slot && heroCanUse(t.type as string,ITEMS[id].equip!.heroes)), 'hero equipment');
       }
       if (t.refit !== null) {
         const refit = object(t.refit);

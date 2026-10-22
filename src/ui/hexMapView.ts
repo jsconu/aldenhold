@@ -1,3 +1,4 @@
+import {explored} from '../game/challenge';
 import { richOverland, richSettlement } from './richOverland';
 import { SPECIES } from '../content/lairs';
 import { hiddenLairAt, lairAt, lairGarrison } from '../game/lairs';
@@ -196,9 +197,8 @@ export function renderHexMap(
   for (const [key] of targets) {
     const { col, row } = cell(key);
     // A hidden lair doesn't give itself away as a fight on arrival.
-    const ends = arrivalOutcome(state, key) !== null && !hiddenLairAt(state, key);
-    const [cx, cy] = tileCenter(col, row);
-    reach += `<ellipse cx="${cx}" cy="${cy}" rx="11" ry="9" class="reach${ends ? ' ends' : ''}"/>`;
+    const ends = explored(state,key) && arrivalOutcome(state, key) !== null && !hiddenLairAt(state, key);
+    reach += `<polygon points="${tilePolygon(col,row)}" class="move-border"/><polygon points="${tilePolygon(col,row)}" class="reach${ends ? ' ends' : ''}"/>`;
   }
   const sel = ui.selected && /^\d+,\d+$/.test(ui.selected) ? cell(ui.selected) : null;
   const selection = sel ? `<ellipse cx="${sel.centre[0]}" cy="${sel.centre[1]}" rx="11" ry="9" class="selected"/>` : '';
@@ -206,6 +206,7 @@ export function renderHexMap(
   let places = '';
   let labels = '';
   for (const p of world.places) {
+    if(!explored(state,p.col+','+p.row))continue;
     const [cx, cy] = tileCenter(p.col, p.row);
     const town = p.kind === 'town' ? state.towns[p.id] : undefined;
     const sprite = spriteFor(state, p.id, p.kind);
@@ -233,7 +234,7 @@ export function renderHexMap(
   let armies = '';
   const byHex = new Map<string, Army[]>();
   // Monsters in a lair nobody has found stay hidden.
-  for (const a of state.armies) if (!hiddenLairAt(state, a.at)) byHex.set(a.at, [...(byHex.get(a.at) ?? []), a]);
+  for (const a of state.armies) if (explored(state,a.at) && !hiddenLairAt(state, a.at)) byHex.set(a.at, [...(byHex.get(a.at) ?? []), a]);
   // Armies sit on their own hex: centred, or nudged down-right of a settlement they share it with, so clicking
   // the banner always picks the hex it stands on.
   const placed = new Set(world.places.map((p) => `${p.col},${p.row}`));
@@ -253,6 +254,9 @@ export function renderHexMap(
   world.rows.forEach((line, row) => {
     for (let col = 0; col < line.length; col++) {
       const key = `${col},${row}`;
+      if(!explored(state,key)){
+        hits+='<polygon points="'+tilePolygon(col,row)+'" class="cell" data-action="node" data-node="'+key+'"><title>Unexplored frontier '+key+'. Scout with your army to reveal this hex.</title></polygon>';continue;
+      }
       const land = hexLand(world, key);
       const step = targets.get(key);
       const road = hasRoad(state, key) ? ' Road: 1 to enter.' : '';
@@ -264,6 +268,7 @@ export function renderHexMap(
     }
   });
 
+  let fog='';if(state.challenge?.fog)world.rows.forEach((line,row)=>{for(let col=0;col<line.length;col++)if(!explored(state,col+','+row))fog+='<polygon points="'+tilePolygon(col,row)+'" fill="#202923" stroke="#343e32" stroke-width=".4"/>';});
   const image = terrainImage(world);
   const zoom = hexZoom(ui);
   return `<svg viewBox="0 0 ${width} ${height}" width="${Math.round(width * zoom)}" height="${Math.round(height * zoom)}" class="map overland" role="img" aria-label="Overland map">
@@ -274,6 +279,6 @@ export function renderHexMap(
         <stop offset="1" stop-color="#e89270" stop-opacity="0"/></radialGradient>
     </defs>
     ${image ? `<image href="${image}" x="0" y="0" width="${width}" height="${height}" class="terrain"/>` : ''}
-    ${richOverland(world)}${reach}${selection}${places}${armies}${labels}${hits}
+    ${richOverland(world)}<g class="unexplored-fog" pointer-events="none">${fog}</g>${reach}${selection}${places}${armies}${labels}${hits}
   </svg>`;
 }

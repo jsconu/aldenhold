@@ -63,6 +63,13 @@
       "file": "town-badlands-v1.png",
       "sourceFile": "exec-6bc643c2-04ed-4210-98cd-36413fad5dc6.png",
       "description": "Original detailed pixel-art medieval badlands settlement panorama, wide 16:9 elevated isometric composition, matching capital style, open foreground development plots, no UI, labels or watermark."
+    },
+    {
+      "id": "improvements",
+      "file": "improvements-v1.png",
+      "source": "OpenAI built-in image_gen",
+      "layout": "3x3: farm 1, farm 2, lumber 1, lumber 2, mine 1, mine 2, forge 1, forge 2, construction",
+      "description": "Original detailed transparent medieval development miniatures matching city panoramas; upright architecture and upper-left lighting."
     }
   ]
 }

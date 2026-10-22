@@ -409,7 +409,7 @@ export const ROYAL_BARROW: QuestDefinition = {
   stages:[
     {id:'threshold',text:'A sealed stone door bears three worn emblems: a sword, a crown and an open hand. A shallow offering bowl is empty. You can leave and return later without losing progress.',choices:[
       {id:'examine',label:'Examine the carvings and inscription',then:{stage:'inscription'}},
-      {id:'force',label:'Break the funerary seal and plunder the tomb (forsake the oath)',then:{status:'failed',effects:[],journal:'Your ruler broke the Royal Barrow seal. The keeper concealed the signet; its oath can no longer be earned.'}},
+      {id:'force',label:'Break the funerary seal and plunder the tomb (forsake the oath)',then:{stage:'atonement'}},
     ]},
     {id:'inscription',text:'Beneath the dust you read: “Steel may win a border, and a crown may claim it. Only the hand that gives may bind a people.” The bowl fits a clasp from your cloak.',choices:[
       {id:'offer',label:'Offer your cloak clasp, then press the open hand',then:{stage:'keeper'}},
@@ -417,9 +417,10 @@ export const ROYAL_BARROW: QuestDefinition = {
       {id:'sword',label:'Press the sword',then:{stage:'echo'}},
     ]},
     {id:'echo',text:'The emblem sinks, but the door remains closed. A whisper repeats: “What does a ruler owe?” No harm is done; examine the oath again.',choices:[{id:'reconsider',label:'Read the inscription again',then:{stage:'inscription'}}]},
+    {id:'atonement',text:'The keeper conceals the signet. The realm still needs its oath. Restore the damaged tomb and make amends before you can return to the trial.',choices:[{id:'repair',label:'Restore the tomb and seek forgiveness (300 gold)',gold:300,then:{stage:'threshold'}}]},
     {id:'keeper',text:'The door opens. A shade offers the signet: “Will you bind the free courts by fear, or earn their trust?” This relic strengthens your command; it grants no automatic allegiance.',choices:[
       {id:'oath',label:'Swear to protect those who place their trust in you',then:{status:'succeeded',effects:[{kind:'item',item:'keepers-signet'}],journal:'Alone in the Royal Barrow, your ruler solved the oath door and earned the Keeper’s Signet: +4 leadership when equipped.'}},
-      {id:'refuse',label:'Refuse the oath and leave the signet',then:{status:'failed',effects:[],journal:'Your ruler left the Keeper’s Signet in the Royal Barrow rather than swear its oath.'}},
+      {id:'refuse',label:'Refuse the oath and leave the signet',then:{stage:'atonement'}},
     ]},
   ],onLocationLost:{status:'superseded',effects:[],journal:'The capital fell before the barrow oath could be completed.'},
 };

@@ -599,7 +599,15 @@ export interface CityEconomy {
   lastMonth: CityProduction | null;
 }
 
+export type Difficulty='easy'|'normal'|'hard';
+export interface CampaignChallenge {difficulty:Difficulty;fog:boolean;explored:string[];}
+export type RulerClass='knight'|'priest'|'mage';
+export interface RulerAppearance { rulerClass?:RulerClass; gender:'male'|'female'; skin:'fair'|'olive'|'brown'|'deep' }
+
 export interface GameState {
+  /** Cosmetic ruler choice; absent on legacy saves. */
+  challenge?:CampaignChallenge;
+  rulerAppearance?: RulerAppearance;
   version: 16;
   campaignId: CampaignId;
   campaignRevision: number;

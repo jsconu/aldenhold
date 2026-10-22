@@ -1,14 +1,22 @@
-import type { Battle, Terrain } from '../game/types';
+import {UNIT_TYPES} from '../game/data';
+import { isRulerType } from '../game/units';
+import { rulerArt } from '../game/rulerCreation';
+import type { Battle, Terrain, RulerAppearance } from '../game/types';
 const HUMAN=['militia','spearmen','archers','woodlandArchers','knights','lord','champion','priest','mage'];
 const MONSTER=['warband','orcArchers','cyclops','minotaur','goblinSkirmishers','goblinArchers','giant','titan','troll','warchief','shaman'];
-export function richUnit(type: string,cx: number,cy: number,mirror: boolean): string {
+export function richUnit(type: string,cx: number,cy: number,mirror: boolean,appearance?:RulerAppearance,gender?:'male'|'female'): string {
+  if(isRulerType(type) && (appearance || type!=='lord')){
+    appearance ??= {gender:'male',skin:'fair',rulerClass:type==='rulerPriest'?'priest':'mage'};
+    const index=['fair','olive','brown','deep'].indexOf(appearance.skin);
+    return '<g class="rich-battle-unit" pointer-events="none"'+(mirror?' transform="translate('+cx*2+' 0) scale(-1 1)"':'')+'><svg x="'+(cx-25)+'" y="'+(cy-57)+'" width="50" height="67" preserveAspectRatio="none" viewBox="'+index+' '+(appearance.gender==='female'?1:0)+' 1 1"><image href="'+rulerArt(appearance)+'" width="4" height="2" preserveAspectRatio="none"/></svg></g>';
+  }
   const human=HUMAN.includes(type);const index=(human?HUMAN:MONSTER).indexOf(type);
   if(index<0)return '';
   const cols=human?3:4;
   const size=['giant','titan','cyclops','minotaur','troll','knights'].includes(type)?58:50;
-  return '<g class="rich-battle-unit" pointer-events="none"'+(mirror?' transform="translate('+cx*2+' 0) scale(-1 1)"':'')+'><svg x="'+(cx-size/2)+'" y="'+(cy-size+10)+'" width="'+size+'" height="'+size+'" viewBox="'+(index%cols)+' '+Math.floor(index/cols)+' 1 1"><image href="/assets/battle/'+(human?'humans':'monsters')+'-v1.png" width="'+cols+'" height="3" preserveAspectRatio="none"/></svg></g>';
+  return '<g class="rich-battle-unit" pointer-events="none"'+(mirror?' transform="translate('+cx*2+' 0) scale(-1 1)"':'')+'><svg x="'+(cx-size/2)+'" y="'+(cy-size+10)+'" width="'+size+'" height="'+size+'" viewBox="'+(index%cols)+' '+Math.floor(index/cols)+' 1 1"><image href="/assets/battle/'+(human?(gender==='female'?'humans-female':'humans'):'monsters')+'-v1.png" width="'+cols+'" height="3" preserveAspectRatio="none"/></svg></g>';
 }
-const SAMPLE: Record<Terrain,number>={plain:0,forest:2,hill:4,stream:7,marsh:6,thorns:3,ruins:8,rocks:5,spring:7};
+const SAMPLE: Record<Terrain,number>={plain:0,forest:2,hill:4,stream:7,marsh:6,thorns:3,ruins:0,rocks:5,spring:7};
 export function richBattleGround(b: Battle, polygon: (x:number,y:number)=>string): string {
   let defs='',ground='';
   for(const [terrain,index] of Object.entries(SAMPLE))defs+='<pattern id="battle-rich-'+terrain+'" patternUnits="userSpaceOnUse" width="180" height="180" viewBox="'+index%3+' '+Math.floor(index/3)+' 1 1"><image href="/assets/overland/terrain-atlas-v1.png" width="3" height="3" preserveAspectRatio="none"/></pattern>';
@@ -17,4 +25,16 @@ export function richBattleGround(b: Battle, polygon: (x:number,y:number)=>string
     ground+='<polygon points="'+polygon(x,y)+'" fill="url(#battle-rich-'+b.terrain[col][row]+')"/>';
   }
   return '<g class="rich-battle-ground" pointer-events="none"><defs>'+defs+'</defs>'+ground+'</g>';
+}
+
+export function richRuin(cx:number,cy:number,seed:number):string{
+ const index=Math.abs(seed)%4;
+ return '<svg x="'+(cx-23)+'" y="'+(cy-29)+'" width="46" height="46" viewBox="'+index%2+' '+Math.floor(index/2)+' 1 1" class="rich-ruin" pointer-events="none"><image href="/assets/battle/ruins-v1.png" width="2" height="2" preserveAspectRatio="none"/></svg>';
+}
+
+/** A formation is a group of people; heroes and individual giant creatures keep a single silhouette. */
+export function battleFigure(type:string,cx:number,cy:number,mirror:boolean,men:number,appearance?:RulerAppearance,gender?:'male'|'female'):string{
+ if(UNIT_TYPES[type]?.hero || ['giant','titan','cyclops','minotaur'].includes(type))return richUnit(type,cx,cy,mirror,appearance,gender);
+ const figures=Math.min(3,Math.max(1,men)),positions=figures===3?[[-12,-5],[12,-5],[0,7]]:figures===2?[[-10,1],[10,1]]:[[0,3]];
+ return '<g class="battle-formation" pointer-events="none" role="img" aria-label="'+men+' soldiers in formation">'+positions.map(([x,y],i)=>'<g transform="translate('+(cx+x)+' '+(cy+y)+') scale(.64)">'+richUnit(type,0,0,mirror,undefined,i===1?(gender==='female'?'male':'female'):gender)+'</g>').join('')+'</g>';
 }

@@ -413,6 +413,9 @@ export function pixelRects(rows: string[], colourOf: (ch: string) => string | un
   return out;
 }
 
+SPRITES.rulerPriest=SPRITES.priest;
+SPRITES.rulerMage=SPRITES.mage;
+
 /** One <symbol> per unit type and team, for <use> in the battle SVG. */
 export function pixelSpriteDefs(): string {
   let defs = '';

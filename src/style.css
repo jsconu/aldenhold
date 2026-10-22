@@ -452,7 +452,7 @@ button.travel-destination b { color: var(--gold); font-size: 11px; }
 .atlas-river-sheen { fill: none; stroke: #87afb0; stroke-opacity: .48; stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 19 12; }
 .atlas-terrain-details { pointer-events: none; }
 .atlas-terrain-details .atlas-feature { opacity: .8; }
-.overland .reach { stroke: none !important; }
+
 .overland .cell { stroke: none !important; }
 
 .march-guide { border: 1px solid #8b805e; border-left: 4px solid #d5b96e; background: #302f29; border-radius: 7px; padding: 10px 12px; margin-bottom: 12px; }
@@ -567,3 +567,30 @@ button.travel-destination b { color: var(--gold); font-size: 11px; }
 .rich-battle-unit,.rich-battle-ground{image-rendering:auto}.field .unit .base{stroke:#d8c39b;stroke-width:1.3;fill-opacity:.8}.field .unit.mine .base{fill:#34576b}.field .unit.foe .base{fill:#863e32}.field .unit.sel .mark{stroke:#f1d084;stroke-width:2;fill:#ebd89b22}.battle .side{background:linear-gradient(145deg,#302e24,#1e241f);border-left:2px solid #8c7953}.battle .stats{font-size:15px}.battle-scroll{border:3px double #8d7953;box-shadow:inset 0 0 24px #0008}.overland .owner-banner{filter:drop-shadow(0 1px .6px #0009)}
 
 .adventure-label{padding:10px 12px;border-left:3px solid #bca16c;background:#423c2b;color:#ebddbd;line-height:1.6}.battle-spoils{padding:12px;border:1px solid #b99d5d;color:#eed18f}
+
+/* Explicit legal-move borders stay readable over detailed terrain. */
+.overland .move-border{fill:none;stroke:#19251e;stroke-width:1.8;pointer-events:none}
+.overland .reach{fill:#f3ce702b;stroke:#ffe09a;stroke-width:.85;opacity:1;pointer-events:none}
+.overland .reach.ends{fill:#e56b4338;stroke:#ffac78;stroke-dasharray:2 1.3}
+.overland .selected{stroke:#fff6d7;stroke-width:1.8;fill:#ffffff1a}
+.field .move-border{fill:none;stroke:#17241d;stroke-width:4;pointer-events:none}
+.field .battle-spot-reach{fill:#f4ce702b;stroke:#ffe39a;stroke-width:2;stroke-linejoin:round}
+.field .battle-spot-spell{fill:#e8996940;stroke:#ffc18f;stroke-width:2;stroke-dasharray:5 3}
+.field .unit.target .mark{stroke:#ff9979;stroke-width:3.5;stroke-dasharray:5 3;filter:drop-shadow(0 0 2px #17130e)}
+.field .unit.sel .mark{stroke:#fff3bb;stroke-width:3.5;fill:#f1dc7c22}
+.rich-ruin,.development-art{image-rendering:auto}
+
+.feedback-overlay{position:fixed;inset:0;z-index:60;background:#0c1410d9;overflow:auto;display:grid;place-items:start center;padding:5vh 18px}.feedback-sheet{width:min(760px,100%);box-sizing:border-box;background:linear-gradient(140deg,#343629,#20271f);border:4px double #c0a56a;color:#f0e3c5;padding:24px;box-shadow:0 12px 50px #0009}.feedback-sheet h2{color:#f1cf84;font:700 30px Georgia,serif}.feedback-sheet li{margin:10px 0;line-height:1.65}.feedback-actions{display:flex;gap:12px;flex-wrap:wrap;border-top:1px solid #8f7c52;padding-top:16px}.feedback-actions button{min-height:44px}.quest-outcome{padding:12px 0}.hero-guide h4,.quest-outcome h4{color:#dfc78e}.hero-guide ol{padding-left:24px}.hero-guide li{line-height:1.6;margin:10px 0}
+
+.ruler-selection{max-width:1050px;margin:24px auto;padding:24px}.ruler-selection header{text-align:center}.ruler-selection h1{font:700 40px Georgia,serif;color:#ebcd87}.ruler-creation{display:grid;grid-template-columns:minmax(220px,340px) 1fr;gap:36px;background:linear-gradient(145deg,#35372a,#20271f);border:4px double #b69e67;padding:24px}.ruler-portrait{margin:0;text-align:center}.ruler-portrait svg{width:100%;height:410px}.ruler-portrait figcaption{color:#d8bf87;margin:12px}.ruler-creation input{display:block;width:100%;box-sizing:border-box;min-height:44px;padding:10px;margin:8px 0 20px;background:#18221c;color:#f4e6c8;border:1px solid #a38c5b;font:18px Georgia,serif}.ruler-creation fieldset{border:1px solid #736a4c;padding:12px;margin:18px 0}.ruler-creation fieldset button{margin:4px;min-height:44px}.ruler-creation .chosen{border:2px solid #efd38a;background:#514b31;box-shadow:0 0 0 2px #17251b}.ruler-creation i{display:inline-block;width:18px;height:18px;border-radius:50%;vertical-align:middle;margin-right:8px;border:1px solid #dccb9e}.creation-actions{display:flex;gap:14px;margin-top:24px}.creation-actions button{min-height:46px}.ruler-creation p{line-height:1.7}@media(max-width:560px){.ruler-creation{grid-template-columns:1fr;padding:16px}.ruler-portrait svg{height:280px}.ruler-selection{padding:12px}.ruler-selection h1{font-size:32px}}
+
+.ruler-portrait svg{max-width:300px;height:400px}@media(max-width:560px){.ruler-portrait svg{max-width:210px;height:280px}}
+
+/* Keep strategic choices visible; purchasing is separate from inspecting. */
+.refit-panel,.tactics{border:1px solid #8b7955;padding:14px;margin-top:18px;background:#242b23}.refit-panel h3,.tactics h3{margin-top:0}.refit-option>button{min-height:44px}.refit-option>button[aria-pressed="true"]{outline:2px solid #e6c774}.refit-preview{border-left:3px solid #e6c774;padding:8px 12px;margin:8px 0}.stances{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px}.stances button{white-space:normal;text-align:left;min-height:64px}.stances small{display:block;font-size:.85em;font-weight:normal;margin-top:6px}.custom-deployment{margin-top:12px}
+
+.campaign-objectives{border:2px solid #a68c52;background:#263126;padding:16px;margin-bottom:18px}.campaign-objectives h2{margin-top:0}.campaign-objectives li{margin:12px 0;line-height:1.5}.campaign-objectives li.objective-done{color:#a7c89b}.campaign-objectives .link{display:block;min-height:36px}.refit-panel small{display:block}
+
+.battle .men.hero-hp{font-size:10px}
+
+@media(min-width:561px) and (max-width:850px){.ruler-creation{grid-template-columns:180px minmax(0,1fr);gap:18px;padding:16px}.ruler-portrait svg{width:180px;max-width:180px;height:240px}.ruler-selection{padding:12px}.ruler-creation fieldset{padding:8px}.ruler-creation fieldset button{padding:8px 10px}}

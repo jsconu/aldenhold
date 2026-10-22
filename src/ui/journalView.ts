@@ -1,10 +1,12 @@
+import { questOutcome, heroGuide } from './gameplayFeedback';
 import { dateLabel, nodeName, startLocation } from '../game/campaign';
 import type { DeedKind, GameState, JournalEntry } from '../game/types';
 import { esc } from './shared';
 import { LAIRS, SPECIES } from '../content/lairs';
 import { raidLine } from '../game/raids';
+import { UNIT_TYPES } from '../game/data';
 import { ITEMS } from '../content/items';
-import { campaignQuests, questSummary, trackedQuests } from '../game/quests';
+import { isResolved, campaignQuests, questSummary, trackedQuests } from '../game/quests';
 import { townLocation } from '../game/world';
 import { discardQuote, equipQuote, heldQty, sellQuote, useQuote } from '../game/items';
 import { isHero } from '../game/units';
@@ -61,7 +63,7 @@ export function renderJournal(state: GameState): string {
         <div><dt>Hero deeds</dt><dd>${count('hero')}</dd></div>
       </dl>
     </div>
-    ${renderQuestLedger(state)}
+    ${renderQuestLedger(state)}<section><h2>Your heroes</h2>${state.armies.filter(a=>a.owner==='player').flatMap(a=>a.troops.filter(t=>isHero(t.type))).map(t=>'<details><summary>'+esc(t.name??UNIT_TYPES[t.type].name)+' · how to use this hero</summary>'+heroGuide(state,t.id)+'</details>').join('')}</section>
     ${renderRaidLog(state)}
     ${renderInventory(state)}
     ${sections || '<p class="hint">Nothing recorded yet.</p>'}
@@ -77,7 +79,7 @@ function renderQuestLedger(state: GameState): string {
     if (!list.length) return '';
     return `<h3>${title}</h3><ul>${list.map((def) => `<li><b>${esc(def.name)}</b>${tracked.has(def.id) ? ' <small class="tag">Tracked</small>' : ''}: ${esc(questSummary(state, def.id))}.
       <button class="link" data-action="goto" data-node="${townLocation(state, def.at)}">View ${esc(nodeName(state, def.at))}</button>
-      ${questSites(state, def.id).filter((site) => site !== def.at).map((site) => `<button class="link" data-action="goto" data-node="${startLocation(state, site)}">Show ${esc(nodeName(state, site))}</button>`).join(' ')}</li>`).join('')}</ul>`;
+      ${questSites(state, def.id).filter((site) => site !== def.at).map((site) => `<button class="link" data-action="goto" data-node="${startLocation(state, site)}">Show ${esc(nodeName(state, site))}</button>`).join(' ')}${isResolved(state.quests[def.id]) ? '<details><summary>Rewards and consequences</summary>'+questOutcome(state,def.id)+'</details>' : ''}</li>`).join('')}</ul>`;
   };
   return `<section class="quest-ledger"><h2>Quests</h2>
     ${quests.length ? group('main', 'Main objectives') + group('side', 'Side quests') : '<p class="sub">No quests offered yet.</p>'}
