@@ -814,3 +814,9 @@ The build passes. 19 of 20 seeded full tours finish the chapter. Seed 12 runs ou
 - the break-in on the end screen;
 - the farms losing a level;
 - the raid in the town's "Last raids" and in the journal's Raids section.
+
+## Codex: city assault backlog and automatic battle setup
+
+The [city assault specification](city-assaults-and-sieges.md) records the owner's new Attack / Retreat / Besiege decision, month-scale sieges and possible vassal terms, settlement battlefields with developed hexes and once-only pillage, varying deployment areas, and distinct melee/HP growth for support troops. These are future gameplay slices, not implemented by this increment.
+
+The first slice removes the editable 3×9 battle-plan grid and stance buttons from the city/army panel. Fresh battles now select the same first 27 fielded formations as before, arrange healthier and stronger melee troops in the front, and put archers, casters and the ruler behind the screen. Existing custom army plans remain accepted by save validation but are ignored for **new** battles; already-saved battles retain their actual positions and old stance behavior. Quest and raid outcomes were checked against the seeded campaign suite before this change was published. Terrain generation still varies by seed; variable deployment areas and city layouts remain on the backlog.

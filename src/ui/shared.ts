@@ -14,8 +14,6 @@ export interface UIState {
   battleTarget?: number | null;
   /** Battle camera zoom (1 = the field's drawn size); the field scrolls inside its frame. */
   battleZoom?: number;
-  /** Tactics screen: the formation picked up to move to another cell. */
-  tacticsTroop?: number | null;
   battleDestination?: { col: number; row: number } | null;
   message: string;
   /** Campaign screen: the province map or the full journal. */

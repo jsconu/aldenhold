@@ -520,15 +520,6 @@ button.travel-destination b { color: var(--gold); font-size: 11px; }
 .cast-bar small { color: var(--muted, #b8ad94); }
 
 /* Tactics: an army's battle plan and its deployment zone. */
-.tactics { margin: 8px 0; }
-.tactics .stances { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
-.deploy-grid { border-collapse: collapse; margin: 4px 0; }
-.deploy-grid th { font-size: 11px; font-weight: normal; color: var(--muted, #b8ad94); padding: 0 4px; }
-.deploy-grid td { padding: 1px; }
-.deploy-grid .cell { width: 64px; height: 22px; padding: 0 2px; font-size: 11px; border: 1px solid var(--line); background: var(--panel-2, #2f2d27); color: var(--ink); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-.deploy-grid .cell.filled { background: #34405e; }
-.deploy-grid .cell.hero { background: #5a4a26; }
-.deploy-grid .cell.picked { outline: 2px solid var(--gold); }
 
 /* Ownership banners on the overland map and their legend: shape and glyph, not just colour. */
 .overland .settlement-owner { pointer-events: all; }

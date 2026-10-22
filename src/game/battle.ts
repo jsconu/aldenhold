@@ -3,7 +3,7 @@ import { LAND, SPELLS, TERRAIN, UNIT_TYPES } from './data';
 import { hexDistance, hexKey, hexNeighbors, hexLine, type Hex } from './hex';
 import { random } from './rng';
 import { FACTIONS } from '../content/factions';
-import type { Army, Battle, BattleUnit, DeployCell, Land, Side, SpellId, Stance, Terrain, EffectId } from './types';
+import type { Army, Battle, BattleUnit, DeployCell, Land, Side, SpellId, Terrain, EffectId } from './types';
 import { attackFor, heroLevel, heroMaxHp, isHero, kitBonus, level } from './units';
 import { EQUIPMENT } from './equipment';
 
@@ -74,13 +74,9 @@ export function createBattle(at: string, attacker: Army, defender: Army, walls: 
     seed,
   };
   b.terrain = generateTerrain(b, land, b.width, b.height);
+  // Existing saved battles retain their old stance; fresh fights set up automatically.
   deploy(b, attacker, 'attacker');
   deploy(b, defender, 'defender');
-  const stances: Partial<Record<Side, Stance>> = {};
-  for (const [side, army] of [['attacker', attacker], ['defender', defender]] as const) {
-    if (army.tactics && army.tactics.stance !== 'offensive') stances[side] = army.tactics.stance;
-  }
-  if (Object.keys(stances).length) b.stances = stances;
   return b;
 }
 
@@ -204,47 +200,32 @@ function startingMorale(b: Battle, side: Side, type: string, xp: number, leaders
   return Math.min(100, 60 + 8 * (level(xp) - 1) + leadership + walls);
 }
 
-/** Rows from the flanks inward: skirmishers spread wide. */
-const FLANK_ORDER = [0, 8, 1, 7, 2, 6, 3, 5, 4];
-
-/** Where a formation of this kind prefers to start under a stance, as zone cells in order of preference. */
-export function preferredCells(stance: Stance, type: string): DeployCell[] {
-  const t = UNIT_TYPES[type];
-  const missile = t.range > 1 && !t.hero;
-  const caster = (t.hero?.spells.length ?? 0) > 0;
-  const zone = (depths: number[], rows = ROW_ORDER) => depths.flatMap((depth) => rows.map((row) => ({ depth, row })));
-  if (stance === 'skirmish') {
-    // Archers out front on the flanks, melee in the middle column guarding them, casters at the back.
-    return missile ? zone([0, 1, 2], FLANK_ORDER) : caster ? zone([2, 1, 0]) : zone([1, 0, 2]);
-  }
-  if (stance === 'defensive') {
-    // A solid melee line in front, missiles behind it, heroes and casters safe at the back.
-    return missile ? zone([1, 2, 0]) : caster || t.hero ? zone([2, 1, 0]) : zone([0, 1, 2]);
-  }
-  // Offensive (and Custom formations without a place): melee front, missiles and casters behind.
-  return missile || caster ? zone([1, 2, 0]) : zone([0, 1, 2]);
-}
-
-/**
- * Where each formation of an army starts in its side's deployment zone, by troop id: Custom placements first,
- * then every other formation in its stance's preferred free cell. Formations that don't fit are left out (they
- * become reserves). The tactics screen shows exactly this plan.
- */
+/** New battles use a strength-ranked melee screen, ranged support, and protected casters/ruler. */
 export function planDeployment(army: Army): Map<number, DeployCell> {
-  const stance = army.tactics?.stance ?? 'offensive';
   const plan = new Map<number, DeployCell>();
   const taken = new Set<string>();
   const key = (c: DeployCell) => `${c.depth},${c.row}`;
-  const custom = stance === 'custom' ? army.tactics?.layout ?? {} : {};
-  for (const t of army.troops) {
-    const cell = custom[String(t.id)];
-    if (!cell || taken.has(key(cell))) continue;
-    taken.add(key(cell));
-    plan.set(t.id, cell);
-  }
-  for (const t of army.troops) {
-    if (plan.has(t.id)) continue;
-    const cell = preferredCells(stance === 'custom' ? 'offensive' : stance, t.type).find((c) => !taken.has(key(c)));
+  const role = (t: Army['troops'][number]) => {
+    const type = UNIT_TYPES[t.type];
+    if (t.type === 'lord' || t.type === 'warchief' || (type.hero?.spells.length ?? 0) > 0) return 2;
+    return type.range > 1 ? 1 : 0;
+  };
+  const strength = (t: Army['troops'][number]) => {
+    const type = UNIT_TYPES[t.type];
+    const health = type.hero ? t.men / heroMaxHp(t.type, t.xp) : t.men / type.men;
+    return (attackFor(t.type, t.xp) + type.defense + kitBonus(t.kit).defense) * health;
+  };
+  const rows = ROW_ORDER;
+  const byRole = [
+    [0, 1, 2], // Tough melee occupy the front before the line fills up.
+    [1, 2, 0], // Archers stay behind the screen.
+    [1, 2, 0], // Casters and the leader stay behind the melee screen.
+  ];
+  // Keep the same fielded contingent as older saves/encounter previews; rank only its starting positions.
+  const troops = army.troops.slice(0, FIELD_LIMIT).sort((a, b) => role(a) - role(b) || strength(b) - strength(a) || a.id - b.id);
+  for (const t of troops) {
+    const cell = byRole[role(t)].flatMap((depth) => rows.map((row) => ({ depth, row })))
+      .find((c) => !taken.has(key(c)));
     if (!cell) continue;
     taken.add(key(cell));
     plan.set(t.id, cell);
