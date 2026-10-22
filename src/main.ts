@@ -3,7 +3,7 @@ import { HEX_ZOOMS, hexZoom } from './ui/hexMapView';
 import {
   attack, attackTargets, autoResolve, castSpell, escapeQuote, groupReachable, moveGroup, moveUnit, playerEndTurn, playerSide, reachable, spellTargets, teleportDestinations, tryEscape, unitAt,
 } from './game/battle';
-import { applyBattle, armyAt, campaignOf, endTurn, hireHero, moveTroops, newGame, recruit, setTax } from './game/campaign';
+import { applyBattle, armyAt, campaignOf, endTurn, hireHero, marchQuote, moveTroops, newGame, recruit, setTax } from './game/campaign';
 import { townLocation } from './game/world';
 import { hexKey } from './game/hex';
 import type { CampaignId, GameState, SpellId } from './game/types';
@@ -26,6 +26,7 @@ import { captureRecovery, clearRecovery, readManualSlot, readRecovery, writeManu
 import { questQuote } from './game/quests';
 import { renderSaveManager } from './ui/saveManagerView';
 import { captureMove, restoreMove, type MovementUndo } from './ui/movementUndo';
+import { cityAssault } from './ui/cityAssault';
 
 // Access localStorage inside the adapter: even reading the browser property can throw.
 const storage = {
@@ -66,6 +67,7 @@ function activate(next: GameState) {
   saveWarning = '';
   savesOpen = false;
   ui.choosing = false;
+  ui.assault = null;
   ui.battleUnit = null;
   ui.battleUnits = new Set();
   ui.battleSpell = null;
@@ -159,6 +161,7 @@ function render() {
     app.querySelector('.unit.mine')?.scrollIntoView({ block: 'center', inline: 'center' });
   }
   syncMinimap();
+  if (ui.assault) app.querySelector<HTMLElement>('[data-action="assault-attack"]:not(:disabled), [data-action="assault-retreat"]')?.focus();
 }
 
 function draw() {
@@ -182,10 +185,34 @@ function selectNode(id: string) {
 
 function onAction(action: string, data: DOMStringMap, additive = false) {
   ui.message = '';
+  if (ui.assault && action !== 'assault-attack' && action !== 'assault-retreat') return;
   // A later consequential command closes the one-step undo window. Browsing the map does not.
-  if (!['node', 'hex', 'undo-move', 'route-first-leg', 'locate-army', 'plan-route', 'route-clear',
+  if (!['node', 'hex', 'undo-move', 'assault-retreat', 'route-first-leg', 'locate-army', 'plan-route', 'route-clear',
     'route-preference', 'map-layer', 'map-zoom', 'hex-zoom', 'battle-zoom', 'view-quest', 'goto', 'journal', 'treasury', 'spell'].includes(action)) undoMove = null;
   switch (action) {
+    case 'assault-retreat':
+      ui.assault = null;
+      break;
+    case 'assault-attack': {
+      const decision = ui.assault;
+      if (!decision) break;
+      const quote = marchQuote(state, decision.from, decision.troopIds, decision.to);
+      if (quote.reason || !cityAssault(state, decision.from, decision.to, decision.troopIds)) {
+        ui.message = quote.reason ?? 'The defenders have moved. Inspect the city again.';
+        ui.assault = null;
+        break;
+      }
+      const before = captureMove(state, ui, 'Undo march');
+      const err = moveTroops(state, decision.from, decision.troopIds, decision.to);
+      ui.message = err ?? '';
+      ui.assault = null;
+      if (!err) {
+        undoMove = before;
+        ui.routeOrigin = null; ui.routeDestination = null;
+        selectNode(decision.to);
+      }
+      break;
+    }
     case 'undo-move':
       if (undoMove) {
         const before = undoMove;
@@ -227,6 +254,8 @@ function onAction(action: string, data: DOMStringMap, additive = false) {
         break;
       }
       const firstLeg = route.stops[1].id;
+      const decision = cityAssault(state, ui.routeOrigin, firstLeg, [...ui.checked]);
+      if (decision) { ui.assault = decision; break; }
       const before = captureMove(state, ui, 'Undo march');
       ui.message = moveTroops(state, ui.routeOrigin, [...ui.checked], firstLeg) ?? '';
       if (!ui.message) {
@@ -340,6 +369,8 @@ function onAction(action: string, data: DOMStringMap, additive = false) {
         break;
       }
       if (ui.selected && moveTargets(state, ui).has(id)) {
+        const decision = cityAssault(state, ui.selected, id, [...ui.checked]);
+        if (decision) { ui.assault = decision; break; }
         const before = captureMove(state, ui, 'Undo march');
         const err = moveTroops(state, ui.selected, [...ui.checked], id);
         ui.message = err ?? '';
@@ -474,6 +505,7 @@ app.addEventListener('click', (e) => {
 app.addEventListener('scroll', (e) => { if ((e.target as Element).classList?.contains('battle-scroll')) syncMinimap(); }, true);
 // Arrow keys look around the battlefield (unless typing in a field).
 window.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && ui.assault) { e.preventDefault(); ui.assault = null; render(); return; }
   const frame = battleScroll();
   if (!frame || !state.battle || e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement) return;
   const step = { ArrowLeft: [-80, 0], ArrowRight: [80, 0], ArrowUp: [0, -80], ArrowDown: [0, 80] }[e.key];
