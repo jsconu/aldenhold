@@ -1,4 +1,5 @@
 import { SPECIES } from '../content/lairs';
+import { observeOrcRoutes } from './scouts';
 import { endRaid, planRaids, resolveRaids } from './raids';
 import { discoverLairs, newLairState, settleLairs } from './lairs';
 import { recoverFallenKit } from './items';
@@ -56,6 +57,7 @@ export function newGame(seed = Math.floor(Math.random() * 2 ** 31), campaignId: 
     lairs: newLairState(campaignId),
     raids: [],
     raidLog: [],
+    scoutReports: [],
     status: 'playing',
   };
   for (const t of def.towns) state.towns[t.id] = { ...t };
@@ -219,6 +221,7 @@ export function monthlyUpkeep(state: GameState): number {
 }
 
 export function canRecruitAt(state: GameState, town: Town, typeId: string): boolean {
+  if (typeId === 'scout' && worldOf(state).kind !== 'hex') return false;
   const r = UNIT_TYPES[typeId].recruit;
   if (r !== null && typeof r === 'object') {
     // Allied free towns raise their own troops for you while the alliance holds.
@@ -305,6 +308,7 @@ export function moveTroops(state: GameState, from: string, troopIds: number[], t
   // Troops marching together keep to the slowest one's pace, so the group stays together for the rest of the month.
   const left = sharedMp(moving) - quote.cost;
   for (const t of moving) t.mp = left;
+  for (const t of moving) if (t.type === 'scout') delete t.scoutPost;
   // The marching troops keep their army's battle plan; formations without a custom place set up automatically.
   const army: Army = { id: state.nextId++, owner: 'player', at: from, from: null, troops: moving, ...(src.tactics ? { tactics: structuredClone(src.tactics) } : {}) };
   state.armies.push(army);
@@ -402,6 +406,8 @@ export function captureTown(state: GameState, town: Town, owner: FactionId) {
   const name = nodeName(state, town.id);
   const was = town.owner;
   town.owner = owner;
+  if (owner !== 'player') for (const a of state.armies.filter((a) => a.at === townLocation(state, town.id)))
+    for (const t of a.troops) if (t.type === 'scout' && t.scoutPost === 'city') delete t.scoutPost;
   onTownOwnershipChange(state, town.id, owner);
   town.pop = Math.floor(town.pop * 0.9);
   if (owner === 'player') {
@@ -532,6 +538,7 @@ export function fallBack(state: GameState, army: Army) {
   const back = options.find((at) => safe(at) && fits(at)) ?? options.find(safe);
   if (back) {
     army.at = back;
+    for (const t of army.troops) if (t.type === 'scout') delete t.scoutPost;
     settle(state, army);
     return;
   }
@@ -716,7 +723,7 @@ const MONTH_PHASES: MonthPhase[] = [
   // Lairs found by armies that marched near them, and any whose garrison is gone.
   { id: 'lairs', run(state) { return [...discoverLairs(state), ...settleLairs(state)].map(news); } },
   // The orcs' own battles, captures and raids are recorded by the rules they trigger.
-  { id: 'ai', run(state) { orcTurn(state); return []; } },
+  { id: 'ai', run(state) { orcTurn(state, observeOrcRoutes); return []; } },
   // Monster raids: last month's arrive (fighting or plundering), then next month's are planned and announced.
   // Like the AI, this can start battles, so it runs after every economic phase.
   { id: 'raids', run(state) { return [...resolveRaids(state), ...planRaids(state)].map(news); } },

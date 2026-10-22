@@ -81,6 +81,7 @@ export function threatSources(state: GameState, townId: string): ThreatSource[] 
 
 /** A formation's worth in defending a town: attack and defence, scaled by the men it still has. */
 function defenseOf(t: Army['troops'][number]): number {
+  if (t.type === 'scout') return 0;
   const type = UNIT_TYPES[t.type];
   if (isHero(t.type)) return (type.hero!.leadership + kitBonus(t.kit).leadership + 2 * heroLevel(t.xp)) / 10;
   return ((attackFor(t.type, t.xp) + type.defense) / 5) * (t.men / type.men);

@@ -555,4 +555,8 @@ button.travel-destination b { color: var(--gold); font-size: 11px; }
 .assault-prompt { max-width: 560px; max-height: min(90vh, 700px); overflow: auto; padding: 24px; border: 2px solid var(--gold); border-radius: 10px; background: var(--panel); box-shadow: 0 18px 50px #0009; }
 .assault-prompt h2 { margin-top: 0; }
 .assault-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 22px; }
+.scout-post { border: 1px solid var(--line); border-radius: 6px; padding: 8px; margin: 8px 0; }
+.scout-post .save-actions { margin: 6px 0; }
+.scout-intel { border-left: 3px solid var(--gold); padding-left: 10px; }
+.scout-intel ul { padding-left: 18px; }
 .overland .cell:hover { fill: rgba(255, 246, 210, 0.2); stroke: #fff1c2 !important; stroke-width: 0.8; }
