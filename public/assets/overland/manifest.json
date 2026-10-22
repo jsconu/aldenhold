@@ -35,8 +35,10 @@
     "prompt": "Isolated original weathered limestone three-arch bridge, wide gentle diagonal, cobbles, low parapets, subtle moss, detailed pixel art, transparent background, no cyan water, scenery, text or UI."
   },
   "woodBridge": {
-    "file": "wood-bridge-v1.png",
+    "file": "wood-bridges-v2.png",
     "source": "OpenAI built-in image_gen",
-    "prompt": "Original detailed pixel-art weathered oak bridge, low timber rails, posts, cross-braced trestles, iron fasteners, subtle moss, transparent background, no water, landscape, UI or text."
+    "layout": "Three equal square cells in one row: horizontal, rising-right, falling-right",
+    "prompt": "Original detailed pixel-art oak bridges, low rails and sturdy short supports. Three perspectives drawn independently with every support post vertical on screen. Transparent background, no water, scenery, UI or text.",
+    "supersedes": "wood-bridge-v1.png"
   }
 }

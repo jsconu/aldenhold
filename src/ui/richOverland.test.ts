@@ -4,6 +4,16 @@ import { richOverland,richSettlement } from './richOverland';
 import { roadsOf,parseKey } from '../game/world';
 import { tileCenter } from './pixelTiles';
 describe('rich map artwork',()=>{
+  it('replaces legacy plank strokes with complete bank-to-bank wooden bridge illustrations',()=>{
+    const html=richOverland(getCampaign('western-realm').hex!);
+    expect((html.match(/wood-bridges-v2.png/g)||[]).length).toBe(3);
+    expect(html).not.toContain('stroke-dasharray=".6 1.7"');
+    expect(html).not.toContain('rotate(');
+    expect(html).toMatch(/data-water-cells="(?:18,35 19,34|19,34 18,35)"/);
+    expect(html).toContain('data-water-cells="12,7"');
+    expect(html).toContain('data-water-cells="12,21"');
+    expect(html).not.toContain('data-water-cells="11,14"');
+  });
   it('covers all nine gameplay land types and draws actual road connections without changing the world',()=>{
     const world=getCampaign('western-realm').hex!;
     const saved=JSON.stringify(world);
