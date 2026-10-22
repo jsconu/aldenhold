@@ -351,6 +351,7 @@ export function marchQuote(state: GameState, from: string, troopIds: number[], t
     const room = Math.max(0, armyRoom(state, to));
     return refuse(`${room ? `Only ${room} more formation${room === 1 ? ' fits' : 's fit'}` : 'No more formations fit'} in the army at ${nodeName(state, to)} (${ARMY_CAP} at most).`);
   }
+  if (moving.every(t => t.type === 'scout') && pathTo(options, to).some(at => arrivalOutcome(state, at))) return refuse('Scouts cannot attack armies or capture towns. Send fighting troops with them.');
   return { cost: step.cost, path: pathTo(options, to), troopIds: moving.map((t) => t.id), ends: arrivalOutcome(state, to), reason: null };
 }
 
@@ -416,7 +417,7 @@ export function captureTown(state: GameState, town: Town, owner: FactionId) {
   const was = town.owner;
   town.owner = owner;
   if (owner !== 'player') for (const a of state.armies.filter((a) => a.at === townLocation(state, town.id)))
-    for (const t of a.troops) if (t.type === 'scout' && t.scoutPost === 'city') delete t.scoutPost;
+    for (const t of a.troops) if (t.type === 'scout') delete t.scoutPost;
   onTownOwnershipChange(state, town.id, owner);
   town.pop = Math.floor(town.pop * 0.9);
   if (owner === 'player') {
@@ -448,10 +449,14 @@ export function startBattle(state: GameState, attackerId: number, defenderId: nu
     state.pending.push({ attackerId, defenderId });
     return;
   }
+  for (const army of [attacker, defender]) for (const troop of army.troops) if (troop.type === 'scout') delete troop.scoutPost;
   const town = townAt(state, attacker.at);
   const seed = Math.floor(random(state) * 2 ** 31);
   const b = createBattle(attacker.at, attacker, defender, !!town && town.owner === defender.owner, seed, landAt(state, attacker.at));
-  if (!involvesPlayer) {
+  // A watch post cannot hold off an army: resolve interception without an empty tactical screen.
+  if (!involvesPlayer || [attacker, defender].some(a => a.troops.every(t => t.type === 'scout'))) {
+    if (attacker.raid && town) b.raid = { lair: attacker.raid.lair, town: town.id };
+    if (involvesPlayer) deed(state, 'loss', `Scouts intercepted at ${nodeName(state, attacker.at)}; their watch ends and they cannot defend the position.`, attacker.at);
     autoResolve(b);
     applyBattle(state, b);
     return;

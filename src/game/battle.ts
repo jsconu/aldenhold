@@ -28,7 +28,7 @@ export type BattleSize = keyof typeof BATTLE_SIZES;
 
 /** Skirmish for up to 6 formations in all, field up to 14, major beyond that or against walls. */
 export function battleSize(attacker: Army, defender: Army, walls: boolean): Exclude<BattleSize, 'legacy'> {
-  const n = attacker.troops.length + defender.troops.length;
+  const n = [...attacker.troops, ...defender.troops].filter(t => t.type !== 'scout').length;
   return walls || n > 14 ? 'major' : n > 6 ? 'field' : 'skirmish';
 }
 
@@ -222,7 +222,7 @@ export function planDeployment(army: Army): Map<number, DeployCell> {
     [1, 2, 0], // Casters and the leader stay behind the melee screen.
   ];
   // Keep the same fielded contingent as older saves/encounter previews; rank only its starting positions.
-  const troops = army.troops.slice(0, FIELD_LIMIT).sort((a, b) => role(a) - role(b) || strength(b) - strength(a) || a.id - b.id);
+  const troops = army.troops.filter(t => t.type !== 'scout').slice(0, FIELD_LIMIT).sort((a, b) => role(a) - role(b) || strength(b) - strength(a) || a.id - b.id);
   for (const t of troops) {
     const cell = byRole[role(t)].flatMap((depth) => rows.map((row) => ({ depth, row })))
       .find((c) => !taken.has(key(c)));

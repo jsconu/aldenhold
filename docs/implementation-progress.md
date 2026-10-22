@@ -964,3 +964,13 @@ Validation: the weather tests cover:
 - season layers with no falling weather.
 
 Checked in the browser: the snow ticker and camp, light winter snow, and fresh spring green.
+
+## Scout noncombat and backlog reconciliation (October 22, 2026)
+
+Scouts no longer consume tactical deployment slots or enlarge battlefields. They remain saved as noncombat reserves; lone-scout attack/capture orders are refused. Interception ends all watch variants and resolves scout-only defenses through the normal withdrawal, capture and raid settlement rules without an empty tactical screen. Existing battles retain saved deployment.
+
+Scout reports now require the hostile army to be currently within sight; a hidden future route no longer grants intelligence. Rival-city expeditions use the same observation hook before marching, and reported destinations are labelled estimates. Historical reports and deduplication survive reload. Dynamic report updates and dedicated monster-raid intelligence remain on the backlog.
+
+Reconciled merged city views, results, seasons, movement and rival expeditions in the backlog, and recorded the superseding Gharzak and watch rules. Six legacy chapter simulations (seeds 1, 42, 2026; charter and ignore routes) completed in 9–14 months with the ruler alive and no unpaid upkeep, food shortages or ledger corrections. This does not establish full Normal-difficulty relic/fortress balance; that controller and owner acceptance remain required.
+
+Validation: all 520 tests pass; production build passes. Six seeded legacy chapter tours pass. Full Normal victory balance and dynamic scout report retirement remain outstanding.
