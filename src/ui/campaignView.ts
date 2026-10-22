@@ -1,4 +1,5 @@
 import {campaignObjectives,explored,DIFFICULTIES} from '../game/challenge';
+import { currentWeather, SEASON_NAME, sheltered } from '../game/weather';
 import {replacementQuote} from '../game/replacements';
 import { renderRulerSelection } from './rulerSelection';
 import { questOutcome } from './gameplayFeedback';
@@ -51,7 +52,7 @@ export function renderCampaign(state: GameState, ui: UIState): string {
   return `
   <header class="bar" ${ui.assault ? 'inert' : ''}>
     <h1>Aragon <small>${esc(campaignOf(state).name)}</small></h1>
-    <span class="date">${dateLabel(state.turn)}</span>
+    <span class="date">${dateLabel(state.turn)}</span>${renderWeatherBadge(state)}
     <span class="gold" title="Taxes ${income}, troop wages ${upkeep}, city maintenance ${operating}">Gold <b>${state.gold}</b>
       <em class="${net < 0 ? 'neg' : 'pos'}">${net >= 0 ? '+' : ''}${net}/month</em></span>
     <span class="spacer"></span>
@@ -408,6 +409,13 @@ function renderKit(state: GameState, hero: Troop): string {
   }).join('')}</div>`;
 }
 
+/** The month's season and weather, with what it does on hover. */
+function renderWeatherBadge(state: GameState): string {
+  const { season, kind, rule } = currentWeather(state);
+  const icon = { clear: '☀', rain: '☂', storm: '⚡', snow: '❄', blizzard: '❄' }[kind];
+  return ` <span class="weather-badge${rule.cold ? ' cold' : ''}" title="${esc(rule.text)}" aria-label="${esc(`${SEASON_NAME[season]}, ${rule.name}. ${rule.text}`)}">${icon} ${SEASON_NAME[season]} · ${rule.name}</span>`;
+}
+
 function renderArmy(state: GameState, ui: UIState, a: Army): string {
   const mine = a.owner === 'player';
   const hexWorld = isHexCampaign(state);
@@ -437,8 +445,11 @@ function renderArmy(state: GameState, ui: UIState, a: Army): string {
   const hint = hexWorld
     ? 'Tick the troops to send, then click a lit hex. The slowest troop sets the pace. Roads cost 1; plains and farmland 2; forest, hills and badlands 3; deep woods and swamp 4.'
     : 'Tick the troops to send, then click a glowing place on the map.';
+  const weather = currentWeather(state);
+  const cold = mine && weather.rule.cold && !sheltered(state, a.at)
+    ? `<p class="msg cold-warning">${esc(`Out in the cold: in this ${weather.rule.name.toLowerCase()}, this army loses ${Math.round(weather.rule.cold * 100)}% of its men at month end unless it reaches one of your towns or an allied one.`)}</p>` : '';
   return `<div class="army-card own-${a.owner}"><h3>${mine ? 'Your troops' : a.owner === 'orcs' ? 'Orc host' : 'Town militia'}</h3>
-    <ul class="troops">${rows}</ul>
+    ${cold}<ul class="troops">${rows}</ul>
     ${mine && ui.view==='city' ? renderReplacements(state,a) : ''}
     ${mine ? a.troops.filter((t) => t.type === 'scout').map((t) => `<div class="scout-post"><b>Scout #${t.id}</b> · ${t.scoutPost === 'city' ? 'Watching this city' : t.scoutPost === 'road' ? 'Watching this road' : 'Unassigned'}
       <div class="save-actions">

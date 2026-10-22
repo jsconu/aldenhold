@@ -49,7 +49,8 @@ export function playQuestExpedition(seed: number, options: {
     encounters.push(...result.encounters);
     if (result.battles) note(`resolved ${result.battles} battles`);
   };
-  const allDone = () => ['Q02', 'Q03', 'Q05'].every((id) => state.quests[id].status === 'succeeded');
+  // A side quest is done once it is settled: one whose deadline passed (say, held up by winter) is not retried.
+  const allDone = () => ['Q02', 'Q03', 'Q05'].every((id) => ['succeeded', 'failed'].includes(state.quests[id].status));
   let heroesLost = 0;
   // Replacement formations on their way to the party after a lost fight.
   const reinforcementIds: number[] = [];
@@ -150,8 +151,9 @@ export function playQuestExpedition(seed: number, options: {
       }
     }
     const caravan = state.quests.Q05;
-    const destination = allDone() ? 'fenwick' : caravan.status === 'unavailable' || caravan.stage === 'plea' ? 'fenwick'
-      : caravan.status !== 'succeeded' ? 'mine' : state.quests.Q02.status !== 'succeeded' ? 'quarry' : 'watchtower';
+    // With the side quests done and Fenwick's charter signed, the party goes home to winter in (and defend) the capital.
+    const destination = allDone() ? state.quests.Q00.status === 'succeeded' ? 'aldenhold' : 'fenwick' : caravan.status === 'unavailable' || caravan.stage === 'plea' ? 'fenwick'
+      : caravan.status !== 'succeeded' && caravan.status !== 'failed' ? 'mine' : state.quests.Q02.status !== 'succeeded' ? 'quarry' : 'watchtower';
     // A lost fight can strip the party of its soldiers. Like a player, rebuild before trying again: raise
     // replacements at the capital and march them to the party's next stop, where they join it.
     // If the whole party fell, the reinforcements become the party.

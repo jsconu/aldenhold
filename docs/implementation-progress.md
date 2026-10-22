@@ -906,3 +906,59 @@ Besiege is shown as unavailable. Persistent siege state, supply, wall and food l
 Scouts are a recruitable, one-person unit with 18 movement on the Western map, a 75-gold recruitment cost and 3-gold monthly upkeep. Their garrison deterrence is zero. At an owned city, assign **Watch city**; on a road hex, assign **Watch road**; recalling or marching the scout clears the post. These assignments and deduplication keys survive saves without a schema change; old saves have no scouts. The normal tactical rules currently let a scout fight as a fragile formation, so dedicated noncombat treatment remains.
 
 Before a marching orc party moves in the month pipeline, the scout checks its planned route. City watch observes a player city when the party is within two months of it; a road post sees a route crossing its hex or an adjacent hex when the destination is within three months. A single report per army/scout/destination goes to the saved journal and the threatened city's panel, giving an approximate arrival time. This does not yet improve scheduled monster-raid warnings, identify detours after a report, or retire stale estimates. Those cases and interception rules remain in [scouts and advance warning](scouts-and-warning.md).
+
+## Seasons, weather and winter (owner request, October 22, 2026)
+
+Inspired by the original's random weather and deadly winters. Rules live in `src/game/weather.ts`; art in `src/ui/seasonArt.ts`.
+
+**Seasons.** Winter is December to February, spring March to May, summer June to August, autumn September to November.
+
+**Weather.** Each month the realm gets one weather, rolled from the game's own weather stream (`state.weather.seed`), so rolling it never changes any other seeded result. The first two months of a campaign are always clear.
+
+| Weather | Spring | Summer | Autumn | Winter | Effect |
+| --- | --- | --- | --- | --- | --- |
+| Clear | 55% | 75% | 45% | 25% | none |
+| Rain | 35% | 15% | 35% | | three quarters of the usual movement |
+| Storm | 10% | 10% | 20% | | three quarters of the usual movement; strikes one of your towns |
+| Snow | | | | 55% | half movement; armies out in the cold lose 10% of their men at month end |
+| Blizzard | | | | 20% | no marching; armies out in the cold lose 20% at month end |
+
+- **Cold losses.** "Out in the cold" means not in one of your towns or a town that gives you passage. Soldiers can die of it, and a party can be wiped out. Heroes are worn down but never below 1 HP. The orcs are slowed by weather but hardened to the cold, so their invasions stay a threat.
+- **Quest incursions** (armies with a target) keep the chapter's authored pace whatever the weather. New troops get the month's weather-limited movement too.
+- **Storms** spoil a fifth of a town's stored food and drive off 3% of its people. A third of the time they also damage a building, but never its farms, so storms don't cause lasting famines.
+
+**On screen.**
+- The top bar shows the season and weather, with what it does on hover.
+- An army out in the cold in snow or a blizzard shows a warning.
+- The month report and chronicle announce the weather, storms and cold losses.
+
+**Seasonal art.** The painted overland atlas and battlefield ground are summer-green, so each season is a layer on top of them:
+- winter: snow cover, thinner over woods, and ice on water;
+- spring: blossom over fresh green;
+- autumn: forests in rust, red and gold, varying by hex, with golden fields;
+- summer: a warm haze.
+
+Rain, storm, snow and blizzard fall over both screens. The fall stops for players who prefer reduced motion, and none of it takes clicks. Battles use the month's season and weather.
+
+**Saves: version 17.** Saves record the month's weather and its random stream. v16 saves start their current month clear.
+
+**Seeded tours.** The chapter tours still finish. Two changes to the controllers:
+- they wait out snow and blizzards in a friendly town;
+- an expedition goes home to the capital once its work is done, and a side quest that missed its deadline counts as settled.
+
+The two seed-specific scenario tests moved to seeds where their scenario still happens: Greenveil seed 8 → 11, Westmere seed 5 → 13. 19 of 20 full tours finish the chapter. Winter makes campaigns longer, as intended.
+
+Validation: 511 tests pass, including 12 weather tests:
+- the season calendar;
+- the grace months and odds by season, without touching other dice;
+- repeatability and reloads;
+- movement in each weather;
+- cold losses in the field, in your own towns and allied ones;
+- heroes and orcs;
+- storms that spare farms;
+- incursion pace;
+- save validation and the v16 migration;
+- the badge and cold warning;
+- the season and weather layers on the map and in battle.
+
+Checked in the browser: winter snow, autumn rain, and a blizzard battle.

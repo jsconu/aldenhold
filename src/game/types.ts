@@ -606,6 +606,9 @@ export interface CityEconomy {
 export type Difficulty='easy'|'normal'|'hard';
 export interface CampaignChallenge {difficulty:Difficulty;fog:boolean;explored:string[];}
 export type RulerClass='knight'|'priest'|'mage';
+export type Season = 'winter' | 'spring' | 'summer' | 'autumn';
+export type WeatherKind = 'clear' | 'rain' | 'storm' | 'snow' | 'blizzard';
+
 export interface RulerAppearance { rulerClass?:RulerClass; gender:'male'|'female'; skin:'fair'|'olive'|'brown'|'deep' }
 
 export interface GameState {
@@ -613,7 +616,13 @@ export interface GameState {
   cityPolitics?:{lastTurn:number;rivals:Record<string,{nextRaidTurn:number;warning?:{target:string;launchTurn:number}}>};
   challenge?:CampaignChallenge;
   rulerAppearance?: RulerAppearance;
-  version: 16;
+  version: 17;
+  /** This month's weather (game/weather.ts), rolled when the month began. */
+  /**
+   * This month's weather (game/weather.ts), rolled when the month began, and the weather's own random stream, so
+   * rolling it never changes any other seeded outcome.
+   */
+  weather: { kind: WeatherKind; turn: number; seed: number };
   campaignId: CampaignId;
   campaignRevision: number;
   endingReason: EndingReason | null;

@@ -3,6 +3,7 @@ import { autoResolve } from '../battle';
 import { applyBattle, marchQuote, moveTroops, sharedMp, startLocation } from '../campaign';
 import { parseSave } from '../saves';
 import type { GameState } from '../types';
+import { currentWeather, sheltered } from '../weather';
 import { marchOptions, neighbors, pathTo, stopsMarch } from '../world';
 
 /** Follow a real quoted route, never stepping onto an enemy or taking a town with a diplomatic party. */
@@ -12,6 +13,8 @@ export function marchParty(state: GameState, ids: number[], place: string, adjac
   const target = startLocation(state, place);
   const targets = adjacent ? [target, ...neighbors(state, target)] : [target];
   if (targets.includes(army.at)) return null;
+  // Like a sensible player, wait out snow and blizzards in a friendly town rather than march into the cold.
+  if (currentWeather(state).rule.cold && sheltered(state, army.at)) return null;
   const routes = marchOptions(state, army.at, 'player', Infinity);
   const destination = targets.filter((at) => !stopsMarch(state, at, 'player') && routes.has(at))
     .sort((a, b) => routes.get(a)!.cost - routes.get(b)!.cost)[0];

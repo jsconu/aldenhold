@@ -607,3 +607,28 @@ button.travel-destination b { color: var(--gold); font-size: 11px; }
 .city-war-warning{border:2px solid #b2784e;background:#392c23;padding:14px;margin-bottom:16px}.city-war-warning h3{margin-top:0}.city-war-warning li{margin:8px 0}
 
 .city-screen,.ruler-selection{display:block;min-height:0}
+
+/* Seasons over the painted terrain: snow and ice cover the ground; the rest tint it, keeping the painting visible. */
+.season-layer polygon { pointer-events: none; }
+.season-winter .season-snow { opacity: .8; }
+.season-winter .season-snow-thin { opacity: .55; }
+.season-winter .season-ice { opacity: .6; }
+.season-autumn .season-leaves { opacity: .55; mix-blend-mode: color; }
+.season-autumn .season-stubble { opacity: .3; mix-blend-mode: color; }
+.season-spring .season-blossom { opacity: .9; }
+.season-summer .season-haze { opacity: .14; mix-blend-mode: soft-light; }
+/* Weather falls over the whole view and never takes a click. */
+.weather-layer { pointer-events: none; }
+.weather-tint.storm { fill: #1d2433; opacity: .22; }
+.weather-tint.whiteout { fill: #eef4fa; opacity: .28; }
+.weather-fall { animation: weather-fall 1.2s linear infinite; }
+.weather-snow .weather-fall, .weather-blizzard .weather-fall { animation-duration: 5s; }
+.weather-blizzard .weather-fall { animation-duration: 2.4s; }
+.weather-fall.slow { animation-duration: 2s; }
+.weather-snow .weather-fall.slow { animation-duration: 8s; }
+@keyframes weather-fall { from { transform: translateY(0); } to { transform: translateY(var(--tile)); } }
+@media (prefers-reduced-motion: reduce) { .weather-fall { animation: none; } }
+/* Season and weather in the top bar. */
+.weather-badge { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border-radius: 10px; border: 1px solid #6d6043; font-size: 12px; color: #eadbb4; background: #2c271c; cursor: help; }
+.weather-badge.cold { border-color: #9cc3e6; color: #dcecff; background: #1f2a36; }
+.cold-warning { border-left: 3px solid #9cc3e6; padding-left: 8px; }

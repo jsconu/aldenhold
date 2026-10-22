@@ -243,12 +243,12 @@ export function strike(state: GameState, raid: { lair: string; target: string })
   return `Raiders attack ${name}.`;
 }
 
-/** A siege's damage: the town's highest building (not one being built) loses a level. */
-function knockDown(state: GameState, townId: string): BuildingId | null {
+/** Damage to a town: its highest building (not one being built, nor one in `spare`) loses a level. */
+export function knockDown(state: GameState, townId: string, spare: BuildingId[] = []): BuildingId | null {
   const city = state.cityEconomies[townId];
   if (!city) return null;
   const hit = [...BUILDING_IDS].reverse()
-    .filter((k) => city.buildings[k] > 0 && city.project?.kind !== k)
+    .filter((k) => city.buildings[k] > 0 && city.project?.kind !== k && !spare.includes(k))
     .sort((a, b) => city.buildings[b] - city.buildings[a])[0];
   if (!hit) return null;
   city.buildings[hit] -= 1;

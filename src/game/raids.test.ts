@@ -273,7 +273,7 @@ describe('raid saves', () => {
     s.version = 15;
     delete s.raidLog;
     const migrated = parseSave(JSON.stringify(s));
-    expect(migrated.version).toBe(16);
+    expect(migrated.version).toBe(17);
     expect(migrated.raidLog).toEqual([]);
   });
 });
