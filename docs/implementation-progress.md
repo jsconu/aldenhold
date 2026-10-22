@@ -866,3 +866,7 @@ The Hold starts with 8/10/12 formations and progressively more experience; raids
 The Barrow allows paid atonement after an initially rejected oath, preventing its required relic from silently making a campaign unwinnable. Difficulty and exploration are saved and validated.
 
 Validation: production build passes. The 476-test full run passed 474 checks; the two long legacy simulations exceeded their limits under load and both passed in a 29-test isolated recheck. The added scouting workflow and prepared-Hold battle checks pass, bringing coverage to 478 tests across these runs. Six Normal/Hard seeded starting-army assaults failed; a developed twelve-formation Normal army won with the ruler alive. Browser checks verified class selection, upgrade inspection, direct stance changes, and hired-hero guidance. Owner playtesting remains the balance acceptance step.
+
+### Battlefield scale and label clearance
+Normalized hero figures to the same approximate person height as soldiers in a formation, including the taller ruler portrait atlases. Individual large creatures remain slightly larger. Compact status badges now end within 19px below a hex center instead of 24px, leaving clearance above figures in the next row. Heroes retain their gold stars and HP labels.
+Battle-summary copy: removed the redundant sentence about quest and lair rewards. Validation: production build and 14 focused rendering/feedback tests pass; reviewed adjacent formations and heroes in the browser.

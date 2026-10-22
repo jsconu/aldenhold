@@ -594,3 +594,5 @@ button.travel-destination b { color: var(--gold); font-size: 11px; }
 .battle .men.hero-hp{font-size:10px}
 
 @media(min-width:561px) and (max-width:850px){.ruler-creation{grid-template-columns:180px minmax(0,1fr);gap:18px;padding:16px}.ruler-portrait svg{width:180px;max-width:180px;height:240px}.ruler-selection{padding:12px}.ruler-creation fieldset{padding:8px}.ruler-creation fieldset button{padding:8px 10px}}
+
+.unit .unit-status-back{fill:#19251ee8;stroke:#bcad83;stroke-width:.5;pointer-events:none}.unit .men.hero-hp{font-size:8px}.unit .men{stroke-width:2px}

@@ -88,13 +88,14 @@ export function renderBattle(state: GameState, ui: UIState): string {
         <ellipse cx="${cx}" cy="${cy + 9}" rx="15" ry="5" class="base"/>
         ${battleFigure(u.type, cx, cy, u.side === 'defender', u.men, mine ? state.rulerAppearance : undefined, u.name ? (/^(Mother|Sister|Edith|Tamsin|Ysolde)/.test(u.name)?'female':'male') : (u.troopId%2?'female':'male')) || pixelSprite(u.type, mine ? 'mine' : 'foe', cx, cy + 10, 2.5, u.side === 'defender')}
         ${hero ? `<path d="m${cx + 15} ${cy - 23} 1.5 3 3.3.5-2.4 2.3.6 3.3-3-1.6-3 1.6.6-3.3-2.4-2.3 3.3-.5z" class="star"/>` : ''}
-        <text x="${cx}" y="${cy + 17}" class="men${hero ? ' hero-hp' : ''}">${u.routing ? 'RUN' : hero ? u.men+' HP' : u.men}</text>
-        <rect x="${cx - 14}" y="${cy + 19}" width="28" height="3" class="hp-bg"/>
-        <rect x="${cx - 14}" y="${cy + 19}" width="${(28 * frac).toFixed(1)}" height="3" class="hp"/>
+        <rect x="${cx - 18}" y="${cy + 3}" width="36" height="16" rx="4" class="unit-status-back"/>
+        <text x="${cx}" y="${cy + 12}" class="men${hero ? ' hero-hp' : ''}">${u.routing ? 'RUN' : hero ? u.men+' HP' : u.men}</text>
+        <rect x="${cx - 14}" y="${cy + 14}" width="28" height="2" class="hp-bg"/>
+        <rect x="${cx - 14}" y="${cy + 14}" width="${(28 * frac).toFixed(1)}" height="2" class="hp"/>
         ${aimedBy ? `<g class="aimed"><title>${esc(unitLabel(b, aimedBy))} will throw a boulder here next turn if this formation is still within ${UNIT_TYPES[aimedBy.type].boulder!.range} hexes.</title><circle cx="${cx}" cy="${cy - 2}" r="24" class="aim-ring"/><text x="${cx - 18}" y="${cy - 14}" class="aim-mark">!</text></g>` : ''}
         ${u.effects.length ? `<text x="${cx + 16}" y="${cy - 10}" class="effect-badge"><title>${esc(u.effects.map((e) => `${EFFECTS[e.id].name}: ${e.turns} turns`).join('; '))}</title>✦</text>` : ''}
-        ${hero ? '' : `<rect x="${cx - 14}" y="${cy + 22}" width="28" height="2" class="hp-bg"/>
-        <rect x="${cx - 14}" y="${cy + 22}" width="${(28 * morale).toFixed(1)}" height="2" class="morale${u.morale < 40 ? ' low' : ''}"/>`}
+        ${hero ? '' : `<rect x="${cx - 14}" y="${cy + 17}" width="28" height="1.5" class="hp-bg"/>
+        <rect x="${cx - 14}" y="${cy + 17}" width="${(28 * morale).toFixed(1)}" height="1.5" class="morale${u.morale < 40 ? ' low' : ''}"/>`}
       </g>`;
     })
     .join('');
@@ -155,7 +156,7 @@ export function renderBattle(state: GameState, ui: UIState): string {
     <aside class="side">
       ${renderMinimap(b, w, h)}
       ${b.outcome ? '' : sel ? renderUnit(state, b, sel, ui) : '<p class="hint">Gold-bordered hexes show where you can move this turn. Click one of your units, then a marked enemy to move into range and attack in one click, or a glowing location to move. Each unit may move, then attack, once a turn. Heroes (★) can cast spells instead of attacking.</p>'}
-      <p class="sub">Groups of soldiers are formations; single figures marked ★ are heroes. Formation numbers count soldiers; hero numbers show HP. The thin bar under each troop is its morale. Below ${ROUT_AT} it breaks and runs for its own edge of the field; at ${RALLY_AT} it may rally.</p>
+      <p class="sub">Groups of soldiers are formations; single figures marked ★ are heroes. People share the same scale; groups represent formations. Formation numbers count soldiers; hero numbers show HP. The thin bar under each troop is its morale. Below ${ROUT_AT} it breaks and runs for its own edge of the field; at ${RALLY_AT} it may rally.</p>
       ${b.walls ? `<p class="sub">${me === 'defender' ? 'You fight behind town walls: +1 defense.' : 'The enemy is behind walls: +1 defense.'}</p>` : ''}
       ${renderReserves(b)}
       ${renderLegend(b)}
@@ -252,7 +253,7 @@ function renderOutcome(state: GameState, b: Battle): string {
   }).join('');
   const army = (side: 'attacker' | 'defender') => '<section><h3>'+ (side===me ? 'Your army' : 'Enemy army')+'</h3><div class="report-table"><table><thead><tr><th>Formation</th><th>Losses</th><th>Fate</th><th>Advancement</th></tr></thead><tbody>'+rows(side)+'</tbody></table></div></section>';
   return `<section class="battle-report" aria-labelledby="battle-result-title"><div class="battle-report-sheet"><p class="report-eyebrow">Chronicle of battle · Round ${b.round}</p><h2 id="battle-result-title">${won ? 'Victory' : 'Defeat'} at ${esc(nodeName(state,b.at))}</h2>
-    <p class="battle-spoils">Gold spoils: <b>${battleSpoils(b)}g</b>${won ? ' · collected when you continue' : ' · victory is required'}. Quest and lair rewards are separate.</p><p>You lost ${lost(me)} men. The enemy lost ${lost(me === 'attacker' ? 'defender' : 'attacker')}.</p>
+    <p class="battle-spoils">Gold spoils: <b>${battleSpoils(b)}g</b>${won ? ' · collected when you continue' : ' · victory is required'}.</p><p>You lost ${lost(me)} men. The enemy lost ${lost(me === 'attacker' ? 'defender' : 'attacker')}.</p>
     ${army(me)}${army(me === 'attacker' ? 'defender' : 'attacker')}
     ${b.retreated === me && !b.raid ? '<p class="sub">Your troops fall back to where they came from.</p>' : ''}
     ${b.raid ? `<p class="raid-outcome">${esc(won ? `The raid is beaten off. ${nodeName(state, b.raid.town)} is safe.` : `The raiders break into ${nodeName(state, b.raid.town)}. ${raidAftermath(state, b.raid.lair, b.raid.town)}`)}</p>` : ''}<p class="sub">Experience and campaign consequences are applied when you continue.</p><button data-action="battle-continue" class="primary">Continue to the realm</button></div></section>`;

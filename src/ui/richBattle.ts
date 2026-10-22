@@ -34,7 +34,12 @@ export function richRuin(cx:number,cy:number,seed:number):string{
 
 /** A formation is a group of people; heroes and individual giant creatures keep a single silhouette. */
 export function battleFigure(type:string,cx:number,cy:number,mirror:boolean,men:number,appearance?:RulerAppearance,gender?:'male'|'female'):string{
- if(UNIT_TYPES[type]?.hero || ['giant','titan','cyclops','minotaur'].includes(type))return richUnit(type,cx,cy,mirror,appearance,gender);
+ if(UNIT_TYPES[type]?.hero){
+  // Portrait cells are taller than square troop cells; normalize both to a roughly 32px person.
+  const scale=isRulerType(type) && (appearance || type!=='lord')?.48:.64;
+  return '<g class="battle-hero-figure" transform="translate('+cx+' '+cy+') scale('+scale+')">'+richUnit(type,0,0,mirror,appearance,gender)+'</g>';
+ }
+ if(['giant','titan','cyclops','minotaur'].includes(type))return '<g class="battle-creature-figure" transform="translate('+cx+' '+(cy+4)+') scale(.72)">'+richUnit(type,0,0,mirror,undefined,gender)+'</g>';
  const figures=Math.min(3,Math.max(1,men)),positions=figures===3?[[-12,-5],[12,-5],[0,7]]:figures===2?[[-10,1],[10,1]]:[[0,3]];
  return '<g class="battle-formation" pointer-events="none" role="img" aria-label="'+men+' soldiers in formation">'+positions.map(([x,y],i)=>'<g transform="translate('+(cx+x)+' '+(cy+y)+') scale(.64)">'+richUnit(type,0,0,mirror,undefined,i===1?(gender==='female'?'male':'female'):gender)+'</g>').join('')+'</g>';
 }
