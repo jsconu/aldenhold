@@ -464,7 +464,7 @@ function renderArmy(state: GameState, ui: UIState, a: Army): string {
     ${mine ? a.troops.filter((t) => t.type === 'scout').map((t) => `<div class="scout-post"><b>Scout #${t.id}</b> · ${onWatch(t) ? `On watch over ${esc(nodeName(state, a.at))}` : 'Not on watch'}
       <div class="save-actions">
         ${onWatch(t) ? `<button data-action="scout-post" data-troop="${t.id}" data-post="recall">Stop watching</button>` : `<button data-action="scout-post" data-troop="${t.id}" data-post="watch">Keep watch here</button>`}
-      </div><small class="sub">A scout on watch sees ${SCOUT_RANGE} hexes all around (shaded on the map) and reports any orc force that will come into sight within two months, with where it is heading. Marching the scout ends its watch.</small></div>`).join('') : ''}
+      </div><small class="sub">A scout on watch sees ${SCOUT_RANGE} hexes all around (shaded on the map) and reports visible orc and rival-city forces with an estimated destination. Scouts stay out of battle and cannot capture towns; an enemy reaching their post ends their watch. Isolated scouts cannot hold a position. Marching the scout ends its watch.</small></div>`).join('') : ''}
     ${mine && ui.view==='city' && townAt(state, a.at)?.owner === 'player' ? renderRefitChoices(state, a, ui) : ''}
     ${mine ? '<p class="sub">In battle, your toughest melee formations set up in front; archers, casters and the leader start behind them.</p>' : ''}
     ${ready ? `<p class="hint">${hint}</p>` : ''}</div>`;

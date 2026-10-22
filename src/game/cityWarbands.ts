@@ -1,3 +1,4 @@
+import {observeOrcRoutes} from './scouts';
 import {armyAt,deed,makeTroop,marchAlong,nodeName,sharedMp} from './campaign';
 import {relationWith} from './diplomacy';
 import {marchOptions,pathTo,stepCost,townLocation,worldOf} from './world';
@@ -64,6 +65,7 @@ export function cityWarbandTurn(state:GameState):void{
   if(army.at===goal){delete army.cityRaid;continue;}
   const options=marchOptions(state,army.at,army.owner,sharedMp(army.troops));
   const full=marchOptions(state,army.at,army.owner,Infinity),route=pathTo(full,goal);if(!route.length)continue;
+  observeOrcRoutes(state,army,route);
   const steps:string[]=[];let budget=sharedMp(army.troops);
   for(const at of route){budget-=stepCost(state,at);if(budget<0||!options.has(at))break;steps.push(at);}
   if(!steps.length)continue;for(const troop of army.troops)troop.mp=0;

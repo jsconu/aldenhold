@@ -21,3 +21,9 @@ Owner request, October 22, 2026. Scouts are distinct from ordinary fighting form
 2. A hostile army crossing the road post generates a warning before the city watch sees it, when distance permits. An army bypassing both posts remains unseen.
 3. A monster raid's existing warning remains one event; a scout supplies earlier or better local detail when it can actually observe the route.
 4. Recall, interception, city loss and a changed enemy route update or retire stale reports. Scout upkeep is charged once per month and scouts do not distort garrison deterrence or battle deployment.
+
+## Implemented behavior, October 22, 2026
+
+The current UI uses one Keep watch here assignment with a shaded three-hex radius. A scout reports only a currently visible orc or rival-city army, and identifies its destination as an estimate. Unseen future route crossings do not reveal an enemy. Reports are dated journal history and deduplicated through saves; automatic updates/retirement of changed estimates and monster-raid intelligence remain future work.
+
+Scouts stay in noncombat reserve during battles without consuming a deployment slot. Scouts alone cannot order an attack or capture. When intercepted they lose their watch; an undefended post resolves immediately, with ordinary withdrawal/cut-off and town/raid consequences. Scouts accompanying soldiers follow the army’s battle result. Existing saved battles retain their saved deployment.
