@@ -436,6 +436,12 @@ The build passes. In the browser: the granary rotted on schedule, rationing bloc
 
 The Western map now uses the battle scene's quieter earth, forest and water palette, broad continuous lighting, less repeated tile detail and softer movement glows. Blue army banners have a clearer backing so the army's location is easier to find. A prominent march guide in the sidebar shows the currently ticked and reachable troops, can return to a ready army after inspecting another hex, and explains that an unlit hex inspects rather than moves. Hex geometry, terrain, roads, movement costs and saves are unchanged. This is a first visual pass to review in the running game with the owner.
 
+## Codex: tactical group movement and movement undo
+
+The battle sidebar now lets the player tick ready formations or Shift-click them on the field. A glowing destination moves all selected formations atomically, retaining their relative hex spacing; the slowest formation sets the shared movement budget. Each member must have a legal path and destination, so occupied, impassable and enemy-controlled positions constrain the group. Group movement marks every member as moved and applies destination terrain harm to each. Attacks and spells remain individual commands.
+
+One-step Undo march and Undo battle move controls restore the exact preceding game position and selection, including movement points, battle entry and terrain harm. Undo remains available through inspection and selection, but a further move replaces it and other consequential commands close it. It is held only in memory for the current browser session; saved games continue to use the existing schema. The current tactical model still permits one formation per hex, unlike the original 200-size-point mixed stack rule; that larger rules change is tracked in the backlog.
+
 ## Codex: Western chapter city-quest and alliance playthrough pass (9e)
 
 Extended the real-command optional-expedition controller to resolve Q01 through bought, escorted or rationed grain and Q06 through an evidence-led conviction or pardon. It prioritizes the timed granary response before optional garrison spending, checks imports immediately after decisions, and separately exercises an envoy's Q04 woodland alliance. No production gameplay rules changed.

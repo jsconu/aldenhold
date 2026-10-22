@@ -9,6 +9,10 @@ export interface UIState {
   checked: Set<number>;
   /** Selected unit in the current battle. */
   battleUnit: number | null;
+  /** Tactical formation IDs selected for a simultaneous move (the battleUnit is the lead). */
+  battleUnits?: Set<number>;
+  /** An in-session movement snapshot is available; it is never part of the save. */
+  undoMoveLabel?: string;
   /** Spell the selected hero is about to cast. */
   battleSpell: SpellId | null;
   battleTarget?: number | null;

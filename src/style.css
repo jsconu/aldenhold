@@ -445,6 +445,10 @@ button.travel-destination b { color: var(--gold); font-size: 11px; }
 .field .unit.target .mark { stroke: #f96a46; stroke-width: 2.4; stroke-dasharray: 4 4; }
 .field .unit.boon .mark { stroke: #77d79b; stroke-width: 2.4; stroke-dasharray: 4 4; }
 .field .unit.spell-affected .mark { stroke: #ffc976; stroke-width: 2; }
+.battle-group { border: 1px solid var(--line); border-radius: 7px; padding: 8px 10px; margin-bottom: 12px; }
+.battle-group summary { cursor: pointer; color: var(--gold); font-weight: 600; }
+.battle-group-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(165px, 1fr)); gap: 5px 10px; max-height: 150px; overflow: auto; }
+.battle-group-list label { display: flex; gap: 6px; align-items: center; font-size: 12px; }
 .atlas-ground { stroke: none !important; }
 .atlas-watercourse { opacity: .88; }
 .atlas-river-bank { fill: none; stroke: #2d4d47; stroke-width: 26; stroke-linecap: round; stroke-linejoin: round; }

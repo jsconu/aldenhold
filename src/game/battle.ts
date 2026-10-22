@@ -377,6 +377,70 @@ export function reachable(b: Battle, u: BattleUnit): Map<string, number> {
   return reachFrom(b, u);
 }
 
+/** Translate an odd-column hex by the same axial displacement as the group's lead. */
+function groupPosition(lead: BattleUnit, destination: Hex, member: BattleUnit): Hex {
+  const axialRow = (h: Hex) => h.row - (h.col - (h.col & 1)) / 2;
+  const col = member.col + destination.col - lead.col;
+  const row = axialRow(member) + axialRow(destination) - axialRow(lead) + (col - (col & 1)) / 2;
+  return { col, row };
+}
+
+/** Legal lead destinations for a simultaneous, spacing-preserving move. The slowest member sets the budget. */
+export function groupReachable(b: Battle, unitIds: number[]): Map<string, number> {
+  if (unitIds.length < 2 || new Set(unitIds).size !== unitIds.length || b.outcome) return new Map();
+  const group = unitIds.map((id) => b.units.find((u) => u.id === id));
+  if (group.some((u) => !u || u.side !== b.active || !alive(b).includes(u) || u.moved || u.acted || u.routing)) return new Map();
+  const members = group as BattleUnit[];
+  const lead = members[0];
+  const ids = new Set(unitIds);
+  const budget = Math.min(...members.map(movementOf));
+  const result = new Map<string, number>();
+  const best = new Map<string, number>([[hexKey(lead), 0]]);
+  const frontier: (Hex & { cost: number })[] = [{ col: lead.col, row: lead.row, cost: 0 }];
+  while (frontier.length) {
+    frontier.sort((a, c) => a.cost - c.cost);
+    const cur = frontier.shift()!;
+    if (cur.cost !== best.get(hexKey(cur))) continue;
+    if (cur.cost && members.some((u) => nextToEnemy(b, groupPosition(lead, cur, u), u.side))) continue;
+    for (const next of hexNeighbors(cur)) {
+      let step = 0;
+      let legal = true;
+      for (const u of members) {
+        const at = groupPosition(lead, next, u);
+        const occupant = inBounds(b, at) ? unitAt(b, at) : undefined;
+        if (!inBounds(b, at) || (occupant && !ids.has(occupant.id))) { legal = false; break; }
+        step = Math.max(step, terrainAt(b, at).move);
+      }
+      const cost = cur.cost + step;
+      if (!legal || !Number.isFinite(cost) || cost > budget || cost >= (best.get(hexKey(next)) ?? Infinity)) continue;
+      best.set(hexKey(next), cost);
+      result.set(hexKey(next), cost);
+      frontier.push({ ...next, cost });
+    }
+  }
+  // An occupied lead hex may be useful while searching a route, but clicking it
+  // selects that formation in the UI instead of issuing a group move.
+  for (const key of result.keys()) {
+    const [col, row] = key.split(',').map(Number);
+    if (unitAt(b, { col, row })) result.delete(key);
+  }
+  return result;
+}
+
+/** Move every selected formation together, or none. Terrain harm is applied after all positions change. */
+export function moveGroup(b: Battle, unitIds: number[], destination: Hex): boolean {
+  if (!groupReachable(b, unitIds).has(hexKey(destination))) return false;
+  const members = unitIds.map((id) => b.units.find((u) => u.id === id)!);
+  const positions = members.map((u) => groupPosition(members[0], destination, u));
+  members.forEach((u, i) => { u.col = positions[i].col; u.row = positions[i].row; u.moved = true; });
+  for (const u of members) {
+    const ground = terrainAt(b, u);
+    const lost = Math.min(ground.moveLoss, u.men - 1);
+    if (lost > 0) b.log.push(`${unitLabel(b, u)} push into the ${ground.name.toLowerCase()}: ${lost} ${isHero(u.type) ? 'wounds' : 'men hurt'}.${takeLosses(b, u, lost)}`);
+  }
+  return true;
+}
+
 /** Enemies the unit can strike now: adjacent ones, or ones in missile range if it isn't engaged. */
 export function attackTargets(b: Battle, u: BattleUnit): BattleUnit[] {
   if (u.reserve || u.acted || u.men <= 0 || u.fled || u.routing) return [];
