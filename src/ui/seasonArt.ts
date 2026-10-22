@@ -1,9 +1,9 @@
-import type { Season, WeatherKind } from '../game/types';
+import type { Season } from '../game/types';
 
 /**
  * Seasons and weather drawn over the painted terrain, on the overland map and the battlefield. The painted atlases
- * are summer-green, so each season is a layer on top: snow cover and ice in winter, blossom in spring, turning
- * leaves in autumn, a warm haze in summer. Weather (rain, storm, snow, blizzard) falls over the whole view.
+ * are summer-green, so each season is a layer on top: a dusting of snow and ice in winter, fresh green in spring, turning
+ * leaves in autumn, a warm haze in summer. The weather itself is told in the ticker under the top bar, not drawn.
  * Everything here is decoration: pointer-events are off and nothing changes what a click does.
  */
 
@@ -49,7 +49,9 @@ function seasonFill(season: Season, cell: SeasonCell): { fill: string; cls: stri
       if (cover === 'open' || cover === 'field') return { fill: '#c9a44a', cls: 'stubble' };
       return null;
     case 'spring':
-      if (cover === 'wood' || cover === 'open' || cover === 'field') return { fill: 'url(#season-blossom)', cls: 'blossom' };
+      // Fresh new green everywhere that grows.
+      if (cover === 'wood') return { fill: '#86cc5c', cls: 'fresh' };
+      if (cover === 'open' || cover === 'field') return { fill: '#8fd468', cls: 'fresh' };
       return null;
     case 'summer':
       if (cover === 'open' || cover === 'field') return { fill: '#e6cf74', cls: 'haze' };
@@ -57,16 +59,13 @@ function seasonFill(season: Season, cell: SeasonCell): { fill: string; cls: stri
   }
 }
 
-/** Patterns the seasonal layer uses: snow cover (light and deep) and blossom. */
+/** Patterns the seasonal layer uses: snow cover, light and deep. */
 export function seasonDefs(): string {
   return `<pattern id="season-snow" patternUnits="userSpaceOnUse" width="14" height="12">
       <rect width="14" height="12" fill="#f4f8fc"/><circle cx="3" cy="3" r=".9" fill="#d5e2ee"/><circle cx="10" cy="8" r="1.1" fill="#dce7f1"/></pattern>
     <pattern id="season-snow-deep" patternUnits="userSpaceOnUse" width="14" height="12">
       <rect width="14" height="12" fill="#ffffff"/><path d="M0 9 L5 6 L9 8 L14 5" stroke="#d6e3ef" stroke-width=".8" fill="none"/></pattern>
-    <pattern id="season-blossom" patternUnits="userSpaceOnUse" width="16" height="14">
-      <rect width="16" height="14" fill="#9fd07a" fill-opacity=".18"/>
-      <circle cx="3" cy="4" r="1.3" fill="#f6b8cf"/><circle cx="11" cy="2.5" r="1" fill="#fff3f7"/>
-      <circle cx="8" cy="10" r="1.4" fill="#f2a6c2"/><circle cx="14" cy="11" r=".9" fill="#ffffff"/></pattern>`;
+`;
 }
 
 /** The season's layer over every cell. Snow covers most of the ground; the others tint it. */
@@ -77,27 +76,4 @@ export function seasonLayer(season: Season, cells: SeasonCell[]): string {
     if (look) out += `<polygon points="${cell.points}" fill="${look.fill}" class="season-${look.cls}"/>`;
   }
   return `<g class="season-layer season-${season}" pointer-events="none">${out}</g>`;
-}
-
-/**
- * Weather falling over a `width` × `height` view: rain or storm streaks, snow or blizzard flakes, drifting down
- * (the drift stops for players who prefer reduced motion). Clear weather draws nothing.
- */
-export function weatherLayer(kind: WeatherKind, width: number, height: number, id: string): string {
-  if (kind === 'clear') return '';
-  const wet = kind === 'rain' || kind === 'storm';
-  const size = wet ? 24 : 30;
-  const mark = wet
-    ? `<path d="M4 0 L0 12 M16 8 L12 20 M22 2 L18 14" stroke="#cfe0ec" stroke-width="${kind === 'storm' ? 1.1 : .7}" stroke-linecap="round" opacity="${kind === 'storm' ? .75 : .55}"/>`
-    : `<circle cx="5" cy="6" r="${kind === 'blizzard' ? 1.6 : 1.2}" fill="#fff"/><circle cx="19" cy="15" r="${kind === 'blizzard' ? 1.4 : 1}" fill="#fff"/><circle cx="11" cy="24" r="1.1" fill="#fff"/><circle cx="26" cy="27" r=".9" fill="#fff"/>`;
-  const tint = kind === 'storm' ? '<rect class="weather-tint storm" x="0" y="0" width="100%" height="100%"/>'
-    : kind === 'blizzard' ? '<rect class="weather-tint whiteout" x="0" y="0" width="100%" height="100%"/>' : '';
-  // Two layers of the same pattern, offset, read as depth; each drifts downward by one tile and repeats.
-  return `<g class="weather-layer weather-${kind}" pointer-events="none">
-    <defs><pattern id="${id}" patternUnits="userSpaceOnUse" width="${size}" height="${size}">${mark}</pattern></defs>
-    ${tint}
-    <svg x="0" y="0" width="${width}" height="${height}" overflow="hidden">
-      <rect class="weather-fall" x="0" y="${-size}" width="${width}" height="${height + size}" fill="url(#${id})" style="--tile:${size}px"/>
-      <rect class="weather-fall slow" x="${size / 2}" y="${-size}" width="${width}" height="${height + size}" fill="url(#${id})" opacity=".6" style="--tile:${size}px"/>
-    </svg></g>`;
 }

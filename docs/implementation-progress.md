@@ -915,50 +915,52 @@ Inspired by the original's random weather and deadly winters. Rules live in `src
 
 **Weather.** Each month the realm gets one weather, rolled from the game's own weather stream (`state.weather.seed`), so rolling it never changes any other seeded result. The first two months of a campaign are always clear.
 
-| Weather | Spring | Summer | Autumn | Winter | Effect |
-| --- | --- | --- | --- | --- | --- |
-| Clear | 55% | 75% | 45% | 25% | none |
-| Rain | 35% | 15% | 35% | | three quarters of the usual movement |
-| Storm | 10% | 10% | 20% | | three quarters of the usual movement; strikes one of your towns |
-| Snow | | | | 55% | half movement; armies out in the cold lose 10% of their men at month end |
-| Blizzard | | | | 20% | no marching; armies out in the cold lose 20% at month end |
+| Weather | Spring | Summer | Autumn | Winter | Movement | Lost in the open each month (camped) |
+| --- | --- | --- | --- | --- | --- | --- |
+| Clear | 55% | 75% | 45% | 25% | full | none |
+| Rain | 35% | 15% | 35% | | three quarters | 3% (1.5%) |
+| Storm | 10% | 10% | 20% | | three quarters | 5% (2.5%), and it strikes one of your towns |
+| Snow | | | | 55% | half | 10% (5%) |
+| Blizzard | | | | 20% | none | 20% (10%) |
 
-- **Cold losses.** "Out in the cold" means not in one of your towns or a town that gives you passage. Soldiers can die of it, and a party can be wiped out. Heroes are worn down but never below 1 HP. The orcs are slowed by weather but hardened to the cold, so their invasions stay a threat.
+- **Weather losses.** "In the open" means not in one of your towns or a town that gives you passage. Snow and blizzards always cost a formation at least one man, so they can finish off a small party. Heroes are worn down but never below 1 HP. The orcs are slowed by weather but hardened to it, so their invasions stay a threat.
+- **Set up camp.** An army in the open can set up camp for the month. It can't march again until the next month, and the weather costs it half as many men, though still some.
 - **Quest incursions** (armies with a target) keep the chapter's authored pace whatever the weather. New troops get the month's weather-limited movement too.
-- **Storms** spoil a fifth of a town's stored food and drive off 3% of its people. A third of the time they also damage a building, but never its farms, so storms don't cause lasting famines.
+- **Storms** spoil a fifth of a town's stored food and drive off 3% of its people. A third of the time they also damage a building, but never its farms.
 
 **On screen.**
-- The top bar shows the season and weather, with what it does on hover.
-- An army out in the cold in snow or a blizzard shows a warning.
-- The month report and chronicle announce the weather, storms and cold losses.
+- A weather ticker under the top bar gives the season, the weather, what it does, and how many of your armies are in the open (and camped).
+- An exposed army's panel says what the weather will cost it and offers **Set up camp**.
+- The month report and journal record storms and weather losses.
 
-**Seasonal art.** The painted overland atlas and battlefield ground are summer-green, so each season is a layer on top of them:
-- winter: snow cover, thinner over woods, and ice on water;
-- spring: blossom over fresh green;
+**Seasonal art.** The painted overland atlas and battlefield ground are summer-green, so each season is a layer on top:
+- winter: a light dusting of snow (thinner over woods) and ice on water;
+- spring: fresh green;
 - autumn: forests in rust, red and gold, varying by hex, with golden fields;
 - summer: a warm haze.
 
-Rain, storm, snow and blizzard fall over both screens. The fall stops for players who prefer reduced motion, and none of it takes clicks. Battles use the month's season and weather.
+No weather is drawn falling; the ticker tells it. Battles use the month's season.
 
-**Saves: version 17.** Saves record the month's weather and its random stream. v16 saves start their current month clear.
+**Saves: version 17.** Saves record the month's weather and its random stream, and the month an army made camp. v16 saves start their current month clear.
 
-**Seeded tours.** The chapter tours still finish. Two changes to the controllers:
+**Seeded tours.** The chapter tours still finish. Changes to the controllers:
 - they wait out snow and blizzards in a friendly town;
+- they set up camp when a month ends in the open;
 - an expedition goes home to the capital once its work is done, and a side quest that missed its deadline counts as settled.
 
-The two seed-specific scenario tests moved to seeds where their scenario still happens: Greenveil seed 8 → 11, Westmere seed 5 → 13. 19 of 20 full tours finish the chapter. Winter makes campaigns longer, as intended.
+The two seed-specific scenario tests moved to seeds where their scenario still happens: Greenveil seed 8 → 11, Westmere seed 5 → 13.
 
-Validation: 511 tests pass, including 12 weather tests:
+Validation: the weather tests cover:
 - the season calendar;
-- the grace months and odds by season, without touching other dice;
-- repeatability and reloads;
-- movement in each weather;
-- cold losses in the field, in your own towns and allied ones;
+- odds by season without touching other dice;
+- repeatability;
+- movement and losses in each weather;
+- camp, including saving it;
 - heroes and orcs;
 - storms that spare farms;
 - incursion pace;
 - save validation and the v16 migration;
-- the badge and cold warning;
-- the season and weather layers on the map and in battle.
+- the ticker and the camp button;
+- season layers with no falling weather.
 
-Checked in the browser: winter snow, autumn rain, and a blizzard battle.
+Checked in the browser: the snow ticker and camp, light winter snow, and fresh spring green.

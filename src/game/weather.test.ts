@@ -8,7 +8,7 @@ import { advanceMonth, armyAt, makeTroop, newGame } from './campaign';
 import { parseSave } from './saves';
 import type { GameState, WeatherKind } from './types';
 import { heroMaxHp } from './units';
-import { currentWeather, rollWeather, seasonOf, weatherMarch, WEATHER_GRACE_TURN, winterToll } from './weather';
+import { campQuote, currentWeather, makeCamp, rollWeather, seasonOf, weatherMarch, weatherToll, WEATHER_GRACE_TURN } from './weather';
 import { townLocation, worldOf } from './world';
 
 const ui = (selected: string | null = null): UIState => ({ selected, checked: new Set(), battleUnit: null, battleSpell: null, message: '', view: 'map' });
@@ -80,21 +80,43 @@ describe('seasons and weather', () => {
     expect(weatherMarch(valley, 1)).toBe(0);
   });
 
-  it('the cold kills men out in the field in snow and blizzards, but not in your towns or allied ones', () => {
+  it('rain, storms and snow cost men in the open, but not in your towns or allied ones', () => {
     const { s, army } = inTheField();
     const home = armyAt(s, townLocation(s, 'aldenhold'), 'player')!;
     const homeMen = home.troops.map((t) => t.men);
-    const men = army.troops.map((t) => t.men);
-    at(s, 'rain');
-    expect(winterToll(s)).toEqual([]);
-    at(s, 'snow');
-    expect(winterToll(s)[0]).toMatch(/^Winter: \d+ men lost to the cold/);
-    expect(army.troops.map((t) => t.men)).toEqual(men.map((m) => Math.floor(m * 0.9)));
+    const men = () => army.troops.map((t) => t.men);
+    const after = (rate: number, before: number[]) => before.map((m) => m - Math.round(m * rate));
+    at(s, 'clear');
+    expect(weatherToll(s)).toEqual([]);
+    for (const [kind, rate] of [['rain', 0.03], ['storm', 0.05], ['snow', 0.1], ['blizzard', 0.2]] as const) {
+      const before = men();
+      at(s, kind);
+      weatherToll(s);
+      expect(men(), kind).toEqual(after(rate, before));
+    }
     expect(home.troops.map((t) => t.men)).toEqual(homeMen);
-    at(s, 'blizzard');
-    winterToll(s);
-    expect(army.troops.map((t) => t.men)).toEqual(men.map((m) => Math.floor(Math.floor(m * 0.9) * 0.8)));
-    expect(s.journal.at(-1)!.text).toMatch(/^The cold took \d+ of your men/);
+    expect(s.journal.at(-1)!.text).toMatch(/^The blizzard cost \d+ of your men/);
+  });
+
+  it('setting up camp halves the loss, ends the march for the month, and is only offered where it helps', () => {
+    const { s, army } = inTheField();
+    const home = armyAt(s, townLocation(s, 'aldenhold'), 'player')!;
+    at(s, 'clear');
+    expect(campQuote(s, army.id).reason).toBe('No need to camp in this weather.');
+    at(s, 'snow');
+    expect(campQuote(s, home.id).reason).toBe('This army is already sheltered in a town.');
+    expect(campQuote(s, army.id)).toEqual({ reason: null, loss: 0.05 });
+    const before = army.troops.map((t) => t.men);
+    expect(makeCamp(s, army.id)).toBeNull();
+    expect(army.troops.every((t) => t.mp === 0)).toBe(true);
+    expect(campQuote(s, army.id).reason).toBe('This army has already made camp this month.');
+    expect(parseSave(JSON.stringify(s)).armies.find((a) => a.id === army.id)!.campTurn).toBe(s.turn);
+    weatherToll(s);
+    expect(army.troops.map((t) => t.men)).toEqual(before.map((m) => m - Math.round(m * 0.05)));
+    expect(s.journal.at(-1)!.text).toMatch(/\(in camp\)\.$/);
+    // Camp lasts the month it was made: next month the army is in the open again.
+    at(s, 'snow', s.turn + 1);
+    expect(campQuote(s, army.id).reason).toBeNull();
   });
 
   it('can wipe out a small party, wears heroes down without killing them, and spares the orcs', () => {
@@ -106,7 +128,7 @@ describe('seasons and weather', () => {
     const orcs = { id: s.nextId++, owner: 'orcs' as const, at: '7,14', from: null, troops: [makeTroop(s, 'warband')] };
     s.armies.push(orcs);
     at(s, 'blizzard');
-    for (let i = 0; i < 12; i++) winterToll(s);
+    for (let i = 0; i < 12; i++) weatherToll(s);
     expect(army.troops.map((t) => t.type)).toEqual(['champion']);
     expect(army.troops[0].men).toBe(1);
     expect(heroMaxHp('champion', hero.xp)).toBeGreaterThan(1);
@@ -163,32 +185,41 @@ describe('seasons and weather', () => {
 });
 
 describe('seasons and weather on screen', () => {
-  it('the top bar shows the season and weather, and an army in the cold is warned', () => {
+  it('a weather ticker says what the weather does and who is exposed; an exposed army can set up camp', () => {
     const { s, army } = inTheField();
     at(s, 'snow', 12);
     const html = renderCampaign(s, ui(army.at));
-    expect(html).toContain('❄ Winter · Snow</span>');
-    expect(html).toContain('Out in the cold: in this snow, this army loses 10% of its men at month end');
-    expect(renderCampaign(s, ui(townLocation(s, 'aldenhold')))).not.toContain('Out in the cold');
+    expect(html).toContain('<div class="weather-ticker harsh" role="status" aria-live="polite">❄ <b>Winter · Snow</b>');
+    expect(html).toContain('1 of your armies is in the open: reach a town, or set up camp to halve the losses.');
+    expect(html).toContain('In the open: this snow will cost the army 10% of its men at month end');
+    expect(html).toContain('data-action="make-camp"');
+    expect(renderCampaign(s, ui(townLocation(s, 'aldenhold')))).not.toContain('In the open:');
+    makeCamp(s, army.id);
+    const camped = renderCampaign(s, ui(army.at));
+    expect(camped).toContain('In camp: this snow will cost the army 5% of its men at month end instead of 10%.');
+    expect(camped).toContain('(1 camped)');
+    expect(camped).not.toContain('data-action="make-camp"');
+    at(s, 'clear', 13);
+    expect(renderCampaign(s, ui(army.at))).toContain('<div class="weather-ticker" role="status" aria-live="polite">☀ <b>Winter · Clear</b>');
   });
 
-  it('the overland map wears the season and the weather', () => {
+  it('the overland map wears the season, with no falling weather drawn', () => {
     const s = newGame(1, 'western-realm');
     const world = worldOf(s);
     if (world.kind !== 'hex') throw new Error('hex map');
     const map = (turn: number, kind: WeatherKind) => { at(s, kind, turn); return renderHexMap(s, ui(), world, new Map()); };
     expect(map(1, 'snow')).toContain('class="season-layer season-winter"');
     expect(map(1, 'snow')).toContain('class="season-snow"');
-    expect(map(1, 'snow')).toContain('class="weather-layer weather-snow"');
+    expect(map(1, 'snow')).not.toContain('weather-layer');
     expect(map(10, 'clear')).toContain('class="season-leaves"');
-    expect(map(10, 'clear')).not.toContain('weather-layer');
-    expect(map(4, 'rain')).toContain('class="season-blossom"');
-    expect(map(7, 'storm')).toContain('weather-tint storm');
+    expect(map(4, 'rain')).toContain('class="season-fresh"');
+    expect(map(4, 'rain')).not.toContain('season-blossom');
+    expect(map(7, 'storm')).not.toContain('weather-layer');
     // Decoration never takes a click: every hex still has its click target.
     expect((map(1, 'blizzard').match(/data-action="node"/g) ?? []).length).toBe(world.rows.length * world.rows[0].length);
   });
 
-  it('a battle is fought in the month’s season and weather', () => {
+  it('a battle is fought in the month’s season, with no falling weather drawn', () => {
     const s = newGame(1, 'western-realm');
     const a = armyAt(s, townLocation(s, 'aldenhold'), 'player')!;
     const d = s.armies.find((x) => x.owner === 'orcs')!;
@@ -197,7 +228,7 @@ describe('seasons and weather on screen', () => {
     at(s, 'blizzard', 1);
     const html = renderBattle(s, ui());
     expect(html).toContain('class="season-layer season-winter"');
-    expect(html).toContain('class="weather-layer weather-blizzard"');
+    expect(html).not.toContain('weather-layer');
     at(s, 'clear', 7);
     expect(renderBattle(s, ui())).toContain('season-summer');
   });

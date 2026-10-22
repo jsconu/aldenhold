@@ -24,8 +24,8 @@ describe('optional quests through a paid campaign expedition', () => {
   }
 
   it('an early Greenveil alliance accelerates the chapter and can leave the tower unvisited', () => {
-    // Seed 11 is one where the alliance ends Act I before the party reaches the tower.
-    const result = playQuestExpedition(11, { finishChapter: true, cityChoices: 'buy-convict', woodlandAccord: true });
+    // Seed 14 is one where the alliance ends Act I before the party reaches the tower.
+    const result = playQuestExpedition(14, { finishChapter: true, cityChoices: 'buy-convict', woodlandAccord: true });
     expect(result).toMatchObject({
       status: 'won', ending: 'chapter-complete', woodlandResolution: 'succeeded',
       cityResolutions: { Q01: 'succeeded', Q06: 'succeeded' },
@@ -34,7 +34,7 @@ describe('optional quests through a paid campaign expedition', () => {
     });
     expect(result.woodlandCompleted).toBeLessThan(result.cityCompleted.Q06);
     expect(result.completed.Q03).toBeUndefined();
-    expect(result.months).toBeLessThan(playQuestExpedition(11, { finishChapter: true, cityChoices: 'buy-convict' }).months);
+    expect(result.months).toBeLessThan(playQuestExpedition(14, { finishChapter: true, cityChoices: 'buy-convict' }).months);
   }, 30_000);
 
   it('can return from the expedition and finish the chapter after Westmere fell before M03 unlocked', () => {

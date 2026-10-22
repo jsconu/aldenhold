@@ -15,7 +15,7 @@ import { basicLoadout, EQUIPMENT, equipmentQuoteGold, usesBow } from './equipmen
 import { endingReason, makeTroop, startLocation } from './campaign';
 import { TERRAIN, UNIT_TYPES } from './data';
 import { heroMaxHp, heroMaxMana, isHero, heroCanUse } from './units';
-import { hasRoad, isLocation, townAt } from './world';
+import { isLocation } from './world';
 import type { CampaignId, DeedKind, GameState, JournalEntry, LedgerCategory, Town, EquipmentId } from './types';
 
 /** Storage slot names are stable; the schema version lives inside the save itself. */
@@ -119,8 +119,7 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
       useId(t.id);
       requireValue(text(t.type) && Object.hasOwn(UNIT_TYPES, t.type) && integer(t.xp) && integer(t.men, 1) && integer(t.mp, 0, maxMp(t.type)), 'troop');
       requireValue(t.name === undefined || text(t.name), 'troop name');
-      requireValue(t.scoutPost === undefined || (t.type === 'scout' && oneOf(t.scoutPost, ['city', 'road']) && a.owner === 'player' &&
-        (t.scoutPost === 'city' ? (townAt(value as GameState, a.at as string)?.owner === 'player') : hasRoad(value as GameState, a.at as string))), 'scout post');
+      requireValue(t.scoutPost === undefined || (t.type === 'scout' && oneOf(t.scoutPost, ['watch', 'city', 'road']) && a.owner === 'player'), 'scout post');
       requireValue(t.men <= (isHero(t.type) ? heroMaxHp(t.type, t.xp) : UNIT_TYPES[t.type].men), 'troop strength');
       requireValue(isHero(t.type) ? integer(t.mana, 0, heroMaxMana(t.type, t.xp)) : t.mana === undefined || t.mana === 0, 'troop mana');
       const gear = object(t.gear);
@@ -321,6 +320,7 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
     lastRaidTurn = Number(r.turn);
   }
   for (const a of s.armies as GameState['armies']) {
+    if (a.campTurn !== undefined) requireValue(a.owner === 'player' && integer(a.campTurn, 1, Number(s.turn)), 'army camp');
     if (a.raid !== undefined) requireValue(text(a.raid.lair) && LAIRS_BY_ID[a.raid.lair]?.species === a.owner && Object.hasOwn(lairs, a.raid.lair), 'raiding party');
   }
   const flags = array(s.flags);

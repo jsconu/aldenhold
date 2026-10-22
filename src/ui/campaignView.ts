@@ -1,5 +1,6 @@
 import {campaignObjectives,explored,DIFFICULTIES} from '../game/challenge';
-import { currentWeather, SEASON_NAME, sheltered } from '../game/weather';
+import { currentWeather, exposureLoss, SEASON_NAME } from '../game/weather';
+import { onWatch, SCOUT_RANGE } from '../game/scouts';
 import {replacementQuote} from '../game/replacements';
 import { renderRulerSelection } from './rulerSelection';
 import { questOutcome } from './gameplayFeedback';
@@ -52,7 +53,7 @@ export function renderCampaign(state: GameState, ui: UIState): string {
   return `
   <header class="bar" ${ui.assault ? 'inert' : ''}>
     <h1>Aragon <small>${esc(campaignOf(state).name)}</small></h1>
-    <span class="date">${dateLabel(state.turn)}</span>${renderWeatherBadge(state)}
+    <span class="date">${dateLabel(state.turn)}</span>
     <span class="gold" title="Taxes ${income}, troop wages ${upkeep}, city maintenance ${operating}">Gold <b>${state.gold}</b>
       <em class="${net < 0 ? 'neg' : 'pos'}">${net >= 0 ? '+' : ''}${net}/month</em></span>
     <span class="spacer"></span>
@@ -62,8 +63,9 @@ export function renderCampaign(state: GameState, ui: UIState): string {
     <button data-action="new-game" class="ghost">New game</button>
     ${ui.view==='map' ? `<button data-action="march-mode" aria-pressed="${!!ui.marchMode}" class="${ui.marchMode?'primary':'ghost'}">${ui.marchMode?'Cancel movement':'Move selected army'}</button>` : ''}
     ${ui.undoMoveLabel ? `<button data-action="undo-move" class="ghost">${esc(ui.undoMoveLabel)}</button>` : ui.undoMoveBlocked ? `<button data-action="undo-move" class="ghost" disabled title="${esc(ui.undoMoveBlocked)}">Can’t undo</button>` : ''}
-    <button data-action="end-turn" class="primary" ${state.status !== 'playing' ? 'disabled' : ''}>End month</button>
+    <button data-action="end-turn" class="primary" title="End the month (Enter)" ${state.status !== 'playing' ? 'disabled' : ''}>End month</button>
   </header>
+  ${renderWeatherTicker(state)}
   ${ui.choosing ? renderChooser(state) : ''}
   ${state.status !== 'playing' ? `<div class="banner ${state.status}">${state.status === 'won' && state.endingReason === 'chapter-complete' ? `${esc(campaignOf(state).chapter!.title)} is complete. ${esc(campaignOf(state).chapter!.ending)}` : state.status === 'won' ? `You have won. ${isHexCampaign(state) ? 'The realm' : 'The valley'} is united.` : state.endingReason === 'lord-dead' ? 'You have lost. Your lord is dead.' : `You have lost. ${esc(nodeName(state, campaignOf(state).capital))} has fallen.`} <button data-action="new-game">Play again</button></div>` : ''}
   ${ui.view === 'city' ? renderCityScreen(state,ui) : ui.view === 'treasury' ? renderTreasury(state) : ui.view === 'journal' ? renderJournal(state) : `<main class="campaign" ${ui.assault ? 'inert' : ''}>
@@ -409,11 +411,15 @@ function renderKit(state: GameState, hero: Troop): string {
   }).join('')}</div>`;
 }
 
-/** The month's season and weather, with what it does on hover. */
-function renderWeatherBadge(state: GameState): string {
+/** The weather ticker: this month's season and weather, what it does, and how many of your armies are exposed to it. */
+function renderWeatherTicker(state: GameState): string {
   const { season, kind, rule } = currentWeather(state);
   const icon = { clear: '☀', rain: '☂', storm: '⚡', snow: '❄', blizzard: '❄' }[kind];
-  return ` <span class="weather-badge${rule.cold ? ' cold' : ''}" title="${esc(rule.text)}" aria-label="${esc(`${SEASON_NAME[season]}, ${rule.name}. ${rule.text}`)}">${icon} ${SEASON_NAME[season]} · ${rule.name}</span>`;
+  const exposed = state.armies.filter((a) => a.owner === 'player' && exposureLoss(state, a) > 0);
+  const camped = exposed.filter((a) => a.campTurn === state.turn).length;
+  const warn = exposed.length
+    ? `<span class="exposed">${exposed.length} of your armies ${exposed.length === 1 ? 'is' : 'are'} in the open${camped ? ` (${camped} camped)` : ''}: reach a town, or set up camp to halve the losses.</span>` : '';
+  return `<div class="weather-ticker${rule.exposure ? ' harsh' : ''}" role="status" aria-live="polite">${icon} <b>${SEASON_NAME[season]} · ${rule.name}</b> <span>${esc(rule.text)}</span>${warn}</div>`;
 }
 
 function renderArmy(state: GameState, ui: UIState, a: Army): string {
@@ -446,17 +452,19 @@ function renderArmy(state: GameState, ui: UIState, a: Army): string {
     ? 'Tick the troops to send, then click a lit hex. The slowest troop sets the pace. Roads cost 1; plains and farmland 2; forest, hills and badlands 3; deep woods and swamp 4.'
     : 'Tick the troops to send, then click a glowing place on the map.';
   const weather = currentWeather(state);
-  const cold = mine && weather.rule.cold && !sheltered(state, a.at)
-    ? `<p class="msg cold-warning">${esc(`Out in the cold: in this ${weather.rule.name.toLowerCase()}, this army loses ${Math.round(weather.rule.cold * 100)}% of its men at month end unless it reaches one of your towns or an allied one.`)}</p>` : '';
+  const loss = mine ? exposureLoss(state, a) : 0;
+  const pct = (x: number) => `${Math.round(x * 1000) / 10}%`;
+  const cold = !loss ? '' : a.campTurn === state.turn
+    ? `<p class="msg exposure-warning">${esc(`In camp: this ${weather.rule.name.toLowerCase()} will cost the army ${pct(loss)} of its men at month end instead of ${pct(weather.rule.exposure)}.`)}</p>`
+    : `<p class="msg exposure-warning">${esc(`In the open: this ${weather.rule.name.toLowerCase()} will cost the army ${pct(loss)} of its men at month end unless it reaches one of your towns or an allied one.`)}
+      <br><button data-action="make-camp" data-army="${a.id}" title="Ends this army's marching for the month">Set up camp</button> <small>Halves the loss to ${pct(loss / 2)}, but the army can't march again this month.</small></p>`;
   return `<div class="army-card own-${a.owner}"><h3>${mine ? 'Your troops' : a.owner === 'orcs' ? 'Orc host' : 'Town militia'}</h3>
     ${cold}<ul class="troops">${rows}</ul>
     ${mine && ui.view==='city' ? renderReplacements(state,a) : ''}
-    ${mine ? a.troops.filter((t) => t.type === 'scout').map((t) => `<div class="scout-post"><b>Scout #${t.id}</b> · ${t.scoutPost === 'city' ? 'Watching this city' : t.scoutPost === 'road' ? 'Watching this road' : 'Unassigned'}
+    ${mine ? a.troops.filter((t) => t.type === 'scout').map((t) => `<div class="scout-post"><b>Scout #${t.id}</b> · ${onWatch(t) ? `On watch over ${esc(nodeName(state, a.at))}` : 'Not on watch'}
       <div class="save-actions">
-        ${townAt(state, a.at)?.owner === 'player' ? `<button data-action="scout-post" data-troop="${t.id}" data-post="city" ${t.scoutPost === 'city' ? 'disabled' : ''}>Watch city</button>` : ''}
-        ${hasRoad(state, a.at) ? `<button data-action="scout-post" data-troop="${t.id}" data-post="road" ${t.scoutPost === 'road' ? 'disabled' : ''}>Watch road</button>` : ''}
-        ${t.scoutPost ? `<button data-action="scout-post" data-troop="${t.id}" data-post="recall">Recall</button>` : ''}
-      </div><small class="sub">Move this scout to a new post using the map. Moving clears its current watch.</small></div>`).join('') : ''}
+        ${onWatch(t) ? `<button data-action="scout-post" data-troop="${t.id}" data-post="recall">Stop watching</button>` : `<button data-action="scout-post" data-troop="${t.id}" data-post="watch">Keep watch here</button>`}
+      </div><small class="sub">A scout on watch sees ${SCOUT_RANGE} hexes all around (shaded on the map) and reports any orc force that will come into sight within two months, with where it is heading. Marching the scout ends its watch.</small></div>`).join('') : ''}
     ${mine && ui.view==='city' && townAt(state, a.at)?.owner === 'player' ? renderRefitChoices(state, a, ui) : ''}
     ${mine ? '<p class="sub">In battle, your toughest melee formations set up in front; archers, casters and the leader start behind them.</p>' : ''}
     ${ready ? `<p class="hint">${hint}</p>` : ''}</div>`;
@@ -565,7 +573,7 @@ function renderReplacements(state:GameState,army:Army):string{
 }
 function renderCampaignObjectives(state:GameState):string{
  const objectives=campaignObjectives(state);if(!objectives.length)return '';
- return '<section class="campaign-objectives"><h2>Unite the Western Realm</h2><p>'+DIFFICULTIES[state.challenge!.difficulty].name+' · '+(state.challenge!.fog?'Explore to reveal the map. ':'')+'Gharzak Hold is the final battle. Prepare the realm and gather all three relics before the assault.</p><ol>'+objectives.map(o=>'<li class="'+(o.done?'objective-done':'')+'">'+(o.done?'✓ ':'○ ')+esc(o.label)+(o.at?'<button class="link" data-action="goto" data-node="'+esc(startLocation(state,o.at))+'">Show objective</button>':'')+'</li>').join('')+'</ol></section>';
+ return '<section class="campaign-objectives"><h2>Unite the Western Realm</h2><p>'+DIFFICULTIES[state.challenge!.difficulty].name+' · '+(state.challenge!.fog?'Explore to reveal the map. ':'')+'Complete these in any order. You can storm Gharzak Hold whenever you dare (its garrison is elite); the realm is won once every objective is done.</p><ol>'+objectives.map(o=>'<li class="'+(o.done?'objective-done':'')+'">'+(o.done?'✓ ':'○ ')+esc(o.label)+(o.at?'<button class="link" data-action="goto" data-node="'+esc(startLocation(state,o.at))+'">Show objective</button>':'')+'</li>').join('')+'</ol></section>';
 }
 
 function renderCityScreen(state:GameState,ui:UIState):string{

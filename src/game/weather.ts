@@ -2,7 +2,7 @@ import { deed, nodeName } from './campaign';
 import { BUILDINGS } from './cities';
 import { knockDown } from './raids';
 import { random } from './rng';
-import type { GameState, Season, WeatherKind } from './types';
+import type { Army, GameState, Season, WeatherKind } from './types';
 import { hasPassage } from './diplomacy';
 import { heroMaxHp, isHero } from './units';
 import { townAt, townLocation, worldOf } from './world';
@@ -12,8 +12,9 @@ import { townAt, townLocation, worldOf } from './world';
  * season, from its place in the year, and one weather for the whole realm, rolled from the seeded RNG when the
  * month begins:
  * - rain and storms slow marching, snow halves it, and in a blizzard nobody marches at all;
- * - at the end of a snowy month, your armies out in the cold (not in your own or an allied town) lose men (the weather
- *   slows the orcs too, but they are hardened to it, so their invasions stay a threat);
+ * - in rain, storms and snow, your armies out in the open (not in your own or an allied town) lose men at month end;
+ *   setting up camp halves the loss but ends the army's march for the month (the weather slows the orcs too, but
+ *   they are hardened to it, so their invasions stay a threat);
  * - a storm strikes one of your towns: food spoiled, people lost, sometimes a building damaged.
  * The first months of a campaign are always clear, so a new game isn't snowed in.
  */
@@ -32,18 +33,18 @@ export interface WeatherRule {
   name: string;
   /** Share of a troop's usual movement it has this month. */
   march: number;
-  /** Share of men lost at month end by armies out in the cold. */
-  cold: number;
+  /** Share of men lost at month end by your armies out in the open (half that if they camped). */
+  exposure: number;
   /** One line for the player: what it does. */
   text: string;
 }
 
 export const WEATHER: Record<WeatherKind, WeatherRule> = {
-  clear: { name: 'Clear', march: 1, cold: 0, text: 'Good marching weather.' },
-  rain: { name: 'Rain', march: 0.75, cold: 0, text: 'Muddy roads: troops have three quarters of their movement.' },
-  storm: { name: 'Storm', march: 0.75, cold: 0, text: 'A storm: troops have three quarters of their movement, and it may strike one of your towns.' },
-  snow: { name: 'Snow', march: 0.5, cold: 0.1, text: 'Snow: troops have half their movement, and armies outside your own or allied towns lose a tenth of their men at month end.' },
-  blizzard: { name: 'Blizzard', march: 0, cold: 0.2, text: 'Blizzard: nobody can march, and armies outside your own or allied towns lose a fifth of their men at month end.' },
+  clear: { name: 'Clear', march: 1, exposure: 0, text: 'Good marching weather.' },
+  rain: { name: 'Rain', march: 0.75, exposure: 0.03, text: 'Muddy roads: troops have three quarters of their movement. Armies in the open lose 3% of their men at month end.' },
+  storm: { name: 'Storm', march: 0.75, exposure: 0.05, text: 'A storm: troops have three quarters of their movement, armies in the open lose 5% of their men at month end, and it may strike one of your towns.' },
+  snow: { name: 'Snow', march: 0.5, exposure: 0.1, text: 'Snow: troops have half their movement. Armies in the open lose 10% of their men at month end.' },
+  blizzard: { name: 'Blizzard', march: 0, exposure: 0.2, text: 'Blizzard: nobody can march. Armies in the open lose 20% of their men at month end.' },
 };
 
 /** Weather odds by season (they sum to 1). */
@@ -67,38 +68,71 @@ export function weatherMarch(state: GameState, full: number): number {
   return Math.floor(full * factor);
 }
 
-/** Whether one of your armies at `at` is sheltered from the cold: in one of your towns, or a town that gives you passage. */
+/** Whether one of your armies at `at` is sheltered from the weather: in one of your towns, or a town that gives you passage. */
 export function sheltered(state: GameState, at: string): boolean {
   const town = townAt(state, at);
   return !!town && (town.owner === 'player' || hasPassage(state, 'player', town.id));
 }
 
-/**
- * The month that just ended takes its toll: in snow or a blizzard, every army out in the cold loses men. Soldiers
- * can die of it; heroes are worn down but never below 1 HP. Returns the news for your own armies.
- */
-export function winterToll(state: GameState): string[] {
+/** The share of its men one of your armies loses to this month's weather: 0 under shelter, half if camped. */
+export function exposureLoss(state: GameState, army: Army): number {
   const { rule } = currentWeather(state);
-  if (!rule.cold) return [];
+  if (!rule.exposure || sheltered(state, army.at)) return 0;
+  return army.campTurn === state.turn ? rule.exposure / 2 : rule.exposure;
+}
+
+/**
+ * Whether an army can set up camp: one of yours, out in the open in weather that costs men, not camped yet. Camp
+ * ends its march for the month and halves what the weather costs it (`loss`).
+ */
+export function campQuote(state: GameState, armyId: number): { reason: string | null; loss: number } {
+  const army = state.armies.find((a) => a.id === armyId && a.owner === 'player');
+  if (!army || state.battle || state.status !== 'playing') return { reason: 'Not now.', loss: 0 };
+  if (sheltered(state, army.at)) return { reason: 'This army is already sheltered in a town.', loss: 0 };
+  const { rule } = currentWeather(state);
+  if (!rule.exposure) return { reason: 'No need to camp in this weather.', loss: 0 };
+  if (army.campTurn === state.turn) return { reason: 'This army has already made camp this month.', loss: 0 };
+  return { reason: null, loss: rule.exposure / 2 };
+}
+
+export function makeCamp(state: GameState, armyId: number): string | null {
+  const quote = campQuote(state, armyId);
+  if (quote.reason) return quote.reason;
+  const army = state.armies.find((a) => a.id === armyId)!;
+  army.campTurn = state.turn;
+  for (const t of army.troops) t.mp = 0;
+  return null;
+}
+
+/**
+ * The month that just ended takes its toll: in rain, storms and snow, each of your armies in the open loses men
+ * (half as many if it camped). Soldiers can die of it; heroes are worn down but never below 1 HP. Returns the news.
+ */
+export function weatherToll(state: GameState): string[] {
+  const { rule } = currentWeather(state);
+  if (!rule.exposure) return [];
   const news: string[] = [];
   for (const army of state.armies.filter((a) => a.owner === 'player')) {
-    if (sheltered(state, army.at)) continue;
+    const rate = exposureLoss(state, army);
+    if (!rate) continue;
+    const camped = army.campTurn === state.turn;
     let lost = 0;
     for (const t of army.troops) {
       if (isHero(t.type)) {
-        t.men = Math.max(1, t.men - Math.ceil(heroMaxHp(t.type, t.xp) * rule.cold));
+        t.men = Math.max(1, t.men - Math.ceil(heroMaxHp(t.type, t.xp) * rate));
         continue;
       }
-      const left = Math.floor(t.men * (1 - rule.cold));
-      lost += t.men - left;
-      t.men = left;
+      // Snow and blizzards always cost a formation at least one man, so they can finish off a small party.
+      const gone = Math.min(t.men, Math.max(Math.round(t.men * rate), rate >= 0.1 ? 1 : 0));
+      lost += gone;
+      t.men -= gone;
     }
     army.troops = army.troops.filter((t) => t.men > 0);
     if (!army.troops.length) state.armies = state.armies.filter((a) => a !== army);
     if (lost) {
       const where = nodeName(state, army.at);
-      deed(state, 'loss', `The cold took ${lost} of your men at ${where}${army.troops.length ? '' : '; none survived'}.`, army.at);
-      news.push(`Winter: ${lost} men lost to the cold at ${where}.`);
+      deed(state, 'loss', `The ${rule.name.toLowerCase()} cost ${lost} of your men at ${where}${camped ? ' (in camp)' : ''}${army.troops.length ? '' : '; none survived'}.`, army.at);
+      news.push(`${rule.name}: ${lost} men lost in the open at ${where}.`);
     }
   }
   return news;

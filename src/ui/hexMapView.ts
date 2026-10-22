@@ -1,6 +1,7 @@
 import {explored} from '../game/challenge';
-import { cellHash, coverOf, seasonDefs, seasonLayer, weatherLayer, type SeasonCell } from './seasonArt';
+import { cellHash, coverOf, seasonDefs, seasonLayer, type SeasonCell } from './seasonArt';
 import { currentWeather } from '../game/weather';
+import { inSight, onWatch } from '../game/scouts';
 import { richOverland, richSettlement } from './richOverland';
 import { SPECIES } from '../content/lairs';
 import { hiddenLairAt, lairAt, lairGarrison } from '../game/lairs';
@@ -8,7 +9,7 @@ import { relationWith, RELATION_LABEL } from '../game/diplomacy';
 import { FACTIONS } from '../content/factions';
 import type { Army, FactionId, GameState, HexWorld } from '../game/types';
 import { arrivalOutcome, nodeName } from '../game/campaign';
-import { hasRoad, hexLand, locationName, parseKey, type MarchStep } from '../game/world';
+import { hasRoad, hexLand, locationName, parseKey, stepCost, type MarchStep } from '../game/world';
 import { pixelRects } from './pixelSprites';
 import { WESTERN_PLACE_ART } from './settlementSprites';
 import { mapPixelSize, paintTerrain, tileCenter, tilePolygon } from './pixelTiles';
@@ -252,6 +253,19 @@ export function renderHexMap(
     });
   }
 
+  // What scouts on watch can see: shaded faintly, more strongly for the selected scout's hex.
+  let watch = '';
+  for (const a of state.armies) {
+    if (a.owner !== 'player' || !a.troops.some(onWatch)) continue;
+    const here = a.at === ui.selected;
+    world.rows.forEach((line, row) => {
+      for (let col = 0; col < line.length; col++) {
+        const key = `${col},${row}`;
+        if (inSight(state, a.at, key)) watch += `<polygon points="${tilePolygon(col, row)}" class="watch-range${here ? ' watched-here' : ''}"/>`;
+      }
+    });
+  }
+
   let hits = '';
   world.rows.forEach((line, row) => {
     for (let col = 0; col < line.length; col++) {
@@ -261,10 +275,13 @@ export function renderHexMap(
       }
       const land = hexLand(world, key);
       const step = targets.get(key);
-      const road = hasRoad(state, key) ? ' Road: 1 to enter.' : '';
+      // Say what a hex costs in plain words: movement points to march into it, and whether the ticked troops get there.
+      const enter = stepCost(state, key);
+      const road = enter === Infinity ? ' Impassable.'
+        : ` Marching into this hex costs ${enter} movement point${enter === 1 ? '' : 's'}${hasRoad(state, key) ? ' (on the road)' : ''}.`;
       const months = arrivals.get(key);
-      const reachNote = step ? ` Reachable this month: ${step.cost} movement.`
-        : months ? ` About ${months} months away for the ticked troops.` : '';
+      const reachNote = step ? ` Your ticked troops can reach it this month, using ${step.cost} of their movement points.`
+        : months ? ` About ${months} months’ march away for the ticked troops.` : '';
       const here = (byHex.get(key) ?? []).map((a) => ` ${armyTitle(a)}.`).join('');
       hits += `<polygon points="${tilePolygon(col, row)}" class="cell" data-action="node" data-node="${key}"><title>${esc(`${locationName(state, key)}. ${land.name}.${road}${reachNote}${here}`)}</title></polygon>`;
     }
@@ -284,6 +301,6 @@ export function renderHexMap(
         <stop offset="1" stop-color="#e89270" stop-opacity="0"/></radialGradient>
     </defs>
     ${image ? `<image href="${image}" x="0" y="0" width="${width}" height="${height}" class="terrain"/>` : ''}
-    ${richOverland(world)}${seasonLayer(weather.season, seasonCells)}<g class="unexplored-fog" pointer-events="none">${fog}</g>${reach}${selection}${places}${armies}${labels}${weatherLayer(weather.kind, width, height, 'overland-weather')}${hits}
+    ${richOverland(world)}${seasonLayer(weather.season, seasonCells)}<g class="unexplored-fog" pointer-events="none">${fog}</g>${watch}${reach}${selection}${places}${armies}${labels}${hits}
   </svg>`;
 }

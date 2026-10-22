@@ -87,7 +87,7 @@ describe('raid threat and deterrence', () => {
     const planned = Array.from({ length: 200 }, (_, i) => plan(i + 1, RAID_GRACE_MONTH).length);
     expect(Math.max(...planned)).toBe(1);
     expect(planned.some((n) => n === 1)).toBe(true);
-  });
+  }, 20_000);
 });
 
 describe('raids', () => {

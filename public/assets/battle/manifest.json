@@ -92,5 +92,24 @@
     ],
     "source": "OpenAI built-in image_gen",
     "prompt": "Original full-body female militia, spearmen, archers, woodland archers, mounted knights, ruler, champion, priest and mage; matching painterly materials, varied skin tones, transparent background, equal 3x3 cells, no UI or text."
+  },
+  "scouts": {
+    "file": "scouts-v1.png",
+    "grid": [
+      4,
+      2
+    ],
+    "columns": [
+      "fair",
+      "olive",
+      "brown",
+      "deep"
+    ],
+    "rows": [
+      "male",
+      "female"
+    ],
+    "source": "Derived from the archers cells of humans-v1.png and humans-female-v1.png by scripts/make-scout-art.py: slate-grey scouting cloak, skin recoloured to each tone",
+    "note": "Placeholder until original scout art is painted; each scout's look is fixed by its id (scoutLook in src/ui/richBattle.ts)."
   }
 }

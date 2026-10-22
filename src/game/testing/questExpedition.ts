@@ -5,7 +5,7 @@ import { heldQty } from '../items';
 import { chooseQuest, questQuote } from '../quests';
 import { parseSave } from '../saves';
 import { townLocation } from '../world';
-import { marchParty, resumeBattles, type EncounterResult } from './campaignCommands';
+import { campInTheOpen, marchParty, resumeBattles, type EncounterResult } from './campaignCommands';
 
 /** An affordable side-quest tour; withhold the optional Fenwick signature so the chapter does not end mid-tour. */
 export function playQuestExpedition(seed: number, options: {
@@ -207,6 +207,7 @@ export function playQuestExpedition(seed: number, options: {
       fight();
       if (state.quests[quest].status === 'succeeded') completed[quest] = state.turn;
     }
+    campInTheOpen(state);
     const closed = advanceMonth(state);
     if (!closed?.ledger) throw new Error('Month did not close.');
     unpaid += closed.ledger.unpaidUpkeep + closed.ledger.unpaidMaintenance;

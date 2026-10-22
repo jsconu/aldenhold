@@ -1,19 +1,17 @@
 import { describe,expect,it } from 'vitest';
 import { UNIT_TYPES } from '../game/data';
-import { battleFigure, richUnit } from './richBattle';
-import { pixelSprite } from './pixelSprites';
+import { richUnit, scoutLook, scoutUnit } from './richBattle';
 import { newGame } from '../game/campaign';
 import { renderHexMap } from './hexMapView';
 import { getCampaign } from '../content';
 describe('illustrated battle units and map heraldry',()=>{
   it('covers every current unit with a separate atlas cell and mirrors defenders without changing position',()=>{
-    // Scouts have no atlas cell yet: they draw with their pixel sprite instead of an empty figure.
+    // Scouts draw from their own atlas (scoutUnit), with a look fixed per scout.
     const illustrated=Object.keys(UNIT_TYPES).filter(id=>id!=='scout');
     const art=illustrated.map(id=>richUnit(id,90,80,false));
     expect(art.every(s=>s.includes('/assets/battle/'))).toBe(true);
     expect(new Set(art).size).toBe(illustrated.length);
-    expect(battleFigure('scout',90,80,false,1)).toBe('');
-    expect(pixelSprite('scout','mine',90,80,2.5,false)).not.toBe('');
+    expect(scoutUnit(90,80,false,7)).toContain('/assets/battle/scouts-v1.png');
     expect(richUnit('lord',90,80,true)).toContain('translate(180 0) scale(-1 1)');
     expect(richUnit('unknown',0,0,false)).toBe('');
   });
@@ -26,5 +24,12 @@ describe('illustrated battle units and map heraldry',()=>{
     expect(html).not.toContain('href="#map-bridge-neutral"');
     expect(html).toContain('data-action="node" data-node="11,14"');
     expect(JSON.stringify(state)).toBe(saved);
+  });
+  it('gives each scout a lasting look: both figures and all four skin tones turn up', ()=>{
+    const looks=Array.from({length:64},(_,i)=>scoutLook(i+1));
+    expect(scoutLook(5)).toEqual(scoutLook(5));
+    expect(new Set(looks.map(l=>l.gender))).toEqual(new Set(['male','female']));
+    expect(new Set(looks.map(l=>l.skin))).toEqual(new Set(['fair','olive','brown','deep']));
+    expect(new Set(looks.map(l=>l.gender+l.skin)).size).toBe(8);
   });
 });
