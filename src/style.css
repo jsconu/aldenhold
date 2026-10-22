@@ -608,6 +608,23 @@ button.travel-destination b { color: var(--gold); font-size: 11px; }
 
 .city-screen,.ruler-selection{display:block;min-height:0}
 
+/* Seasons over the painted terrain: snow and ice cover the ground; the rest tint it, keeping the painting visible. */
+.season-layer polygon { pointer-events: none; }
+/* A light dusting: the painted land still shows through the snow. */
+.season-winter .season-snow { opacity: .45; }
+.season-winter .season-snow-thin { opacity: .3; }
+.season-winter .season-ice { opacity: .4; }
+.season-autumn .season-leaves { opacity: .55; mix-blend-mode: color; }
+.season-autumn .season-stubble { opacity: .3; mix-blend-mode: color; }
+.season-spring .season-fresh { opacity: .3; mix-blend-mode: color; }
+.season-summer .season-haze { opacity: .14; mix-blend-mode: soft-light; }
+/* The weather ticker under the top bar: this month's season and weather, what it does, and who is exposed. */
+.weather-ticker { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; padding: 6px 16px; font-size: 13px; color: #e8dcbc; background: #262219; border-bottom: 1px solid #4a4130; }
+.weather-ticker b { color: #f3e2b0; }
+.weather-ticker.harsh { background: #1d2631; border-bottom-color: #4b6a88; color: #dce9f6; }
+.weather-ticker .exposed { color: #ffcf9a; }
+.exposure-warning { border-left: 3px solid #9cc3e6; padding-left: 8px; }
+.exposure-warning button { margin-top: 6px; }
 /* Scouts on watch: the hexes they can see. */
 .overland .watch-range { fill: rgba(150, 200, 255, 0.12); stroke: rgba(170, 215, 255, 0.35); stroke-width: 0.5; pointer-events: none; }
 .overland .watch-range.watched-here { fill: rgba(150, 200, 255, 0.24); stroke: rgba(200, 230, 255, 0.7); }

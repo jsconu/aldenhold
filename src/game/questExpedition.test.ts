@@ -24,8 +24,8 @@ describe('optional quests through a paid campaign expedition', () => {
   }
 
   it('an early Greenveil alliance accelerates the chapter and can leave the tower unvisited', () => {
-    // Seed 8 is one where the alliance ends Act I before the party reaches the tower.
-    const result = playQuestExpedition(8, { finishChapter: true, cityChoices: 'buy-convict', woodlandAccord: true });
+    // Seed 14 is one where the alliance ends Act I before the party reaches the tower.
+    const result = playQuestExpedition(14, { finishChapter: true, cityChoices: 'buy-convict', woodlandAccord: true });
     expect(result).toMatchObject({
       status: 'won', ending: 'chapter-complete', woodlandResolution: 'succeeded',
       cityResolutions: { Q01: 'succeeded', Q06: 'succeeded' },
@@ -34,12 +34,12 @@ describe('optional quests through a paid campaign expedition', () => {
     });
     expect(result.woodlandCompleted).toBeLessThan(result.cityCompleted.Q06);
     expect(result.completed.Q03).toBeUndefined();
-    expect(result.months).toBeLessThan(playQuestExpedition(8, { finishChapter: true, cityChoices: 'buy-convict' }).months);
-  }, 15_000);
+    expect(result.months).toBeLessThan(playQuestExpedition(14, { finishChapter: true, cityChoices: 'buy-convict' }).months);
+  }, 30_000);
 
   it('can return from the expedition and finish the chapter after Westmere fell before M03 unlocked', () => {
-    // Seed 5 is one where the orcs take Westmere before M03 unlocks.
-    const result = playQuestExpedition(5, { finishChapter: true });
+    // Seed 13 is one where the orcs take Westmere before M03 unlocks.
+    const result = playQuestExpedition(13, { finishChapter: true });
     expect(result).toMatchObject({
       status: 'won', ending: 'chapter-complete', crossing: 'superseded', westmereOwner: 'orcs',
       rulerAlive: true, priestAlive: true, unpaid: 0, foodShortages: 0, corrections: 0,

@@ -1,4 +1,6 @@
 import {explored} from '../game/challenge';
+import { cellHash, coverOf, seasonDefs, seasonLayer, type SeasonCell } from './seasonArt';
+import { currentWeather } from '../game/weather';
 import { inSight, onWatch } from '../game/scouts';
 import { richOverland, richSettlement } from './richOverland';
 import { SPECIES } from '../content/lairs';
@@ -287,15 +289,18 @@ export function renderHexMap(
 
   let fog='';if(state.challenge?.fog)world.rows.forEach((line,row)=>{for(let col=0;col<line.length;col++)if(!explored(state,col+','+row))fog+='<polygon points="'+tilePolygon(col,row)+'" fill="#202923" stroke="#343e32" stroke-width=".4"/>';});
   const image = terrainImage(world);
+  const weather = currentWeather(state);
+  const seasonCells: SeasonCell[] = world.rows.flatMap((line, row) => [...line].map((_, col) =>
+    ({ points: tilePolygon(col, row), cover: coverOf(hexLand(world, `${col},${row}`).id), hash: cellHash(col, row) })));
   const zoom = hexZoom(ui);
   return `<svg viewBox="0 0 ${width} ${height}" width="${Math.round(width * zoom)}" height="${Math.round(height * zoom)}" class="map overland" role="img" aria-label="Overland map">
-    ${symbolDefs()}<defs>${bannerDefs()}
+    ${symbolDefs()}<defs>${bannerDefs()}${seasonDefs()}
       <radialGradient id="overland-march-glow"><stop offset="0" stop-color="#f3e2a2" stop-opacity=".6"/>
         <stop offset="1" stop-color="#f3e2a2" stop-opacity="0"/></radialGradient>
       <radialGradient id="overland-danger-glow"><stop offset="0" stop-color="#e89270" stop-opacity=".75"/>
         <stop offset="1" stop-color="#e89270" stop-opacity="0"/></radialGradient>
     </defs>
     ${image ? `<image href="${image}" x="0" y="0" width="${width}" height="${height}" class="terrain"/>` : ''}
-    ${richOverland(world)}<g class="unexplored-fog" pointer-events="none">${fog}</g>${watch}${reach}${selection}${places}${armies}${labels}${hits}
+    ${richOverland(world)}${seasonLayer(weather.season, seasonCells)}<g class="unexplored-fog" pointer-events="none">${fog}</g>${watch}${reach}${selection}${places}${armies}${labels}${hits}
   </svg>`;
 }

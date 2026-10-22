@@ -5,7 +5,7 @@ import { chooseQuest, questQuote } from '../quests';
 import { parseSave } from '../saves';
 import type { GameState, RaidRecord } from '../types';
 import { townLocation } from '../world';
-import { marchParty, resumeBattles } from './campaignCommands';
+import { campInTheOpen, marchParty, resumeBattles } from './campaignCommands';
 
 export interface ChapterPlaythrough {
   seed: number;
@@ -82,6 +82,7 @@ export function playChapter(seed: number, crossing: 'charter' | 'ignore' = 'char
         for (let n = count; n < target; n++) if (!raise('millbrook', type, reserve)) break;
       }
     }
+    campInTheOpen(state);
     const closed = advanceMonth(state);
     if (!closed?.ledger) throw new Error('Month did not close.');
     report.unpaid += closed.ledger.unpaidUpkeep + closed.ledger.unpaidMaintenance;

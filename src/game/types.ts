@@ -160,6 +160,8 @@ export interface Army {
   cityRaid?:{origin:string;target:string;launched:number;returning?:boolean};
   /** How this army sets up and fights; absent means Offensive. */
   tactics?: Tactics;
+  /** The month this army set up camp against the weather (game/weather.ts). */
+  campTurn?: number;
   /** A monster raiding party from this lair: it never captures, and leaves after its battle. */
   raid?: { lair: string };
 }
@@ -607,6 +609,9 @@ export interface CityEconomy {
 export type Difficulty='easy'|'normal'|'hard';
 export interface CampaignChallenge {difficulty:Difficulty;fog:boolean;explored:string[];}
 export type RulerClass='knight'|'priest'|'mage';
+export type Season = 'winter' | 'spring' | 'summer' | 'autumn';
+export type WeatherKind = 'clear' | 'rain' | 'storm' | 'snow' | 'blizzard';
+
 export interface RulerAppearance { rulerClass?:RulerClass; gender:'male'|'female'; skin:'fair'|'olive'|'brown'|'deep' }
 
 export interface GameState {
@@ -614,7 +619,13 @@ export interface GameState {
   cityPolitics?:{lastTurn:number;rivals:Record<string,{nextRaidTurn:number;warning?:{target:string;launchTurn:number}}>};
   challenge?:CampaignChallenge;
   rulerAppearance?: RulerAppearance;
-  version: 16;
+  version: 17;
+  /** This month's weather (game/weather.ts), rolled when the month began. */
+  /**
+   * This month's weather (game/weather.ts), rolled when the month began, and the weather's own random stream, so
+   * rolling it never changes any other seeded outcome.
+   */
+  weather: { kind: WeatherKind; turn: number; seed: number };
   campaignId: CampaignId;
   campaignRevision: number;
   endingReason: EndingReason | null;

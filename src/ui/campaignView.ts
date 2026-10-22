@@ -1,4 +1,5 @@
 import {campaignObjectives,explored,DIFFICULTIES} from '../game/challenge';
+import { currentWeather, exposureLoss, SEASON_NAME } from '../game/weather';
 import { onWatch, SCOUT_RANGE } from '../game/scouts';
 import {replacementQuote} from '../game/replacements';
 import { renderRulerSelection } from './rulerSelection';
@@ -64,6 +65,7 @@ export function renderCampaign(state: GameState, ui: UIState): string {
     ${ui.undoMoveLabel ? `<button data-action="undo-move" class="ghost">${esc(ui.undoMoveLabel)}</button>` : ui.undoMoveBlocked ? `<button data-action="undo-move" class="ghost" disabled title="${esc(ui.undoMoveBlocked)}">Can’t undo</button>` : ''}
     <button data-action="end-turn" class="primary" title="End the month (Enter)" ${state.status !== 'playing' ? 'disabled' : ''}>End month</button>
   </header>
+  ${renderWeatherTicker(state)}
   ${ui.choosing ? renderChooser(state) : ''}
   ${state.status !== 'playing' ? `<div class="banner ${state.status}">${state.status === 'won' && state.endingReason === 'chapter-complete' ? `${esc(campaignOf(state).chapter!.title)} is complete. ${esc(campaignOf(state).chapter!.ending)}` : state.status === 'won' ? `You have won. ${isHexCampaign(state) ? 'The realm' : 'The valley'} is united.` : state.endingReason === 'lord-dead' ? 'You have lost. Your lord is dead.' : `You have lost. ${esc(nodeName(state, campaignOf(state).capital))} has fallen.`} <button data-action="new-game">Play again</button></div>` : ''}
   ${ui.view === 'city' ? renderCityScreen(state,ui) : ui.view === 'treasury' ? renderTreasury(state) : ui.view === 'journal' ? renderJournal(state) : `<main class="campaign" ${ui.assault ? 'inert' : ''}>
@@ -409,6 +411,17 @@ function renderKit(state: GameState, hero: Troop): string {
   }).join('')}</div>`;
 }
 
+/** The weather ticker: this month's season and weather, what it does, and how many of your armies are exposed to it. */
+function renderWeatherTicker(state: GameState): string {
+  const { season, kind, rule } = currentWeather(state);
+  const icon = { clear: '☀', rain: '☂', storm: '⚡', snow: '❄', blizzard: '❄' }[kind];
+  const exposed = state.armies.filter((a) => a.owner === 'player' && exposureLoss(state, a) > 0);
+  const camped = exposed.filter((a) => a.campTurn === state.turn).length;
+  const warn = exposed.length
+    ? `<span class="exposed">${exposed.length} of your armies ${exposed.length === 1 ? 'is' : 'are'} in the open${camped ? ` (${camped} camped)` : ''}: reach a town, or set up camp to halve the losses.</span>` : '';
+  return `<div class="weather-ticker${rule.exposure ? ' harsh' : ''}" role="status" aria-live="polite">${icon} <b>${SEASON_NAME[season]} · ${rule.name}</b> <span>${esc(rule.text)}</span>${warn}</div>`;
+}
+
 function renderArmy(state: GameState, ui: UIState, a: Army): string {
   const mine = a.owner === 'player';
   const hexWorld = isHexCampaign(state);
@@ -438,8 +451,15 @@ function renderArmy(state: GameState, ui: UIState, a: Army): string {
   const hint = hexWorld
     ? 'Tick the troops to send, then click a lit hex. The slowest troop sets the pace. Roads cost 1; plains and farmland 2; forest, hills and badlands 3; deep woods and swamp 4.'
     : 'Tick the troops to send, then click a glowing place on the map.';
+  const weather = currentWeather(state);
+  const loss = mine ? exposureLoss(state, a) : 0;
+  const pct = (x: number) => `${Math.round(x * 1000) / 10}%`;
+  const cold = !loss ? '' : a.campTurn === state.turn
+    ? `<p class="msg exposure-warning">${esc(`In camp: this ${weather.rule.name.toLowerCase()} will cost the army ${pct(loss)} of its men at month end instead of ${pct(weather.rule.exposure)}.`)}</p>`
+    : `<p class="msg exposure-warning">${esc(`In the open: this ${weather.rule.name.toLowerCase()} will cost the army ${pct(loss)} of its men at month end unless it reaches one of your towns or an allied one.`)}
+      <br><button data-action="make-camp" data-army="${a.id}" title="Ends this army's marching for the month">Set up camp</button> <small>Halves the loss to ${pct(loss / 2)}, but the army can't march again this month.</small></p>`;
   return `<div class="army-card own-${a.owner}"><h3>${mine ? 'Your troops' : a.owner === 'orcs' ? 'Orc host' : 'Town militia'}</h3>
-    <ul class="troops">${rows}</ul>
+    ${cold}<ul class="troops">${rows}</ul>
     ${mine && ui.view==='city' ? renderReplacements(state,a) : ''}
     ${mine ? a.troops.filter((t) => t.type === 'scout').map((t) => `<div class="scout-post"><b>Scout #${t.id}</b> · ${onWatch(t) ? `On watch over ${esc(nodeName(state, a.at))}` : 'Not on watch'}
       <div class="save-actions">

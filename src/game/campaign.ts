@@ -1,3 +1,4 @@
+import { rollWeather, weatherMarch, weatherToll } from './weather';
 import {cityWarbandTurn} from './cityWarbands';
 import {explore,remainingObjectives,challengeVictoryReady} from './challenge';
 import { SPECIES } from '../content/lairs';
@@ -34,7 +35,8 @@ const OFFER_MONTHS = 3;
 export function newGame(seed = Math.floor(Math.random() * 2 ** 31), campaignId: CampaignId = 'valley-quickplay'): GameState {
   const def = getCampaign(campaignId);
   const state: GameState = {
-    version: 16,
+    version: 17,
+    weather: { kind: 'clear', turn: 1, seed: (seed ^ 0x5eed5) | 0 },
     campaignId: def.id,
     campaignRevision: def.revision,
     endingReason: null,
@@ -91,7 +93,8 @@ export function campaignOf(state: GameState): CampaignDefinition {
 export function makeTroop(state: GameState, type: string, name?: string): Troop {
   const t: Troop = { id: state.nextId++, type, men: UNIT_TYPES[type].men, xp: 0,
     mp: 0, gear: basicLoadout(type), refit: null };
-  t.mp = marchRate(state, t);
+  // A new troop marches like everyone else this month: the weather limits it too.
+  t.mp = weatherMarch(state, marchRate(state, t));
   if (isHero(type)) {
     t.name = name ?? UNIT_TYPES[type].name;
     t.men = heroMaxHp(type, 0);
@@ -617,7 +620,7 @@ export function checkStatus(state: GameState) {
 /** The phases of a month, in the order they run. */
 export type MonthPhaseId =
   | 'snapshot' | 'cities' | 'population' | 'heroes' | 'treasury' | 'construction' | 'refits' | 'shortages'
-  | 'desertion' | 'calendar' | 'offers' | 'quests' | 'lairs' | 'ai' | 'raids' | 'ending';
+  | 'desertion' | 'exposure' | 'calendar' | 'weather' | 'offers' | 'quests' | 'lairs' | 'ai' | 'raids' | 'ending';
 
 /** One line the month produced: news for the chronicle, or a deed that also goes in the journal. */
 export interface MonthNote {
@@ -729,12 +732,24 @@ const MONTH_PHASES: MonthPhase[] = [
         deed: { kind: 'realm', place: biggest.at } }];
     },
   },
+  // The month's weather takes its toll before it turns: rain, storms and snow cost men out in the open.
+  { id: 'exposure', run(state) { return weatherToll(state).map(news); } },
   {
     id: 'calendar',
     run(state) {
       state.turn++;
       for (const a of state.armies) for (const t of a.troops) t.mp = marchRate(state, t);
       return [];
+    },
+  },
+  // The new month's weather: it sets how far troops can march, and a storm may strike one of your towns.
+  {
+    id: 'weather',
+    run(state) {
+      const lines = rollWeather(state);
+      // A quest's incursion (an army with a target) keeps the chapter's authored pace whatever the weather.
+      for (const a of state.armies) if (!a.target) for (const t of a.troops) t.mp = weatherMarch(state, t.mp);
+      return lines.map(news);
     },
   },
   { id: 'offers', run(state) { const line = newOffers(state); return line ? [news(line)] : []; } },

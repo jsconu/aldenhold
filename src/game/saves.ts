@@ -53,7 +53,9 @@ const ledgerCategories: LedgerCategory[] = ['tax', 'wages', 'recruitment', 'hero
 /** Validate both shape and references before exposing a save to rules or rendering. */
 function validate(value: unknown, allowMissingBattleTroops = false): asserts value is GameState {
   const s = object(value);
-  requireValue(s.version === 16, 'unsupported schema version');
+  requireValue(s.version === 17, 'unsupported schema version');
+  const weather = object(s.weather);
+  requireValue(oneOf(weather.kind, ['clear', 'rain', 'storm', 'snow', 'blizzard']) && integer(weather.turn, 1, Number(s.turn)) && integer(weather.seed, -2147483648, 2147483647), 'weather');
   if(s.rulerAppearance!==undefined){const look=object(s.rulerAppearance);requireValue(oneOf(look.gender,['male','female']) && oneOf(look.skin,['fair','olive','brown','deep']) && (look.rulerClass===undefined || oneOf(look.rulerClass,['knight','priest','mage'])),'ruler appearance');}
   requireValue(text(s.campaignId) && Object.hasOwn(CATALOG.campaigns, s.campaignId), 'unknown campaign');
   const def = getCampaign(s.campaignId as CampaignId);
@@ -318,6 +320,7 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
     lastRaidTurn = Number(r.turn);
   }
   for (const a of s.armies as GameState['armies']) {
+    if (a.campTurn !== undefined) requireValue(a.owner === 'player' && integer(a.campTurn, 1, Number(s.turn)), 'army camp');
     if (a.raid !== undefined) requireValue(text(a.raid.lair) && LAIRS_BY_ID[a.raid.lair]?.species === a.owner && Object.hasOwn(lairs, a.raid.lair), 'raiding party');
   }
   const flags = array(s.flags);
@@ -652,6 +655,12 @@ function upgradeToV15(value: Record<string, unknown>) {
 }
 
 /** v15 → v16: raid outcomes. No raid has a record yet. */
+/** v16 → v17: seasons and weather. The month a save was made in is clear. */
+function upgradeToV17(value: Record<string, unknown>) {
+  value.weather = { kind: 'clear', turn: value.turn, seed: (Number(value.seed) ^ 0x5eed5) | 0 };
+  value.version = 17;
+}
+
 function upgradeToV16(value: Record<string, unknown>) {
   value.raidLog = [];
   value.version = 16;
@@ -663,7 +672,7 @@ function upgradeToV16(value: Record<string, unknown>) {
  * quest ids in the save are still rejected by validation.
  */
 function addNewQuests(value: Record<string, unknown>) {
-  if (value.version !== 16 || typeof value.quests !== 'object' || value.quests === null) return;
+  if (value.version !== 17 || typeof value.quests !== 'object' || value.quests === null) return;
   const quests = value.quests as Record<string, unknown>;
   for (const id of Object.keys(QUESTS)) if (!Object.hasOwn(quests, id)) quests[id] = lockedProgress();
 }
@@ -737,6 +746,7 @@ export function parseSave(raw: string): GameState {
     upgradeToV14(value);
     upgradeToV15(value);
     upgradeToV16(value);
+    upgradeToV17(value);
     validate(value, true);
     if (value.battle) {
       const b = value.battle;
@@ -762,6 +772,7 @@ export function parseSave(raw: string): GameState {
   if (value.version === 13) upgradeToV14(value);
   if (value.version === 14) upgradeToV15(value);
   if (value.version === 15) upgradeToV16(value);
+  if (value.version === 16) upgradeToV17(value);
   addNewQuests(value);
   upgradeWesternMap(value);
   addLairGarrisons(value);

@@ -1,4 +1,6 @@
 import { battleSpoils } from '../game/battleRewards';
+import { cellHash, coverOf, seasonDefs, seasonLayer } from './seasonArt';
+import { currentWeather } from '../game/weather';
 import { battleFigure, richBattleGround, richRuin, scoutFigure } from './richBattle';
 import { EFFECTS } from '../content/spells';
 import {
@@ -44,6 +46,7 @@ export function selectedGroup(b: Battle, ui: UIState): BattleUnit[] {
 }
 
 export function renderBattle(state: GameState, ui: UIState): string {
+  const weather = currentWeather(state);
   const b = state.battle!;
   const me = playerSide(b);
   const myTurn = !b.outcome && !isAI(b, b.active);
@@ -159,7 +162,7 @@ export function renderBattle(state: GameState, ui: UIState): string {
       </defs>
       <rect x="0" y="0" width="${w}" height="${h}" class="battle-earth"/>
       <g class="battle-terrain-wash" filter="url(#battle-terrain-blend)">${ground}</g>
-      ${richBattleGround(b, (x,y)=>hexPoints(x,y,S+.3))}${battleScenery(b)}
+      ${richBattleGround(b, (x,y)=>hexPoints(x,y,S+.3))}<defs>${seasonDefs()}</defs>${seasonLayer(weather.season, b.terrain.flatMap((column, col) => column.map((t, row) => ({ points: hexPoints(...center(col, row), S + .3), cover: coverOf(t), hash: cellHash(col, row) }))))}${battleScenery(b)}
       <g class="battle-surface-details" pointer-events="none">${groundArt}</g>
       <g class="battle-move-highlights" pointer-events="none">${highlights}</g>
       ${overlay}${units}

@@ -17,7 +17,7 @@ describe('month pipeline', () => {
   it('runs its phases in the documented order, every month', () => {
     expect(MONTH_ORDER).toEqual([
       'snapshot', 'cities', 'population', 'heroes', 'treasury', 'construction', 'refits', 'shortages',
-      'desertion', 'calendar', 'offers', 'quests', 'lairs', 'ai', 'raids', 'ending',
+      'desertion', 'exposure', 'calendar', 'weather', 'offers', 'quests', 'lairs', 'ai', 'raids', 'ending',
     ]);
     const s = newGame(1);
     const report = advanceMonth(s)!;

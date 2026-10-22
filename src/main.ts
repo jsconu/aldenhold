@@ -1,4 +1,5 @@
 import {explored} from './game/challenge';
+import { makeCamp } from './game/weather';
 import {recruitReplacements} from './game/replacements';
 import { createRulerCampaign, SKIN_TONES } from './game/rulerCreation';
 import { feedbackSnapshot, newFeedback, renderFeedback, type GameplayNotice } from './ui/gameplayFeedback';
@@ -213,6 +214,9 @@ function onAction(action: string, data: DOMStringMap, additive = false) {
   if (!['node', 'hex', 'undo-move', 'assault-retreat', 'route-first-leg', 'locate-army', 'plan-route', 'route-clear',
     'route-preference', 'map-layer', 'map-zoom', 'hex-zoom', 'battle-zoom', 'view-quest', 'goto', 'journal', 'treasury', 'spell'].includes(action)) undoMove = null;
   switch (action) {
+    case 'make-camp':
+      ui.message = makeCamp(state, Number(data.army)) ?? 'Camp is set: the army stays put this month, and the weather costs it half as many men.';
+      break;
     case 'scout-post':
       ui.message = assignScout(state, Number(data.troop), data.post === 'recall' ? 'recall' : 'watch') ?? '';
       break;
