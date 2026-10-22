@@ -1,10 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { renderCampaign } from '../ui/campaignView';
 import type { UIState } from '../ui/shared';
-import { createBattle, deploymentZone, holdsGround, planDeployment, runAI } from './battle';
-import { ARMY_CAP, advanceMonth, armyAt, hireQuote, makeTroop, marchQuote, moveTroops, neighborsOf, newGame, recruitQuote } from './campaign';
+import { createBattle, deploymentZone, planDeployment } from './battle';
+import { ARMY_CAP, advanceMonth, armyAt, hireQuote, makeTroop, marchQuote, neighborsOf, newGame, recruitQuote } from './campaign';
 import { parseSave } from './saves';
-import { placeFormation, setStance } from './tactics';
 import type { Army, GameState } from './types';
 import { townLocation } from './world';
 
@@ -48,91 +47,49 @@ describe('army cap', () => {
   });
 });
 
-describe('tactics', () => {
-  function plan(stance: 'offensive' | 'defensive' | 'skirmish') {
+describe('automatic deployment', () => {
+  it('puts healthy strong melee ahead of weak melee, archers, casters and the ruler', () => {
     const s = newGame(1, 'western-realm');
-    const army = home(s); // lord, militia, militia, spearmen, archers
-    setStance(s, army.id, stance);
-    const p = planDeployment(army);
-    const cellOf = (type: string) => p.get(army.troops.find((t) => t.type === type)!.id)!;
-    return { s, army, cellOf };
-  }
-
-  it('Offensive: melee and the lord in front, archers behind (the old setup)', () => {
-    const { cellOf } = plan('offensive');
-    expect(cellOf('spearmen').depth).toBe(0);
-    expect(cellOf('lord').depth).toBe(0);
-    expect(cellOf('archers').depth).toBe(1);
+    const a = home(s);
+    const militia = a.troops.find((t) => t.type === 'militia')!;
+    militia.men = 4;
+    const spear = a.troops.find((t) => t.type === 'spearmen')!;
+    a.troops.push(makeTroop(s, 'priest'), makeTroop(s, 'mage'));
+    const plan = planDeployment(a);
+    const at = (type: string) => plan.get(a.troops.find((t) => t.type === type)!.id)!;
+    expect(at('spearmen').depth).toBe(0);
+    expect(plan.get(spear.id)!.row).toBe(4);
+    expect(at('archers').depth).toBe(1);
+    expect(at('lord').depth).toBe(1);
+    expect(at('priest').depth).toBe(1);
+    expect(at('mage').depth).toBe(1);
+    expect(plan.get(militia.id)!.row).toBe(5);
   });
 
-  it('Defensive: a melee line, archers behind, the lord safe at the back', () => {
-    const { cellOf } = plan('defensive');
-    expect(cellOf('spearmen').depth).toBe(0);
-    expect(cellOf('archers').depth).toBe(1);
-    expect(cellOf('lord').depth).toBe(2);
-  });
-
-  it('Skirmish: archers out front on a flank, melee in the middle column', () => {
-    const { cellOf } = plan('skirmish');
-    expect(cellOf('archers')).toEqual({ depth: 0, row: 0 });
-    expect(cellOf('spearmen').depth).toBe(1);
-  });
-
-  it('Custom: placing a formation swaps it with whoever was there, and battles start from the plan', () => {
-    let s = newGame(1, 'western-realm');
-    const army = home(s);
-    const archers = army.troops.find((t) => t.type === 'archers')!;
-    const spear = army.troops.find((t) => t.type === 'spearmen')!;
-    const spearCell = planDeployment(army).get(spear.id)!;
-    const archerCell = planDeployment(army).get(archers.id)!;
-    expect(placeFormation(s, army.id, archers.id, spearCell)).toBeNull();
-    expect(army.tactics!.stance).toBe('custom');
-    expect(planDeployment(army).get(archers.id)).toEqual(spearCell);
-    expect(planDeployment(army).get(spear.id)).toEqual(archerCell);
-    s = reload(s);
-    const restored = home(s);
-    const foe: Army = { id: 999, owner: 'orcs', at: restored.at, from: null, troops: [makeTroop(s, 'warband')] };
-    const b = createBattle(restored.at, restored, foe, false, 1);
-    const unit = b.units.find((u) => u.troopId === archers.id)!;
+  it('ignores older saved custom plans in new battles', () => {
+    const s = newGame(1, 'western-realm');
+    const a = home(s);
+    const spear = a.troops.find((t) => t.type === 'spearmen')!;
+    const archer = a.troops.find((t) => t.type === 'archers')!;
+    a.tactics = { stance: 'custom', layout: { [String(archer.id)]: { depth: 0, row: 0 } } };
+    const restored = reload(s);
+    const army = home(restored);
+    expect(planDeployment(army).get(archer.id)!.depth).toBe(1);
+    expect(planDeployment(army).get(spear.id)!.depth).toBe(0);
+    const foe: Army = { id: 999, owner: 'orcs', at: army.at, from: null, troops: [makeTroop(restored, 'warband')] };
+    const b = createBattle(army.at, army, foe, false, 1);
     const zone = deploymentZone(b, 'attacker');
-    expect({ col: unit.col, row: unit.row }).toEqual({ col: zone.cols[spearCell.depth], row: zone.top + spearCell.row });
-    expect(b.stances).toEqual({ attacker: 'custom' });
+    const archers = b.units.find((u) => u.troopId === archer.id)!;
+    expect(archers.col).toBe(zone.cols[1]);
+    expect(b.stances).toBeUndefined();
   });
 
-  it('a Defensive army holds its ground until the enemy comes within 3 hexes', () => {
+  it('removes the editable city battle grid while explaining setup', () => {
     const s = newGame(1, 'western-realm');
-    const army = home(s);
-    setStance(s, army.id, 'defensive');
-    const foe: Army = { id: 999, owner: 'orcs', at: army.at, from: null, troops: [makeTroop(s, 'warband')] };
-    const b = createBattle(army.at, foe, army, false, 1);
-    for (const col of b.terrain) col.fill('plain');
-    const mine = b.units.filter((u) => u.side === 'defender');
-    const before = mine.map((u) => [u.col, u.row]);
-    expect(mine.every((u) => holdsGround(b, u))).toBe(true);
-    b.active = 'defender';
-    runAI(b);
-    expect(mine.map((u) => [u.col, u.row])).toEqual(before);
-  });
-
-  it('marching troops keep their army’s plan, and saves reject a broken layout', () => {
-    const s = newGame(1, 'western-realm');
-    const army = home(s);
-    setStance(s, army.id, 'skirmish');
-    const next = neighborsOf(s, army.at).find((k) => marchQuote(s, army.at, army.troops.map((t) => t.id), k).reason === null)!;
-    expect(moveTroops(s, army.at, army.troops.map((t) => t.id), next)).toBeNull();
-    expect(armyAt(s, next, 'player')!.tactics).toEqual({ stance: 'skirmish' });
-    const broken = structuredClone(s);
-    armyAt(broken, next, 'player')!.tactics = { stance: 'custom', layout: { '1': { depth: 3, row: 0 } } };
-    expect(() => reload(broken)).toThrow(/custom layout/);
-  });
-
-  it('shows the battle plan with its stance buttons and deployment grid', () => {
-    const s = newGame(1, 'western-realm');
-    const html = renderCampaign(s, {...ui(townLocation(s,'aldenhold')),view:'city',cityTab:'army'});
-    expect(html).toContain('Battle plan: Offensive');
-    expect(html).toContain('data-action="set-stance"');
-    expect(html).toContain('<th>Back</th><th>Middle</th><th>Front</th>');
-    expect(html).toMatch(/data-action="tactics-cell"[^>]*>\s*Aldric<\/button>|>Aldric<\/button>/);
+    const html = renderCampaign(s, ui(townLocation(s, 'aldenhold')));
+    expect(html).toContain('toughest melee formations set up in front');
+    expect(html).not.toContain('data-action="tactics-cell"');
+    expect(html).not.toContain('data-action="set-stance"');
   });
 });
 

@@ -17,9 +17,7 @@ import { heroLevel, heroMaxHp, heroMaxMana, level } from '../game/units';
 import { EQUIPMENT, refitQuote, equipmentUpkeep, usesBow } from '../game/equipment';
 import { RELATION_LABEL, relationWith } from '../game/diplomacy';
 import { FACTIONS } from '../content/factions';
-import type { Army, CampaignId, FactionId, GameState, QuestDefinition, Stance, Town, Troop } from '../game/types';
-import { planDeployment } from '../game/battle';
-import { STANCES } from '../game/tactics';
+import type { Army, CampaignId, FactionId, GameState, QuestDefinition, Town, Troop } from '../game/types';
 import { HERO_SLOTS, unequipQuote } from '../game/items';
 import { buyQuote, merchantsAt, merchantStatus } from '../game/merchants';
 import { ITEMS } from '../content/items';
@@ -32,6 +30,7 @@ import { esc, type UIState } from './shared';
 import { placeScene } from './placeScene';
 import { renderOverland } from './overlandMap';
 import { previewRoute, type RoutePreview } from '../game/overlandRoutes';
+import { renderCityAssault } from './cityAssault';
 
 const OWNER_LABEL = (owner: FactionId) => FACTIONS[owner].ownerLabel;
 
@@ -50,7 +49,7 @@ export function renderCampaign(state: GameState, ui: UIState): string {
   const operating = totalCityMaintenance(state);
   const net = income - upkeep - operating;
   return `
-  <header class="bar">
+  <header class="bar" ${ui.assault ? 'inert' : ''}>
     <h1>Aragon <small>${esc(campaignOf(state).name)}</small></h1>
     <span class="date">${dateLabel(state.turn)}</span>
     <span class="gold" title="Taxes ${income}, troop wages ${upkeep}, city maintenance ${operating}">Gold <b>${state.gold}</b>
@@ -61,12 +60,12 @@ export function renderCampaign(state: GameState, ui: UIState): string {
     <button data-action="journal" class="ghost">${ui.view === 'journal' ? 'Back to the map' : `Journal (${state.journal.length})`}</button>
     <button data-action="new-game" class="ghost">New game</button>
     ${ui.view==='map' ? `<button data-action="march-mode" aria-pressed="${!!ui.marchMode}" class="${ui.marchMode?'primary':'ghost'}">${ui.marchMode?'Cancel movement':'Move selected army'}</button>` : ''}
-    <button data-action="undo-move" class="ghost" ${ui.movementUndo?.available?'':'disabled'} title="${esc(ui.movementUndo?.reason??'Make a move to enable undo.')}">Undo move</button>
+    ${ui.undoMoveLabel ? `<button data-action="undo-move" class="ghost">${esc(ui.undoMoveLabel)}</button>` : ''}
     <button data-action="end-turn" class="primary" ${state.status !== 'playing' ? 'disabled' : ''}>End month</button>
   </header>
   ${ui.choosing ? renderChooser(state) : ''}
   ${state.status !== 'playing' ? `<div class="banner ${state.status}">${state.status === 'won' && state.endingReason === 'chapter-complete' ? `${esc(campaignOf(state).chapter!.title)} is complete. ${esc(campaignOf(state).chapter!.ending)}` : state.status === 'won' ? `You have won. ${isHexCampaign(state) ? 'The realm' : 'The valley'} is united.` : state.endingReason === 'lord-dead' ? 'You have lost. Your lord is dead.' : `You have lost. ${esc(nodeName(state, campaignOf(state).capital))} has fallen.`} <button data-action="new-game">Play again</button></div>` : ''}
-  ${ui.view === 'city' ? renderCityScreen(state,ui) : ui.view === 'treasury' ? renderTreasury(state) : ui.view === 'journal' ? renderJournal(state) : `<main class="campaign">
+  ${ui.view === 'city' ? renderCityScreen(state,ui) : ui.view === 'treasury' ? renderTreasury(state) : ui.view === 'journal' ? renderJournal(state) : `<main class="campaign" ${ui.assault ? 'inert' : ''}>
     ${isHexCampaign(state) ? renderHexSection(state, ui) : `<section class="map-wrap">
       ${renderMapToolbar(state, ui)}
       ${renderOverland(state, ui, [...moveTargets(state, ui).keys()], plannedRoute(state, ui)?.stops.map((s) => s.id) ?? [])}
@@ -90,7 +89,8 @@ export function renderCampaign(state: GameState, ui: UIState): string {
       ${ui.selected ? renderNodePanel(state, ui, ui.selected) : '<p class="hint">Click a place on the map. Your troops show as blue shields.</p>'}
       <details class="log" open><summary>Chronicle</summary><ul>${state.log.slice(0, 14).map((l) => `<li>${esc(l)}</li>`).join('')}</ul></details>
     </aside>
-  </main>`}`;
+  </main>`}
+  ${ui.assault ? renderCityAssault(state, ui.assault) : ''}`;
 }
 
 /** Keep the immediate march action visible even when the troop list is farther down the sidebar. */
@@ -227,6 +227,8 @@ function renderNodePanel(state: GameState, ui: UIState, at: string): string {
     })()}</p>`;
     if (town.kind !== 'lair') html += `<p>Population <b>${town.pop.toLocaleString()}</b></p>`;
     if (town.owner === 'player' && town.kind !== 'lair') {
+      const reports = state.journal.filter((entry) => entry.place === at && entry.kind === 'realm' && entry.text.startsWith('Scout at ')).slice(-3).reverse();
+      if (reports.length) html += `<section class="scout-intel"><h3>Scout reports</h3><ul>${reports.map((report) => `<li><b>Month ${report.turn}:</b> ${esc(report.text)}</li>`).join('')}</ul></section>`;
       const growth = townGrowth(town);
       html += `<label class="tax">Tax rate
         <select data-change="tax" data-node="${id}">
@@ -406,33 +408,6 @@ function renderKit(state: GameState, hero: Troop): string {
   }).join('')}</div>`;
 }
 
-/**
- * The army's battle plan: stance buttons, and the 3x9 deployment zone showing where each formation will start
- * (front column toward the enemy). Click a formation, then a cell, to move it there (the plan becomes Custom).
- */
-function renderTactics(ui: UIState, a: Army): string {
-  const stance = a.tactics?.stance ?? 'offensive';
-  const plan = planDeployment(a);
-  const at = new Map([...plan].map(([id, c]) => [`${c.depth},${c.row}`, a.troops.find((t) => t.id === id)!]));
-  const picked = a.troops.some((t) => t.id === ui.tacticsTroop) ? ui.tacticsTroop : null;
-  const label = (t: Troop) => esc(t.name ?? UNIT_TYPES[t.type].short);
-  const rows = Array.from({ length: 9 }, (_, row) => `<tr>${[2, 1, 0].map((depth) => {
-    const t = at.get(`${depth},${row}`);
-    const cls = [t ? 'filled' : '', t && t.id === picked ? 'picked' : '', t && UNIT_TYPES[t.type].hero ? 'hero' : ''].filter(Boolean).join(' ');
-    return `<td><button class="cell ${cls}" data-action="tactics-cell" data-army="${a.id}" data-depth="${depth}" data-row="${row}"
-      title="${t ? esc(`${t.name ?? UNIT_TYPES[t.type].name}: click, then click another cell to move it`) : picked ? 'Move the picked formation here' : 'Empty'}">${t ? label(t) : ''}</button></td>`;
-  }).join('')}</tr>`).join('');
-  const reserves = a.troops.filter((t) => !plan.has(t.id));
-  return `<section class="tactics" aria-label="Battle plan"><h3>Battle plan: ${STANCES[stance].name}</h3><p>Choose how this army starts its next battle. This sets starting positions and automatic fighting behavior. You can still command each unit during battle.</p>
-    <div class="stances">${(Object.keys(STANCES) as Stance[]).map((s) => `<button data-action="set-stance" data-army="${a.id}" data-stance="${s}"
-      aria-pressed="${s===stance}" class="${s === stance ? 'primary' : 'ghost'}" title="${esc(STANCES[s].text)}">${STANCES[s].name}<small>${esc(STANCES[s].text)}</small></button>`).join('')}</div>
-    <p class="sub">${esc(STANCES[stance].text)}</p>
-    <details class="custom-deployment"><summary>Arrange individual starting positions</summary><table class="deploy-grid"><thead><tr><th>Back</th><th>Middle</th><th>Front</th></tr></thead><tbody>${rows}</tbody></table>
-    <p class="sub">${picked ? 'Now click the cell to move it to.' : 'Click a formation, then a cell, to place it yourself (the plan becomes Custom).'} The front column faces the enemy.</p>
-    ${reserves.length ? `<p class="sub">Won’t fit on the field: ${reserves.map((t) => label(t)).join(', ')}.</p>` : ''}
-  </details></section>`;
-}
-
 function renderArmy(state: GameState, ui: UIState, a: Army): string {
   const mine = a.owner === 'player';
   const hexWorld = isHexCampaign(state);
@@ -465,8 +440,14 @@ function renderArmy(state: GameState, ui: UIState, a: Army): string {
   return `<div class="army-card own-${a.owner}"><h3>${mine ? 'Your troops' : a.owner === 'orcs' ? 'Orc host' : 'Town militia'}</h3>
     <ul class="troops">${rows}</ul>
     ${mine && ui.view==='city' ? renderReplacements(state,a) : ''}
+    ${mine ? a.troops.filter((t) => t.type === 'scout').map((t) => `<div class="scout-post"><b>Scout #${t.id}</b> · ${t.scoutPost === 'city' ? 'Watching this city' : t.scoutPost === 'road' ? 'Watching this road' : 'Unassigned'}
+      <div class="save-actions">
+        ${townAt(state, a.at)?.owner === 'player' ? `<button data-action="scout-post" data-troop="${t.id}" data-post="city" ${t.scoutPost === 'city' ? 'disabled' : ''}>Watch city</button>` : ''}
+        ${hasRoad(state, a.at) ? `<button data-action="scout-post" data-troop="${t.id}" data-post="road" ${t.scoutPost === 'road' ? 'disabled' : ''}>Watch road</button>` : ''}
+        ${t.scoutPost ? `<button data-action="scout-post" data-troop="${t.id}" data-post="recall">Recall</button>` : ''}
+      </div><small class="sub">Move this scout to a new post using the map. Moving clears its current watch.</small></div>`).join('') : ''}
     ${mine && ui.view==='city' && townAt(state, a.at)?.owner === 'player' ? renderRefitChoices(state, a, ui) : ''}
-    ${mine && ui.view==='city' ? renderTactics(ui, a) : ''}
+    ${mine ? '<p class="sub">In battle, your toughest melee formations set up in front; archers, casters and the leader start behind them.</p>' : ''}
     ${ready ? `<p class="hint">${hint}</p>` : ''}</div>`;
 }
 

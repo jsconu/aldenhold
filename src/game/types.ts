@@ -136,6 +136,8 @@ export interface Troop {
   mp: number;
   gear: Loadout;
   refit: PendingRefit | null;
+  /** A stationary watch assignment; moving the scout clears it. */
+  scoutPost?: 'city' | 'road';
   /** Heroes only: campaign equipment they carry, by slot (item ids). */
   kit?: HeroKit;
 }
@@ -645,5 +647,7 @@ export interface GameState {
   raids: PendingRaid[];
   /** Every raid that came due, and how it ended (monster raids spec, step 4). */
   raidLog: RaidRecord[];
+  /** Deduplication keys for scout reports, which themselves are preserved in the journal. */
+  scoutReports?: string[];
   status: 'playing' | 'won' | 'lost';
 }

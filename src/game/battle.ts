@@ -3,7 +3,7 @@ import { LAND, SPELLS, TERRAIN, UNIT_TYPES } from './data';
 import { hexDistance, hexKey, hexNeighbors, hexLine, type Hex } from './hex';
 import { random } from './rng';
 import { FACTIONS } from '../content/factions';
-import type { Army, Battle, BattleUnit, DeployCell, Land, Side, SpellId, Stance, Terrain, EffectId } from './types';
+import type { Army, Battle, BattleUnit, DeployCell, Land, Side, SpellId, Terrain, EffectId } from './types';
 import { attackFor, heroLevel, heroMaxHp, isHero, kitBonus, level } from './units';
 import { EQUIPMENT } from './equipment';
 
@@ -74,13 +74,9 @@ export function createBattle(at: string, attacker: Army, defender: Army, walls: 
     seed,
   };
   b.terrain = generateTerrain(b, land, b.width, b.height);
+  // Existing saved battles retain their old stance; fresh fights set up automatically.
   deploy(b, attacker, 'attacker');
   deploy(b, defender, 'defender');
-  const stances: Partial<Record<Side, Stance>> = {};
-  for (const [side, army] of [['attacker', attacker], ['defender', defender]] as const) {
-    if (army.tactics && army.tactics.stance !== 'offensive') stances[side] = army.tactics.stance;
-  }
-  if (Object.keys(stances).length) b.stances = stances;
   return b;
 }
 
@@ -204,47 +200,32 @@ function startingMorale(b: Battle, side: Side, type: string, xp: number, leaders
   return Math.min(100, 60 + 8 * (level(xp) - 1) + leadership + walls);
 }
 
-/** Rows from the flanks inward: skirmishers spread wide. */
-const FLANK_ORDER = [0, 8, 1, 7, 2, 6, 3, 5, 4];
-
-/** Where a formation of this kind prefers to start under a stance, as zone cells in order of preference. */
-export function preferredCells(stance: Stance, type: string): DeployCell[] {
-  const t = UNIT_TYPES[type];
-  const missile = t.range > 1 && !t.hero;
-  const caster = (t.hero?.spells.length ?? 0) > 0;
-  const zone = (depths: number[], rows = ROW_ORDER) => depths.flatMap((depth) => rows.map((row) => ({ depth, row })));
-  if (stance === 'skirmish') {
-    // Archers out front on the flanks, melee in the middle column guarding them, casters at the back.
-    return missile ? zone([0, 1, 2], FLANK_ORDER) : caster ? zone([2, 1, 0]) : zone([1, 0, 2]);
-  }
-  if (stance === 'defensive') {
-    // A solid melee line in front, missiles behind it, heroes and casters safe at the back.
-    return missile ? zone([1, 2, 0]) : caster || t.hero ? zone([2, 1, 0]) : zone([0, 1, 2]);
-  }
-  // Offensive (and Custom formations without a place): melee front, missiles and casters behind.
-  return missile || caster ? zone([1, 2, 0]) : zone([0, 1, 2]);
-}
-
-/**
- * Where each formation of an army starts in its side's deployment zone, by troop id: Custom placements first,
- * then every other formation in its stance's preferred free cell. Formations that don't fit are left out (they
- * become reserves). The tactics screen shows exactly this plan.
- */
+/** New battles use a strength-ranked melee screen, ranged support, and protected casters/ruler. */
 export function planDeployment(army: Army): Map<number, DeployCell> {
-  const stance = army.tactics?.stance ?? 'offensive';
   const plan = new Map<number, DeployCell>();
   const taken = new Set<string>();
   const key = (c: DeployCell) => `${c.depth},${c.row}`;
-  const custom = stance === 'custom' ? army.tactics?.layout ?? {} : {};
-  for (const t of army.troops) {
-    const cell = custom[String(t.id)];
-    if (!cell || taken.has(key(cell))) continue;
-    taken.add(key(cell));
-    plan.set(t.id, cell);
-  }
-  for (const t of army.troops) {
-    if (plan.has(t.id)) continue;
-    const cell = preferredCells(stance === 'custom' ? 'offensive' : stance, t.type).find((c) => !taken.has(key(c)));
+  const role = (t: Army['troops'][number]) => {
+    const type = UNIT_TYPES[t.type];
+    if (t.type === 'lord' || t.type === 'warchief' || (type.hero?.spells.length ?? 0) > 0) return 2;
+    return type.range > 1 ? 1 : 0;
+  };
+  const strength = (t: Army['troops'][number]) => {
+    const type = UNIT_TYPES[t.type];
+    const health = type.hero ? t.men / heroMaxHp(t.type, t.xp) : t.men / type.men;
+    return (attackFor(t.type, t.xp) + type.defense + kitBonus(t.kit).defense) * health;
+  };
+  const rows = ROW_ORDER;
+  const byRole = [
+    [0, 1, 2], // Tough melee occupy the front before the line fills up.
+    [1, 2, 0], // Archers stay behind the screen.
+    [1, 2, 0], // Casters and the leader stay behind the melee screen.
+  ];
+  // Keep the same fielded contingent as older saves/encounter previews; rank only its starting positions.
+  const troops = army.troops.slice(0, FIELD_LIMIT).sort((a, b) => role(a) - role(b) || strength(b) - strength(a) || a.id - b.id);
+  for (const t of troops) {
+    const cell = byRole[role(t)].flatMap((depth) => rows.map((row) => ({ depth, row })))
+      .find((c) => !taken.has(key(c)));
     if (!cell) continue;
     taken.add(key(cell));
     plan.set(t.id, cell);
@@ -394,6 +375,70 @@ function reachFrom(b: Battle, u: BattleUnit): Map<string, number> {
 export function reachable(b: Battle, u: BattleUnit): Map<string, number> {
   if (u.reserve || u.moved || u.acted || u.men <= 0 || u.fled || u.routing) return new Map();
   return reachFrom(b, u);
+}
+
+/** Translate an odd-column hex by the same axial displacement as the group's lead. */
+function groupPosition(lead: BattleUnit, destination: Hex, member: BattleUnit): Hex {
+  const axialRow = (h: Hex) => h.row - (h.col - (h.col & 1)) / 2;
+  const col = member.col + destination.col - lead.col;
+  const row = axialRow(member) + axialRow(destination) - axialRow(lead) + (col - (col & 1)) / 2;
+  return { col, row };
+}
+
+/** Legal lead destinations for a simultaneous, spacing-preserving move. The slowest member sets the budget. */
+export function groupReachable(b: Battle, unitIds: number[]): Map<string, number> {
+  if (unitIds.length < 2 || new Set(unitIds).size !== unitIds.length || b.outcome) return new Map();
+  const group = unitIds.map((id) => b.units.find((u) => u.id === id));
+  if (group.some((u) => !u || u.side !== b.active || !alive(b).includes(u) || u.moved || u.acted || u.routing)) return new Map();
+  const members = group as BattleUnit[];
+  const lead = members[0];
+  const ids = new Set(unitIds);
+  const budget = Math.min(...members.map(movementOf));
+  const result = new Map<string, number>();
+  const best = new Map<string, number>([[hexKey(lead), 0]]);
+  const frontier: (Hex & { cost: number })[] = [{ col: lead.col, row: lead.row, cost: 0 }];
+  while (frontier.length) {
+    frontier.sort((a, c) => a.cost - c.cost);
+    const cur = frontier.shift()!;
+    if (cur.cost !== best.get(hexKey(cur))) continue;
+    if (cur.cost && members.some((u) => nextToEnemy(b, groupPosition(lead, cur, u), u.side))) continue;
+    for (const next of hexNeighbors(cur)) {
+      let step = 0;
+      let legal = true;
+      for (const u of members) {
+        const at = groupPosition(lead, next, u);
+        const occupant = inBounds(b, at) ? unitAt(b, at) : undefined;
+        if (!inBounds(b, at) || (occupant && !ids.has(occupant.id))) { legal = false; break; }
+        step = Math.max(step, terrainAt(b, at).move);
+      }
+      const cost = cur.cost + step;
+      if (!legal || !Number.isFinite(cost) || cost > budget || cost >= (best.get(hexKey(next)) ?? Infinity)) continue;
+      best.set(hexKey(next), cost);
+      result.set(hexKey(next), cost);
+      frontier.push({ ...next, cost });
+    }
+  }
+  // An occupied lead hex may be useful while searching a route, but clicking it
+  // selects that formation in the UI instead of issuing a group move.
+  for (const key of result.keys()) {
+    const [col, row] = key.split(',').map(Number);
+    if (unitAt(b, { col, row })) result.delete(key);
+  }
+  return result;
+}
+
+/** Move every selected formation together, or none. Terrain harm is applied after all positions change. */
+export function moveGroup(b: Battle, unitIds: number[], destination: Hex): boolean {
+  if (!groupReachable(b, unitIds).has(hexKey(destination))) return false;
+  const members = unitIds.map((id) => b.units.find((u) => u.id === id)!);
+  const positions = members.map((u) => groupPosition(members[0], destination, u));
+  members.forEach((u, i) => { u.col = positions[i].col; u.row = positions[i].row; u.moved = true; });
+  for (const u of members) {
+    const ground = terrainAt(b, u);
+    const lost = Math.min(ground.moveLoss, u.men - 1);
+    if (lost > 0) b.log.push(`${unitLabel(b, u)} push into the ${ground.name.toLowerCase()}: ${lost} ${isHero(u.type) ? 'wounds' : 'men hurt'}.${takeLosses(b, u, lost)}`);
+  }
+  return true;
 }
 
 /** Enemies the unit can strike now: adjacent ones, or ones in missile range if it isn't engaged. */
@@ -954,53 +999,4 @@ function aiUnit(b: Battle, u: BattleUnit) {
     const weakest = targets.reduce((a, c) => ((c.routing ? 0 : c.men) < (a.routing ? 0 : a.men) ? c : a));
     attack(b, u.id, weakest.id);
   }
-}
-
-/** Translate odd-q hex positions without distorting a formation on odd columns. */
-function translatedHex(position:Hex,from:Hex,to:Hex):Hex{
- const z=(h:Hex)=>h.row-(h.col-(h.col&1))/2;
- const col=position.col+to.col-from.col;
- return {col,row:z(position)+z(to)-z(from)+(col-(col&1))/2};
-}
-export interface GroupMoveQuote {reason:string|null;cost:number;budget:number;moves:{id:number;to:Hex}[];}
-/** Plans use every member's real terrain and enemy-control costs, bounded by the slowest member. */
-function groupPlans(b:Battle,ids:number[],anchorId:number):{reason:string|null;budget:number;plans:Map<string,GroupMoveQuote>}{
- const plans=new Map<string,GroupMoveQuote>(),units=ids.map(id=>b.units.find(u=>u.id===id));
- const refuse=(reason:string)=>({reason,budget:0,plans});
- if(b.outcome || b.active!==playerSide(b))return refuse('You can move a group only on your turn.');
- if(!ids.length || new Set(ids).size!==ids.length || !ids.includes(anchorId) || units.some(u=>!u))return refuse('Choose ready formations and an anchor.');
- const members=units as BattleUnit[];
- if(members.some(u=>u.side!==b.active || u.reserve || u.fled || u.routing || u.men<=0 || u.moved || u.acted))return refuse('Every selected formation must be ready to move.');
- const anchor=members.find(u=>u.id===anchorId)!,budget=Math.min(...members.map(movementOf));
- const selected=new Set(ids),reaches=new Map<number,Map<string,number>>();
- for(const u of members){
-  const board={...b,units:b.units.filter(other=>!selected.has(other.id)||other.id===u.id)};
-  const reach=reachable(board,u);reach.set(hexKey(u),0);reaches.set(u.id,reach);
- }
- for(const [key] of reaches.get(anchorId)!){
-  const [col,row]=key.split(',').map(Number),to={col,row};
-  const occupying=unitAt(b,to);if(key===hexKey(anchor)||(occupying&&!selected.has(occupying.id)))continue;
-  let cost=0;const moves:{id:number;to:Hex}[]=[];
-  for(const u of members){
-   const destination=translatedHex(u,anchor,to),n=reaches.get(u.id)!.get(hexKey(destination));
-   if(n===undefined || n>budget){moves.length=0;break;}
-   cost=Math.max(cost,n);moves.push({id:u.id,to:destination});
-  }
-  if(moves.length===members.length)plans.set(key,{reason:null,cost,budget,moves});
- }
- return {reason:null,budget,plans};
-}
-export function groupMovementOptions(b:Battle,ids:number[],anchorId:number):Map<string,number>{
- return new Map([...groupPlans(b,ids,anchorId).plans].map(([key,q])=>[key,q.cost]));
-}
-export function groupMoveQuote(b:Battle,ids:number[],anchorId:number,to:Hex):GroupMoveQuote{
- const p=groupPlans(b,ids,anchorId);
- return p.plans.get(hexKey(to))??{reason:p.reason??'The whole group cannot reach that position. Keep its shape clear of occupied hexes, terrain and the field edge.',cost:0,budget:p.budget,moves:[]};
-}
-/** Commit a fully validated group atomically; terrain wounds and morale use the normal move rules. */
-export function moveGroup(b:Battle,ids:number[],anchorId:number,to:Hex):string|null{
- const q=groupMoveQuote(b,ids,anchorId,to);if(q.reason)return q.reason;
- for(const move of q.moves){const u=b.units.find(u=>u.id===move.id)!;u.col=move.to.col;u.row=move.to.row;u.moved=true;}
- for(const move of q.moves)applyMoveGround(b,b.units.find(u=>u.id===move.id)!);
- return null;
 }

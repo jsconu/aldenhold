@@ -8,7 +8,7 @@ const RAID_EVERY = 4;
 const RAID_MIN_GARRISON = 4;
 
 /** Orc strategy: the Hold grows its garrison and sends raiders at the nearest town not held by orcs. */
-export function orcTurn(state: GameState) {
+export function orcTurn(state: GameState, beforeMarch?: (state: GameState, army: Army, route: string[]) => void) {
   const lairId = campaignOf(state).lair;
   const LAIR = townLocation(state, lairId);
   if (state.towns[lairId].owner === 'orcs') {
@@ -37,7 +37,7 @@ export function orcTurn(state: GameState) {
   for (const army of marching) {
     if (state.status !== 'playing' || !state.armies.includes(army)) continue;
     if (hex) {
-      raidAcrossHexes(state, army);
+      raidAcrossHexes(state, army, beforeMarch);
       continue;
     }
     const step = stepTowardTarget(state, army.at);
@@ -75,10 +75,12 @@ export function stepTowardTarget(state: GameState, from: string): string | null 
 const FIGHT_COST = 4;
 
 /** On a hex map, march along the cheapest raid route as far as this month's movement allows. */
-function raidAcrossHexes(state: GameState, army: Army) {
+function raidAcrossHexes(state: GameState, army: Army, beforeMarch?: (state: GameState, army: Army, route: string[]) => void) {
   let budget = sharedMp(army.troops);
   const steps: string[] = [];
-  for (const at of raidPath(state, army)) {
+  const route = raidPath(state, army);
+  beforeMarch?.(state, army, route);
+  for (const at of route) {
     budget -= stepCost(state, at);
     if (budget < 0) break;
     steps.push(at);

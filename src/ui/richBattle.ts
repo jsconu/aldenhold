@@ -34,6 +34,8 @@ export function richRuin(cx:number,cy:number,seed:number):string{
 
 /** A formation is a group of people; heroes and individual giant creatures keep a single silhouette. */
 export function battleFigure(type:string,cx:number,cy:number,mirror:boolean,men:number,appearance?:RulerAppearance,gender?:'male'|'female'):string{
+ // A unit without illustrated art (the scout, for now) draws nothing here, so the caller falls back to its pixel sprite.
+ if(!richUnit(type,0,0,false,appearance,gender))return '';
  if(UNIT_TYPES[type]?.hero){
   // Portrait cells are taller than square troop cells; normalize both to a roughly 32px person.
   const scale=isRulerType(type) && (appearance || type!=='lord')?.48:.64;

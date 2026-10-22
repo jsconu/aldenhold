@@ -3,8 +3,6 @@ import type { RulerChoice } from '../game/rulerCreation';
 import type { SpellId } from '../game/types';
 
 export interface UIState {
-  battleGroup?:number[];
-  movementUndo?:{available:boolean;reason:string};
   refitChoice?: {troop:number;item:import('../game/types').EquipmentId};
   creatingFor?: CampaignId;
   rulerDraft?: RulerChoice;
@@ -14,15 +12,19 @@ export interface UIState {
   selected: string | null;
   /** Troops ticked to march from the selected node. */
   checked: Set<number>;
+  /** Choice before committing a march into a defended hostile settlement. */
+  assault?: { from: string; to: string; troopIds: number[] } | null;
   /** Selected unit in the current battle. */
   battleUnit: number | null;
+  /** Tactical formation IDs selected for a simultaneous move (the battleUnit is the lead). */
+  battleUnits?: Set<number>;
+  /** An in-session movement snapshot is available; it is never part of the save. */
+  undoMoveLabel?: string;
   /** Spell the selected hero is about to cast. */
   battleSpell: SpellId | null;
   battleTarget?: number | null;
   /** Battle camera zoom (1 = the field's drawn size); the field scrolls inside its frame. */
   battleZoom?: number;
-  /** Tactics screen: the formation picked up to move to another cell. */
-  tacticsTroop?: number | null;
   battleDestination?: { col: number; row: number } | null;
   message: string;
   /** Campaign screen: the province map or the full journal. */

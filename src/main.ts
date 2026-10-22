@@ -1,18 +1,17 @@
 import {explored} from './game/challenge';
-import {MovementUndo} from './game/movementUndo';
 import {recruitReplacements} from './game/replacements';
 import { createRulerCampaign, SKIN_TONES } from './game/rulerCreation';
 import { feedbackSnapshot, newFeedback, renderFeedback, type GameplayNotice } from './ui/gameplayFeedback';
 import './style.css';
 import { HEX_ZOOMS, hexZoom } from './ui/hexMapView';
 import {
-  attackOrder, attackOrderQuote, autoResolve, castSpell, escapeQuote, moveUnit, moveGroup, groupMoveQuote, planDeployment, playerEndTurn, playerSide, reachable, spellTargets, teleportDestinations, tryEscape, unitAt,
+  attackOrder, attackOrderQuote, autoResolve, castSpell, escapeQuote, groupReachable, moveGroup, moveUnit, playerEndTurn, playerSide, reachable, spellTargets, teleportDestinations, tryEscape, unitAt,
 } from './game/battle';
-import { applyBattle, armyAt, campaignOf, endTurn, hireHero, moveTroops, newGame, recruit, setTax } from './game/campaign';
+import { applyBattle, armyAt, campaignOf, endTurn, hireHero, marchQuote, moveTroops, newGame, recruit, setTax } from './game/campaign';
 import { townLocation, townAt } from './game/world';
 import { hexKey } from './game/hex';
 import type { CampaignId, GameState, SpellId } from './game/types';
-import { renderBattle, selectedUnit } from './ui/battleView';
+import { renderBattle, selectedGroup, selectedUnit } from './ui/battleView';
 import { moveTargets, plannedRoute, renderCampaign } from './ui/campaignView';
 import { esc, type UIState } from './ui/shared';
 import { loadGame, MAX_SAVE_BYTES, parseSave, saveGame } from './game/saves';
@@ -20,8 +19,7 @@ import { CATALOG } from './content';
 import { chooseQuest } from './game/quests';
 import { discardItem, equipItem, sellItem, unequipItem, useItem } from './game/items';
 import { buyItem } from './game/merchants';
-import { placeFormation, setStance } from './game/tactics';
-import type { HeroSlot, Stance } from './game/types';
+import type { HeroSlot } from './game/types';
 import { questFocus } from './ui/questNavigation';
 import { buildCity, BUILDINGS } from './game/cities';
 import { beginRefit, EQUIPMENT } from './game/equipment';
@@ -31,6 +29,9 @@ import { validateContent } from './content/validate';
 import { captureRecovery, clearRecovery, readManualSlot, readRecovery, writeManualSlot } from './game/saveSlots';
 import { questQuote } from './game/quests';
 import { renderSaveManager } from './ui/saveManagerView';
+import { captureMove, restoreMove, type MovementUndo } from './ui/movementUndo';
+import { cityAssault } from './ui/cityAssault';
+import { assignScout } from './game/scouts';
 
 // Access localStorage inside the adapter: even reading the browser property can throw.
 const storage = {
@@ -51,7 +52,7 @@ let hasGame = loaded.state !== null;
 let savesOpen = false;
 let recoveryWarning = '';
 let feedback:GameplayNotice[]=[];
-const movementUndo=new MovementUndo();
+let undoMove: MovementUndo | null = null;
 
 function save() {
   if (autosaveBlocked || !hasGame) return;
@@ -65,7 +66,7 @@ function checkpoint(reason: Parameters<typeof captureRecovery>[2]): boolean {
 }
 
 function activate(next: GameState) {
-  movementUndo.clear();ui.battleGroup=[];ui.marchMode=false;
+  undoMove = null;ui.marchMode=false;
   feedback=[];
   state = next;
   hasGame = true;
@@ -75,7 +76,9 @@ function activate(next: GameState) {
   ui.choosing = false;
   ui.creatingFor=undefined;
   ui.rulerDraft=undefined;
+  ui.assault = null;
   ui.battleUnit = null;
+  ui.battleUnits = new Set();
   ui.battleSpell = null;
   ui.battleTarget = null;
   ui.battleDestination = null;
@@ -96,7 +99,7 @@ function exportSave() {
 }
 
 const ui: UIState = {
-  selected: null, checked: new Set(), battleUnit: null, battleSpell: null, message: '', view: 'map',
+  selected: null, checked: new Set(), battleUnit: null, battleUnits: new Set(), battleSpell: null, message: '', view: 'map',
   // With no saved game, open on the campaign chooser.
   choosing: !loaded.state && !loaded.blocked,
 };
@@ -168,10 +171,11 @@ function render() {
   }
   syncMinimap();
   app.querySelector<HTMLElement>('#feedback-heading')?.focus({preventScroll:true});
+  if (ui.assault) app.querySelector<HTMLElement>('[data-action="assault-attack"]:not(:disabled), [data-action="assault-retreat"]')?.focus();
 }
 
 function draw() {
-  ui.movementUndo=movementUndo.status(state);
+  ui.undoMoveLabel = undoMove?.label;
   app.innerHTML = `<div ${feedback.length ? 'inert' : ''}><nav class="save-bar" aria-label="Saved games">
     <button data-action="saved-games" aria-expanded="${savesOpen}" aria-controls="save-content">${savesOpen ? 'Back to game' : 'Saved games'}</button>
     <button data-action="export-save" ${hasGame ? '' : 'disabled'}>Export save</button>
@@ -189,19 +193,50 @@ function selectNode(id: string) {
   ui.checked = new Set(army?.troops.filter((t) => t.mp > 0 && !t.refit).map((t) => t.id) ?? []);
 }
 
-function onAction(action: string, data: DOMStringMap) {
+function onAction(action: string, data: DOMStringMap, additive = false) {
   const before=feedbackSnapshot(state),previousState=state;
-  const moveBefore=structuredClone(state);const origin=ui.selected;
   const nameInput=app.querySelector<HTMLInputElement>('#ruler-name');
   if(ui.rulerDraft && nameInput)ui.rulerDraft.name=nameInput.value;
   ui.message = '';
+  if (ui.assault && action !== 'assault-attack' && action !== 'assault-retreat') return;
+  // A later consequential command closes the one-step undo window. Browsing the map does not.
+  if (!['node', 'hex', 'undo-move', 'assault-retreat', 'route-first-leg', 'locate-army', 'plan-route', 'route-clear',
+    'route-preference', 'map-layer', 'map-zoom', 'hex-zoom', 'battle-zoom', 'view-quest', 'goto', 'journal', 'treasury', 'spell'].includes(action)) undoMove = null;
   switch (action) {
-    case 'undo-move': {
-      const restored=movementUndo.undo(state);
-      if(restored){state=restored.state;if(!state.battle && restored.location)selectNode(restored.location);ui.message='Last move undone.';}
-      else ui.message=movementUndo.status(state).reason;
+    case 'scout-post':
+      ui.message = assignScout(state, Number(data.troop), data.post as 'city' | 'road' | 'recall') ?? '';
+      break;
+    case 'assault-retreat':
+      ui.assault = null;
+      break;
+    case 'assault-attack': {
+      const decision = ui.assault;
+      if (!decision) break;
+      const quote = marchQuote(state, decision.from, decision.troopIds, decision.to);
+      if (quote.reason || !cityAssault(state, decision.from, decision.to, decision.troopIds)) {
+        ui.message = quote.reason ?? 'The defenders have moved. Inspect the city again.';
+        ui.assault = null;
+        break;
+      }
+      const before = captureMove(state, ui, 'Undo march');
+      const err = moveTroops(state, decision.from, decision.troopIds, decision.to);
+      ui.message = err ?? '';
+      ui.assault = null;
+      if (!err) {
+        undoMove = before;
+        ui.routeOrigin = null; ui.routeDestination = null;
+        selectNode(decision.to);
+      }
       break;
     }
+    case 'undo-move':
+      if (undoMove) {
+        const before = undoMove;
+        state = restoreMove(before, ui);
+        ui.message = 'Last move undone.';
+        undoMove = null;
+      }
+      break;
     case 'open-city':
       if(data.node && explored(state,data.node) && townAt(state,data.node)){selectNode(data.node);ui.view='city';ui.cityTab='overview';ui.marchMode=false;}
       break;
@@ -210,19 +245,6 @@ function onAction(action: string, data: DOMStringMap) {
       if(['overview','development','recruitment','army','quests'].includes(data.tab??''))ui.cityTab=data.tab as UIState['cityTab'];
       break;
     case 'march-mode':ui.marchMode=!ui.marchMode;break;
-    case 'battle-group-toggle': {
-      const b=state.battle,id=Number(data.unit),u=b?.units.find(u=>u.id===id);
-      if(!b || !u || b.outcome || u.side!==playerSide(b) || b.active!==u.side || u.moved || u.acted || u.routing || u.fled || u.reserve || u.men<=0)break;
-      const selected=new Set(ui.battleGroup??[]);
-      selected.has(id)?selected.delete(id):selected.add(id);
-      ui.battleGroup=[...selected];ui.battleUnit=ui.battleGroup[0]??null;ui.battleSpell=null;ui.battleTarget=null;break;
-    }
-    case 'battle-group-all': {
-      const b=state.battle;if(!b || b.outcome || b.active!==playerSide(b))break;
-      ui.battleGroup=b.units.filter(u=>u.side===b.active && !u.reserve && !u.fled && !u.routing && u.men>0 && !u.moved && !u.acted).map(u=>u.id);
-      ui.battleUnit=ui.battleGroup[0]??null;ui.battleSpell=null;ui.battleTarget=null;break;
-    }
-    case 'battle-group-clear':ui.battleGroup=[];ui.battleSpell=null;break;
     case 'feedback-dismiss': feedback.shift(); break;
     case 'feedback-journal': feedback=[]; ui.view='journal'; break;
     case 'new-game':
@@ -277,8 +299,12 @@ function onAction(action: string, data: DOMStringMap) {
         break;
       }
       const firstLeg = route.stops[1].id;
+      const decision = cityAssault(state, ui.routeOrigin, firstLeg, [...ui.checked]);
+      if (decision) { ui.assault = decision; break; }
+      const before = captureMove(state, ui, 'Undo march');
       ui.message = moveTroops(state, ui.routeOrigin, [...ui.checked], firstLeg) ?? '';
       if (!ui.message) {
+        undoMove = before;
         ui.routeOrigin = null;
         ui.routeDestination = null;
         selectNode(firstLeg);
@@ -308,23 +334,6 @@ function onAction(action: string, data: DOMStringMap) {
       if (!questQuote(state, data.quest ?? '', data.choice ?? '').reason && !checkpoint('Before quest choice')) break;
       ui.message = chooseQuest(state, data.quest ?? '', data.choice ?? '') ?? '';
       break;
-    case 'set-stance':
-      ui.message = setStance(state, Number(data.army), data.stance as Stance) ?? '';
-      ui.tacticsTroop = null;
-      break;
-    case 'tactics-cell': {
-      const army = state.armies.find((a) => a.id === Number(data.army));
-      if (!army) break;
-      const cell = { depth: Number(data.depth), row: Number(data.row) };
-      const here = [...planDeployment(army)].find(([, c]) => c.depth === cell.depth && c.row === cell.row)?.[0];
-      if (ui.tacticsTroop != null && army.troops.some((t) => t.id === ui.tacticsTroop)) {
-        if (here !== ui.tacticsTroop) ui.message = placeFormation(state, army.id, ui.tacticsTroop, cell) ?? '';
-        ui.tacticsTroop = null;
-      } else if (here !== undefined) {
-        ui.tacticsTroop = here;
-      }
-      break;
-    }
     case 'buy-item':
       ui.message = buyItem(state, data.merchant ?? '', data.item ?? '') ?? '';
       break;
@@ -366,7 +375,7 @@ function onAction(action: string, data: DOMStringMap) {
       break;
     }
     case 'end-turn':
-      ui.battleGroup=[];ui.battleUnit=null;ui.battleSpell=null;
+      ui.battleUnits = new Set();ui.battleUnit=null;ui.battleSpell=null;
       if (state.status === 'playing' && !state.battle && !checkpoint('Before month')) break;
       endTurn(state);
       if (ui.selected) selectNode(ui.selected);
@@ -408,42 +417,43 @@ function onAction(action: string, data: DOMStringMap) {
       break;
     case 'node': {
       const id = data.node!;
-      if(ui.marchMode && ui.selected){
-        const err=moveTroops(state,ui.selected,[...ui.checked],id);ui.message=err??'';
-        if(!err){selectNode(id);ui.marchMode=false;}break;
-      }
+      // In march mode (Move selected army) a click always marches; otherwise a known town opens its city screen.
+      const marching = !!ui.marchMode && !!ui.selected;
       if (ui.routeOrigin && !ui.routeDestination) {
         if (id !== ui.routeOrigin) ui.routeDestination = id;
         break;
       }
-      if(explored(state,id) && townAt(state,id) && !ui.routeOrigin){selectNode(id);ui.view='city';ui.cityTab='overview';break;}
-      if (ui.selected && moveTargets(state, ui).has(id)) {
+      if(!marching && explored(state,id) && townAt(state,id) && !ui.routeOrigin){selectNode(id);ui.view='city';ui.cityTab='overview';break;}
+      if (ui.selected && (marching || moveTargets(state, ui).has(id))) {
+        const decision = cityAssault(state, ui.selected, id, [...ui.checked]);
+        if (decision) { ui.assault = decision; ui.marchMode = false; break; }
+        const before = captureMove(state, ui, 'Undo march');
         const err = moveTroops(state, ui.selected, [...ui.checked], id);
         ui.message = err ?? '';
-        if (!err) selectNode(id);
+        if (!err) { undoMove = before; selectNode(id); ui.marchMode = false; }
       } else {
         selectNode(id);
       }
       break;
     }
     case 'hex':
-      onHex(Number(data.col), Number(data.row));
+      onHex(Number(data.col), Number(data.row), additive);
       break;
     case 'battle-end':
       playerEndTurn(state.battle!);
       ui.battleUnit = null;
-      ui.battleGroup=[];
+      ui.battleUnits = new Set();
       ui.battleSpell = null;
       break;
     case 'battle-zoom':
       ui.battleZoom = Math.min(1.6, Math.max(0.5, Math.round(((ui.battleZoom ?? 1) + 0.2 * Number(data.dir)) * 10) / 10));
       break;
     case 'battle-auto':
-      ui.battleGroup=[];
+      ui.battleUnits = new Set();
       autoResolve(state.battle!);
       break;
     case 'battle-retreat': {
-      ui.battleGroup=[];
+      ui.battleUnits = new Set();
       const b = state.battle!;
       const got = tryEscape(b, playerSide(b)!);
       ui.message = got === null ? escapeQuote(b, playerSide(b)!).reason ?? '' : got ? '' : 'The enemy held you; your turn is spent.';
@@ -452,29 +462,27 @@ function onAction(action: string, data: DOMStringMap) {
     }
     case 'battle-continue':
       ui.selected=state.battle!.at;ui.view='map';
-      ui.battleGroup=[];
       applyBattle(state, state.battle!);
       ui.battleUnit = null;
+      ui.battleUnits = new Set();
       ui.battleSpell = null;
       if (ui.selected) selectNode(ui.selected);
       break;
   }
   if(state===previousState) feedback.push(...newFeedback(state,before));
-  const sameBattle=moveBefore.battle && state.battle && moveBefore.battle.round===state.battle.round;
-  const battleMoved=action==='hex' && sameBattle && moveBefore.battle!.units.some(u=>{const next=state.battle!.units.find(n=>n.id===u.id);return next && (next.col!==u.col || next.row!==u.row);});
-  const worldMoved=['node','route-first-leg'].includes(action) && !moveBefore.battle && (moveBefore.nextId!==state.nextId || JSON.stringify(moveBefore.armies)!==JSON.stringify(state.armies));
-  if(battleMoved || worldMoved)movementUndo.record(moveBefore,state,origin);
 }
 
-function onHex(col: number, row: number) {
+function onHex(col: number, row: number, additive = false) {
   const b = state.battle!;
   if (b.outcome || b.active !== playerSide(b)) return;
   const clicked = unitAt(b, { col, row });
   const sel = selectedUnit(b, ui);
+  const group = selectedGroup(b, ui);
   if (sel && ui.battleSpell) {
     if (clicked && clicked.id === ui.battleTarget && ui.battleSpell !== 'teleport') {
       // Clicking the chosen target a second time casts, the same as the Cast button.
       if (castSpell(b, sel.id, ui.battleSpell, clicked.id)) {
+        undoMove = null;
         ui.battleSpell = null; ui.battleTarget = null; ui.battleDestination = null;
       }
     } else if (clicked && spellTargets(b, sel, ui.battleSpell).includes(clicked)) {
@@ -485,26 +493,46 @@ function onHex(col: number, row: number) {
     }
     return;
   }
-  if((ui.battleGroup?.length??0)>1 && sel && !ui.battleSpell){
-    const q=groupMoveQuote(b,ui.battleGroup!,sel.id,{col,row});
-    if(!q.reason){moveGroup(b,ui.battleGroup!,sel.id,{col,row});ui.message='Group moved. Select a formation to attack.';return;}
-    if(!clicked){ui.message=q.reason;return;}
-    if(clicked.side!==b.active){ui.message='Click a formation to select it individually before attacking or casting.';return;}
-  }
   if (clicked && clicked.side === b.active) {
-    ui.battleGroup=[];
-    if (clicked.id !== ui.battleUnit) ui.battleSpell = null;
-    ui.battleUnit = clicked.id;
+    if (additive) {
+      if (clicked.moved || clicked.acted || clicked.routing || (sel && (sel.moved || sel.acted || sel.routing))) {
+        ui.message = 'Only ready formations can move together. Select a ready blue unit first.';
+        return;
+      }
+      const ids = new Set(group.map((u) => u.id));
+      if (ids.has(clicked.id)) ids.delete(clicked.id);
+      else ids.add(clicked.id);
+      ui.battleUnits = ids;
+      ui.battleUnit = ids.has(ui.battleUnit ?? -1) ? ui.battleUnit : (ids.values().next().value ?? null);
+    } else {
+      ui.battleUnit = clicked.id;
+      ui.battleUnits = new Set([clicked.id]);
+    }
+    ui.battleSpell = null;
+    ui.battleTarget = null;
     return;
   }
   ui.battleSpell = null;
   if (!sel) return;
-  if (clicked) {
-    const q=attackOrderQuote(b,sel.id,clicked.id);
-    if(q.reason) ui.message=q.reason;
-    else {attackOrder(b,sel.id,clicked.id);ui.message='';}
+  if (group.length > 1) {
+    if (clicked) { ui.message = 'Select one formation to attack. The group moves together to glowing empty hexes.'; return; }
+    if (groupReachable(b, group.map((u) => u.id)).has(hexKey({ col, row }))) {
+      const before = captureMove(state, ui, 'Undo battle move');
+      if (moveGroup(b, group.map((u) => u.id), { col, row })) {
+        undoMove = before;
+        ui.battleUnit = null;
+        ui.battleUnits = new Set();
+      }
+    }
+  } else if (clicked) {
+    // One click on an enemy moves into range if needed, then attacks. An attack can't be undone.
+    const q = attackOrderQuote(b, sel.id, clicked.id);
+    if (q.reason) ui.message = q.reason;
+    else { attackOrder(b, sel.id, clicked.id); ui.message = ''; undoMove = null; }
+  } else if (reachable(b, sel).has(hexKey({ col, row }))) {
+    const before = captureMove(state, ui, 'Undo battle move');
+    if (moveUnit(b, sel.id, { col, row })) undoMove = before;
   }
-  else if (!clicked && reachable(b, sel).has(hexKey({ col, row }))) moveUnit(b, sel.id, { col, row });
 }
 
 // Drag to pan the battlefield. A drag that moved never counts as a click (no accidental moves or attacks).
@@ -540,6 +568,7 @@ app.addEventListener('click', (e) => {
 app.addEventListener('scroll', (e) => { if ((e.target as Element).classList?.contains('battle-scroll')) syncMinimap(); }, true);
 // Arrow keys look around the battlefield (unless typing in a field).
 window.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && ui.assault) { e.preventDefault(); ui.assault = null; render(); return; }
   const frame = battleScroll();
   if (!frame || !state.battle || e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement) return;
   const step = { ArrowLeft: [-80, 0], ArrowRight: [80, 0], ArrowUp: [0, -80], ArrowDown: [0, 80] }[e.key];
@@ -610,7 +639,7 @@ app.addEventListener('click', (e) => {
     render();
     return;
   }
-  onAction(el.dataset.action!, el.dataset);
+  onAction(el.dataset.action!, el.dataset, e.shiftKey);
   save();
   render();
 });
@@ -669,11 +698,24 @@ app.addEventListener('change', async (e) => {
     render();
     return;
   }
-  if (el.dataset.change === 'tax') setTax(state, el.dataset.node!, Number(el.value));
+  if (el.dataset.change === 'tax') { undoMove = null; setTax(state, el.dataset.node!, Number(el.value)); }
   if (el.dataset.change === 'check' && el instanceof HTMLInputElement) {
     const id = Number(el.dataset.troop);
     if (el.checked) ui.checked.add(id);
     else ui.checked.delete(id);
+  }
+  if (el.dataset.change === 'battle-check' && el instanceof HTMLInputElement && state.battle) {
+    const id = Number(el.dataset.troop);
+    const unit = state.battle.units.find((u) => u.id === id);
+    if (unit && unit.side === state.battle.active && !unit.reserve && !unit.fled && unit.men > 0 && !unit.moved && !unit.acted && !unit.routing) {
+      const ids = new Set(selectedGroup(state.battle, ui).map((u) => u.id));
+      if (el.checked) ids.add(id);
+      else ids.delete(id);
+      ui.battleUnits = ids;
+      ui.battleUnit = ids.has(ui.battleUnit ?? -1) ? ui.battleUnit : (ids.values().next().value ?? null);
+      ui.battleSpell = null;
+      ui.battleTarget = null;
+    }
   }
   save();
   render();

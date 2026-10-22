@@ -1,14 +1,19 @@
 import { describe,expect,it } from 'vitest';
 import { UNIT_TYPES } from '../game/data';
-import { richUnit } from './richBattle';
+import { battleFigure, richUnit } from './richBattle';
+import { pixelSprite } from './pixelSprites';
 import { newGame } from '../game/campaign';
 import { renderHexMap } from './hexMapView';
 import { getCampaign } from '../content';
 describe('illustrated battle units and map heraldry',()=>{
   it('covers every current unit with a separate atlas cell and mirrors defenders without changing position',()=>{
-    const art=Object.keys(UNIT_TYPES).map(id=>richUnit(id,90,80,false));
+    // Scouts have no atlas cell yet: they draw with their pixel sprite instead of an empty figure.
+    const illustrated=Object.keys(UNIT_TYPES).filter(id=>id!=='scout');
+    const art=illustrated.map(id=>richUnit(id,90,80,false));
     expect(art.every(s=>s.includes('/assets/battle/'))).toBe(true);
-    expect(new Set(art).size).toBe(Object.keys(UNIT_TYPES).length);
+    expect(new Set(art).size).toBe(illustrated.length);
+    expect(battleFigure('scout',90,80,false,1)).toBe('');
+    expect(pixelSprite('scout','mine',90,80,2.5,false)).not.toBe('');
     expect(richUnit('lord',90,80,true)).toContain('translate(180 0) scale(-1 1)');
     expect(richUnit('unknown',0,0,false)).toBe('');
   });

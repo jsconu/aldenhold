@@ -11,7 +11,7 @@ describe('dedicated city management',()=>{
  const s=newGame(1),at=tab==='quests'?'fenwick':'aldenhold';const html=renderCampaign(s,{...ui,selected:at,view:'city',cityTab:tab});
  expect(html.includes('class="city-screen"')).toBe(true);expect(html.includes('Back to overland map')).toBe(true);expect(html.includes('data-action="'+action+'"')).toBe(true);expect(html.includes('class="map overland"')).toBe(false);expect(html.includes('class="map-wrap"')).toBe(false);
  });
- it('shows replacements and battle plans in the army tab',()=>{
- const s=newGame(1);armyAt(s,'aldenhold','player')!.troops[1].men=10;const html=renderCampaign(s,{...ui,view:'city',cityTab:'army'});expect(html).toContain('Recruit replacements');expect(html).toContain('Battle plan: Offensive');
+ it('shows replacements and the automatic battle deployment in the army tab',()=>{
+ const s=newGame(1);armyAt(s,'aldenhold','player')!.troops[1].men=10;const html=renderCampaign(s,{...ui,view:'city',cityTab:'army'});expect(html).toContain('Recruit replacements');expect(html).toContain('toughest melee formations set up in front');expect(html).not.toContain('data-action="set-stance"');
  });
 });

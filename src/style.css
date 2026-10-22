@@ -445,6 +445,10 @@ button.travel-destination b { color: var(--gold); font-size: 11px; }
 .field .unit.target .mark { stroke: #f96a46; stroke-width: 2.4; stroke-dasharray: 4 4; }
 .field .unit.boon .mark { stroke: #77d79b; stroke-width: 2.4; stroke-dasharray: 4 4; }
 .field .unit.spell-affected .mark { stroke: #ffc976; stroke-width: 2; }
+.battle-group { border: 1px solid var(--line); border-radius: 7px; padding: 8px 10px; margin-bottom: 12px; }
+.battle-group summary { cursor: pointer; color: var(--gold); font-weight: 600; }
+.battle-group-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(165px, 1fr)); gap: 5px 10px; max-height: 150px; overflow: auto; }
+.battle-group-list label { display: flex; gap: 6px; align-items: center; font-size: 12px; }
 .atlas-ground { stroke: none !important; }
 .atlas-watercourse { opacity: .88; }
 .atlas-river-bank { fill: none; stroke: #2d4d47; stroke-width: 26; stroke-linecap: round; stroke-linejoin: round; }
@@ -520,15 +524,6 @@ button.travel-destination b { color: var(--gold); font-size: 11px; }
 .cast-bar small { color: var(--muted, #b8ad94); }
 
 /* Tactics: an army's battle plan and its deployment zone. */
-.tactics { margin: 8px 0; }
-.tactics .stances { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
-.deploy-grid { border-collapse: collapse; margin: 4px 0; }
-.deploy-grid th { font-size: 11px; font-weight: normal; color: var(--muted, #b8ad94); padding: 0 4px; }
-.deploy-grid td { padding: 1px; }
-.deploy-grid .cell { width: 64px; height: 22px; padding: 0 2px; font-size: 11px; border: 1px solid var(--line); background: var(--panel-2, #2f2d27); color: var(--ink); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-.deploy-grid .cell.filled { background: #34405e; }
-.deploy-grid .cell.hero { background: #5a4a26; }
-.deploy-grid .cell.picked { outline: 2px solid var(--gold); }
 
 /* Ownership banners on the overland map and their legend: shape and glyph, not just colour. */
 .overland .settlement-owner { pointer-events: all; }
@@ -556,6 +551,14 @@ button.travel-destination b { color: var(--gold); font-size: 11px; }
 .hex-scroll { max-height: 72vh; overflow: auto; border-radius: 6px; background: #44543c; cursor: grab; overscroll-behavior: contain; }
 .hex-scroll svg.map.overland { width: auto; max-width: none; height: auto; display: block; border-radius: 0; }
 .hex-scroll .terrain { image-rendering: pixelated; }
+.assault-shade { position: fixed; z-index: 30; inset: 0; background: #080d0bbb; display: grid; place-items: center; padding: 16px; }
+.assault-prompt { max-width: 560px; max-height: min(90vh, 700px); overflow: auto; padding: 24px; border: 2px solid var(--gold); border-radius: 10px; background: var(--panel); box-shadow: 0 18px 50px #0009; }
+.assault-prompt h2 { margin-top: 0; }
+.assault-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 22px; }
+.scout-post { border: 1px solid var(--line); border-radius: 6px; padding: 8px; margin: 8px 0; }
+.scout-post .save-actions { margin: 6px 0; }
+.scout-intel { border-left: 3px solid var(--gold); padding-left: 10px; }
+.scout-intel ul { padding-left: 18px; }
 .overland .cell:hover { fill: rgba(255, 246, 210, 0.2); stroke: #fff1c2 !important; stroke-width: 0.8; }
 
 /* Reference-led settlement views and the commander's post-battle chronicle. */

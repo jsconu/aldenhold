@@ -436,6 +436,12 @@ The build passes. In the browser: the granary rotted on schedule, rationing bloc
 
 The Western map now uses the battle scene's quieter earth, forest and water palette, broad continuous lighting, less repeated tile detail and softer movement glows. Blue army banners have a clearer backing so the army's location is easier to find. A prominent march guide in the sidebar shows the currently ticked and reachable troops, can return to a ready army after inspecting another hex, and explains that an unlit hex inspects rather than moves. Hex geometry, terrain, roads, movement costs and saves are unchanged. This is a first visual pass to review in the running game with the owner.
 
+## Codex: tactical group movement and movement undo
+
+The battle sidebar now lets the player tick ready formations or Shift-click them on the field. A glowing destination moves all selected formations atomically, retaining their relative hex spacing; the slowest formation sets the shared movement budget. Each member must have a legal path and destination, so occupied, impassable and enemy-controlled positions constrain the group. Group movement marks every member as moved and applies destination terrain harm to each. Attacks and spells remain individual commands.
+
+One-step Undo march and Undo battle move controls restore the exact preceding game position and selection, including movement points, battle entry and terrain harm. Undo remains available through inspection and selection, but a further move replaces it and other consequential commands close it. It is held only in memory for the current browser session; saved games continue to use the existing schema. The current tactical model still permits one formation per hex, unlike the original 200-size-point mixed stack rule; that larger rules change is tracked in the backlog.
+
 ## Codex: Western chapter city-quest and alliance playthrough pass (9e)
 
 Extended the real-command optional-expedition controller to resolve Q01 through bought, escorted or rationed grain and Q06 through an evidence-led conviction or pardon. It prioritizes the timed granary response before optional garrison spending, checks imports immediately after decisions, and separately exercises an envoy's Q04 woodland alliance. No production gameplay rules changed.
@@ -883,3 +889,20 @@ Cities now open a dedicated screen with Overview, Development, Recruitment, Army
 Rival free cities can grow a capped muster and announce a war party one month ahead in Western difficulty campaigns. Parties use real troops, retain at least two home defenders, have per-city cooldowns and a global active-party limit, and use normal routes, terrain, city captures and defensive battles. Alliances, vassalage, truces and source conquest cancel expeditions. Hostility is scoped to the source settlement, with enemy banners and persistent threat reports. The AI phase contains this behavior; legacy campaigns retain the previous AI. Save validation covers warnings and expedition references. Millbrook must also be retaken if a rival city, rather than the orcs, captures it during M04.
 
 Validation: all 505 tests and the production build pass. Live browser checks verified the separate city tabs, uncluttered map, recruitment, campaign movement and undo, and battlefield group movement and undo. Rival-party balance remains subject to owner playtesting.
+## Codex: city assault backlog and automatic battle setup
+
+The [city assault specification](city-assaults-and-sieges.md) records the owner's new Attack / Retreat / Besiege decision, month-scale sieges and possible vassal terms, settlement battlefields with developed hexes and once-only pillage, varying deployment areas, and distinct melee/HP growth for support troops. These are future gameplay slices, not implemented by this increment.
+
+The first slice removes the editable 3×9 battle-plan grid and stance buttons from the city/army panel. Fresh battles now select the same first 27 fielded formations as before, arrange healthier and stronger melee troops in the front, and put archers, casters and the ruler behind the screen. Existing custom army plans remain accepted by save validation but are ignored for **new** battles; already-saved battles retain their actual positions and old stance behavior. Quest and raid outcomes were checked against the seeded campaign suite before this change was published. Terrain generation still varies by seed; variable deployment areas and city layouts remain on the backlog.
+
+## Codex: defended settlement decision
+
+Clicking a reachable hostile settlement with a defending army now opens a decision before committing a march. It names the city, counts visible defending formations and their current strength, shows walls and movement cost, and offers Attack or Retreat. Retreat closes the preview without spending movement; Attack rechecks the march and starts the ordinary battle, which is still eligible for one-step movement undo. The route planner's first-leg button uses the same preview. A preview is not part of the campaign save because no move has occurred yet; after reload the player can select the destination again.
+
+Besiege is shown as unavailable. Persistent siege state, supply, wall and food loss, relief, and vassal surrender terms remain on the [city assault backlog](city-assaults-and-sieges.md). The decision applies to defended towns, not unguarded captures, lairs, scripted quest encounters or allied passage. The game rules API retains its direct march entry point for simulations and AI.
+
+## Codex: first scout watch
+
+Scouts are a recruitable, one-person unit with 18 movement on the Western map, a 75-gold recruitment cost and 3-gold monthly upkeep. Their garrison deterrence is zero. At an owned city, assign **Watch city**; on a road hex, assign **Watch road**; recalling or marching the scout clears the post. These assignments and deduplication keys survive saves without a schema change; old saves have no scouts. The normal tactical rules currently let a scout fight as a fragile formation, so dedicated noncombat treatment remains.
+
+Before a marching orc party moves in the month pipeline, the scout checks its planned route. City watch observes a player city when the party is within two months of it; a road post sees a route crossing its hex or an adjacent hex when the destination is within three months. A single report per army/scout/destination goes to the saved journal and the threatened city's panel, giving an approximate arrival time. This does not yet improve scheduled monster-raid warnings, identify detours after a report, or retire stale estimates. Those cases and interception rules remain in [scouts and advance warning](scouts-and-warning.md).
