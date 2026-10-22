@@ -35,4 +35,6 @@ Battles set up your army automatically: healthy, strong melee formations go in f
 
 Marching into a defended hostile town opens an assault preview first. It shows the known defenders and the movement cost. Choose **Attack** to march and fight, or **Retreat** to stay at your current location without spending movement. **Besiege** is visible but unavailable until the siege rules are built. Empty towns and lairs use the current arrival rules.
 
+In the Western Realm, recruit a **Scout** in your city. Its troop card offers **Watch city** while it is in an owned town, or **Watch road** on a road hex. Marching it to another place clears the assignment. A watch can report a nearby orc army's planned route in the journal and at the threatened city, about one to three months before arrival when there is enough distance; a surprise force nearby may give no useful lead time. Scouts cost upkeep and are very weak in battle. Monster raid notices currently use their separate warning rules.
+
 The **Treasury** shows posted receipts and payments by category and location, the cash reconciliation, and unpaid bills. Quest rewards and item sales appear alongside taxes; current-month activity remains separate from closed months.

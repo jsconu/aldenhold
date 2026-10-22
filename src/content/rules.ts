@@ -9,6 +9,7 @@ export const UNIT_TYPES: Record<string, UnitType> = {
   militia: { id: 'militia', name: 'Militia', short: 'MIL', attack: 2, defense: 2, move: 3, range: 1, men: 20, cost: 60, upkeep: 4, recruit: 'any', march: 12 },
   spearmen: { id: 'spearmen', name: 'Spearmen', short: 'SPR', attack: 3, defense: 4, move: 3, range: 1, men: 20, cost: 120, upkeep: 8, recruit: 'any', march: 12 },
   archers: { id: 'archers', name: 'Archers', short: 'ARC', attack: 2, defense: 2, move: 3, range: 4, men: 15, cost: 110, upkeep: 7, recruit: 'any', march: 12 },
+  scout: { id: 'scout', name: 'Scout', short: 'SCT', attack: 1, defense: 1, move: 5, range: 1, men: 1, cost: 75, upkeep: 3, recruit: 'any', march: 18 },
   woodlandArchers: { id: 'woodlandArchers', name: 'Woodland Archers', short: 'WDA', attack: 3, defense: 2, move: 4, range: 5, men: 15, cost: 150, upkeep: 9, recruit: { ally: 'greenveil' }, march: 14, startingBow: 'long-bow' },
   knights: { id: 'knights', name: 'Knights', short: 'KNT', attack: 5, defense: 4, move: 6, range: 1, men: 10, cost: 220, upkeep: 15, recruit: 'capital', march: 18 },
   warband: { id: 'warband', name: 'Orc Warband', short: 'ORC', attack: 3, defense: 2, move: 3, range: 1, men: 20, cost: 0, upkeep: 0, recruit: null, march: 12 },

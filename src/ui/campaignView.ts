@@ -212,6 +212,8 @@ function renderNodePanel(state: GameState, ui: UIState, at: string): string {
     })()}</p>`;
     if (town.kind !== 'lair') html += `<p>Population <b>${town.pop.toLocaleString()}</b></p>`;
     if (town.owner === 'player' && town.kind !== 'lair') {
+      const reports = state.journal.filter((entry) => entry.place === at && entry.kind === 'realm' && entry.text.startsWith('Scout at ')).slice(-3).reverse();
+      if (reports.length) html += `<section class="scout-intel"><h3>Scout reports</h3><ul>${reports.map((report) => `<li><b>Month ${report.turn}:</b> ${esc(report.text)}</li>`).join('')}</ul></section>`;
       const growth = townGrowth(town);
       html += `<label class="tax">Tax rate
         <select data-change="tax" data-node="${id}">
@@ -422,6 +424,12 @@ function renderArmy(state: GameState, ui: UIState, a: Army): string {
     : 'Tick the troops to send, then click a glowing place on the map.';
   return `<div class="army-card own-${a.owner}"><h3>${mine ? 'Your troops' : a.owner === 'orcs' ? 'Orc host' : 'Town militia'}</h3>
     <ul class="troops">${rows}</ul>
+    ${mine ? a.troops.filter((t) => t.type === 'scout').map((t) => `<div class="scout-post"><b>Scout #${t.id}</b> · ${t.scoutPost === 'city' ? 'Watching this city' : t.scoutPost === 'road' ? 'Watching this road' : 'Unassigned'}
+      <div class="save-actions">
+        ${townAt(state, a.at)?.owner === 'player' ? `<button data-action="scout-post" data-troop="${t.id}" data-post="city" ${t.scoutPost === 'city' ? 'disabled' : ''}>Watch city</button>` : ''}
+        ${hasRoad(state, a.at) ? `<button data-action="scout-post" data-troop="${t.id}" data-post="road" ${t.scoutPost === 'road' ? 'disabled' : ''}>Watch road</button>` : ''}
+        ${t.scoutPost ? `<button data-action="scout-post" data-troop="${t.id}" data-post="recall">Recall</button>` : ''}
+      </div><small class="sub">Move this scout to a new post using the map. Moving clears its current watch.</small></div>`).join('') : ''}
     ${mine && townAt(state, a.at)?.owner === 'player' ? renderRefitChoices(state, a) : ''}
     ${mine ? '<p class="sub">In battle, your toughest melee formations set up in front; archers, casters and the leader start behind them.</p>' : ''}
     ${ready ? `<p class="hint">${hint}</p>` : ''}</div>`;

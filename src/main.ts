@@ -27,6 +27,7 @@ import { questQuote } from './game/quests';
 import { renderSaveManager } from './ui/saveManagerView';
 import { captureMove, restoreMove, type MovementUndo } from './ui/movementUndo';
 import { cityAssault } from './ui/cityAssault';
+import { assignScout } from './game/scouts';
 
 // Access localStorage inside the adapter: even reading the browser property can throw.
 const storage = {
@@ -190,6 +191,9 @@ function onAction(action: string, data: DOMStringMap, additive = false) {
   if (!['node', 'hex', 'undo-move', 'assault-retreat', 'route-first-leg', 'locate-army', 'plan-route', 'route-clear',
     'route-preference', 'map-layer', 'map-zoom', 'hex-zoom', 'battle-zoom', 'view-quest', 'goto', 'journal', 'treasury', 'spell'].includes(action)) undoMove = null;
   switch (action) {
+    case 'scout-post':
+      ui.message = assignScout(state, Number(data.troop), data.post as 'city' | 'road' | 'recall') ?? '';
+      break;
     case 'assault-retreat':
       ui.assault = null;
       break;
