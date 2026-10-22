@@ -1,13 +1,13 @@
 import './style.css';
 import { HEX_ZOOMS, hexZoom } from './ui/hexMapView';
 import {
-  attack, attackTargets, autoResolve, castSpell, escapeQuote, moveUnit, playerEndTurn, playerSide, reachable, spellTargets, teleportDestinations, tryEscape, unitAt,
+  attack, attackTargets, autoResolve, castSpell, escapeQuote, groupReachable, moveGroup, moveUnit, playerEndTurn, playerSide, reachable, spellTargets, teleportDestinations, tryEscape, unitAt,
 } from './game/battle';
 import { applyBattle, armyAt, campaignOf, endTurn, hireHero, moveTroops, newGame, recruit, setTax } from './game/campaign';
 import { townLocation } from './game/world';
 import { hexKey } from './game/hex';
 import type { CampaignId, GameState, SpellId } from './game/types';
-import { renderBattle, selectedUnit } from './ui/battleView';
+import { renderBattle, selectedGroup, selectedUnit } from './ui/battleView';
 import { moveTargets, plannedRoute, renderCampaign } from './ui/campaignView';
 import { esc, type UIState } from './ui/shared';
 import { loadGame, MAX_SAVE_BYTES, parseSave, saveGame } from './game/saves';
@@ -25,6 +25,7 @@ import { validateContent } from './content/validate';
 import { captureRecovery, clearRecovery, readManualSlot, readRecovery, writeManualSlot } from './game/saveSlots';
 import { questQuote } from './game/quests';
 import { renderSaveManager } from './ui/saveManagerView';
+import { captureMove, restoreMove, type MovementUndo } from './ui/movementUndo';
 
 // Access localStorage inside the adapter: even reading the browser property can throw.
 const storage = {
@@ -44,6 +45,7 @@ let state = loaded.state ?? newGame();
 let hasGame = loaded.state !== null;
 let savesOpen = false;
 let recoveryWarning = '';
+let undoMove: MovementUndo | null = null;
 
 function save() {
   if (autosaveBlocked || !hasGame) return;
@@ -57,6 +59,7 @@ function checkpoint(reason: Parameters<typeof captureRecovery>[2]): boolean {
 }
 
 function activate(next: GameState) {
+  undoMove = null;
   state = next;
   hasGame = true;
   autosaveBlocked = false;
@@ -64,6 +67,7 @@ function activate(next: GameState) {
   savesOpen = false;
   ui.choosing = false;
   ui.battleUnit = null;
+  ui.battleUnits = new Set();
   ui.battleSpell = null;
   ui.battleTarget = null;
   ui.battleDestination = null;
@@ -84,7 +88,7 @@ function exportSave() {
 }
 
 const ui: UIState = {
-  selected: null, checked: new Set(), battleUnit: null, battleSpell: null, message: '', view: 'map',
+  selected: null, checked: new Set(), battleUnit: null, battleUnits: new Set(), battleSpell: null, message: '', view: 'map',
   // With no saved game, open on the campaign chooser.
   choosing: !loaded.state && !loaded.blocked,
 };
@@ -158,6 +162,7 @@ function render() {
 }
 
 function draw() {
+  ui.undoMoveLabel = undoMove?.label;
   app.innerHTML = `<nav class="save-bar" aria-label="Saved games">
     <button data-action="saved-games" aria-expanded="${savesOpen}" aria-controls="save-content">${savesOpen ? 'Back to game' : 'Saved games'}</button>
     <button data-action="export-save" ${hasGame ? '' : 'disabled'}>Export save</button>
@@ -175,9 +180,20 @@ function selectNode(id: string) {
   ui.checked = new Set(army?.troops.filter((t) => t.mp > 0 && !t.refit).map((t) => t.id) ?? []);
 }
 
-function onAction(action: string, data: DOMStringMap) {
+function onAction(action: string, data: DOMStringMap, additive = false) {
   ui.message = '';
+  // A later consequential command closes the one-step undo window. Browsing the map does not.
+  if (!['node', 'hex', 'undo-move', 'route-first-leg', 'locate-army', 'plan-route', 'route-clear',
+    'route-preference', 'map-layer', 'map-zoom', 'hex-zoom', 'battle-zoom', 'view-quest', 'goto', 'journal', 'treasury', 'spell'].includes(action)) undoMove = null;
   switch (action) {
+    case 'undo-move':
+      if (undoMove) {
+        const before = undoMove;
+        state = restoreMove(before, ui);
+        ui.message = 'Last move undone.';
+        undoMove = null;
+      }
+      break;
     case 'new-game':
       ui.choosing = true;
       break;
@@ -211,8 +227,10 @@ function onAction(action: string, data: DOMStringMap) {
         break;
       }
       const firstLeg = route.stops[1].id;
+      const before = captureMove(state, ui, 'Undo march');
       ui.message = moveTroops(state, ui.routeOrigin, [...ui.checked], firstLeg) ?? '';
       if (!ui.message) {
+        undoMove = before;
         ui.routeOrigin = null;
         ui.routeDestination = null;
         selectNode(firstLeg);
@@ -322,20 +340,22 @@ function onAction(action: string, data: DOMStringMap) {
         break;
       }
       if (ui.selected && moveTargets(state, ui).has(id)) {
+        const before = captureMove(state, ui, 'Undo march');
         const err = moveTroops(state, ui.selected, [...ui.checked], id);
         ui.message = err ?? '';
-        if (!err) selectNode(id);
+        if (!err) { undoMove = before; selectNode(id); }
       } else {
         selectNode(id);
       }
       break;
     }
     case 'hex':
-      onHex(Number(data.col), Number(data.row));
+      onHex(Number(data.col), Number(data.row), additive);
       break;
     case 'battle-end':
       playerEndTurn(state.battle!);
       ui.battleUnit = null;
+      ui.battleUnits = new Set();
       ui.battleSpell = null;
       break;
     case 'battle-zoom':
@@ -354,21 +374,24 @@ function onAction(action: string, data: DOMStringMap) {
     case 'battle-continue':
       applyBattle(state, state.battle!);
       ui.battleUnit = null;
+      ui.battleUnits = new Set();
       ui.battleSpell = null;
       if (ui.selected) selectNode(ui.selected);
       break;
   }
 }
 
-function onHex(col: number, row: number) {
+function onHex(col: number, row: number, additive = false) {
   const b = state.battle!;
   if (b.outcome || b.active !== playerSide(b)) return;
   const clicked = unitAt(b, { col, row });
   const sel = selectedUnit(b, ui);
+  const group = selectedGroup(b, ui);
   if (sel && ui.battleSpell) {
     if (clicked && clicked.id === ui.battleTarget && ui.battleSpell !== 'teleport') {
       // Clicking the chosen target a second time casts, the same as the Cast button.
       if (castSpell(b, sel.id, ui.battleSpell, clicked.id)) {
+        undoMove = null;
         ui.battleSpell = null; ui.battleTarget = null; ui.battleDestination = null;
       }
     } else if (clicked && spellTargets(b, sel, ui.battleSpell).includes(clicked)) {
@@ -380,14 +403,42 @@ function onHex(col: number, row: number) {
     return;
   }
   if (clicked && clicked.side === b.active) {
-    if (clicked.id !== ui.battleUnit) ui.battleSpell = null;
-    ui.battleUnit = clicked.id;
+    if (additive) {
+      if (clicked.moved || clicked.acted || clicked.routing || (sel && (sel.moved || sel.acted || sel.routing))) {
+        ui.message = 'Only ready formations can move together. Select a ready blue unit first.';
+        return;
+      }
+      const ids = new Set(group.map((u) => u.id));
+      if (ids.has(clicked.id)) ids.delete(clicked.id);
+      else ids.add(clicked.id);
+      ui.battleUnits = ids;
+      ui.battleUnit = ids.has(ui.battleUnit ?? -1) ? ui.battleUnit : (ids.values().next().value ?? null);
+    } else {
+      ui.battleUnit = clicked.id;
+      ui.battleUnits = new Set([clicked.id]);
+    }
+    ui.battleSpell = null;
+    ui.battleTarget = null;
     return;
   }
   ui.battleSpell = null;
   if (!sel) return;
-  if (clicked && attackTargets(b, sel).includes(clicked)) attack(b, sel.id, clicked.id);
-  else if (!clicked && reachable(b, sel).has(hexKey({ col, row }))) moveUnit(b, sel.id, { col, row });
+  if (group.length > 1) {
+    if (clicked) { ui.message = 'Select one formation to attack. The group moves together to glowing empty hexes.'; return; }
+    if (groupReachable(b, group.map((u) => u.id)).has(hexKey({ col, row }))) {
+      const before = captureMove(state, ui, 'Undo battle move');
+      if (moveGroup(b, group.map((u) => u.id), { col, row })) {
+        undoMove = before;
+        ui.battleUnit = null;
+        ui.battleUnits = new Set();
+      }
+    }
+  } else if (clicked && attackTargets(b, sel).includes(clicked)) {
+    if (attack(b, sel.id, clicked.id)) undoMove = null;
+  } else if (!clicked && reachable(b, sel).has(hexKey({ col, row }))) {
+    const before = captureMove(state, ui, 'Undo battle move');
+    if (moveUnit(b, sel.id, { col, row })) undoMove = before;
+  }
 }
 
 // Drag to pan the battlefield. A drag that moved never counts as a click (no accidental moves or attacks).
@@ -493,7 +544,7 @@ app.addEventListener('click', (e) => {
     render();
     return;
   }
-  onAction(el.dataset.action!, el.dataset);
+  onAction(el.dataset.action!, el.dataset, e.shiftKey);
   save();
   render();
 });
@@ -541,11 +592,24 @@ app.addEventListener('change', async (e) => {
     render();
     return;
   }
-  if (el.dataset.change === 'tax') setTax(state, el.dataset.node!, Number(el.value));
+  if (el.dataset.change === 'tax') { undoMove = null; setTax(state, el.dataset.node!, Number(el.value)); }
   if (el.dataset.change === 'check' && el instanceof HTMLInputElement) {
     const id = Number(el.dataset.troop);
     if (el.checked) ui.checked.add(id);
     else ui.checked.delete(id);
+  }
+  if (el.dataset.change === 'battle-check' && el instanceof HTMLInputElement && state.battle) {
+    const id = Number(el.dataset.troop);
+    const unit = state.battle.units.find((u) => u.id === id);
+    if (unit && unit.side === state.battle.active && !unit.reserve && !unit.fled && unit.men > 0 && !unit.moved && !unit.acted && !unit.routing) {
+      const ids = new Set(selectedGroup(state.battle, ui).map((u) => u.id));
+      if (el.checked) ids.add(id);
+      else ids.delete(id);
+      ui.battleUnits = ids;
+      ui.battleUnit = ids.has(ui.battleUnit ?? -1) ? ui.battleUnit : (ids.values().next().value ?? null);
+      ui.battleSpell = null;
+      ui.battleTarget = null;
+    }
   }
   save();
   render();

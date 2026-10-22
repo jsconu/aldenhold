@@ -1,6 +1,6 @@
 import { EFFECTS } from '../content/spells';
 import {
-  attackOf, attackTargets, alive, commandOf, maxRounds, COMMAND_RANGE, defenseOf, escapeQuote, isAI, powerOf, knownSpells, playerSide, RALLY_AT, rangeOf, reachable, ROUT_AT, spellTargets,
+  attackOf, attackTargets, alive, commandOf, maxRounds, COMMAND_RANGE, defenseOf, escapeQuote, groupReachable, isAI, powerOf, knownSpells, playerSide, RALLY_AT, rangeOf, reachable, ROUT_AT, spellTargets,
   terrainAt, unitLabel, reserves, FIELD_LIMIT, movementOf, previewSpell, spellAffected, spellCost, teleportDestinations,
 } from '../game/battle';
 import { nodeName } from '../game/campaign';
@@ -33,14 +33,23 @@ export function selectedUnit(b: Battle, ui: UIState): BattleUnit | undefined {
   return b.units.find((u) => u.id === ui.battleUnit && !u.reserve && !u.fled && u.men > 0 && u.side === b.active);
 }
 
+/** The lead is first so a clicked destination anchors the same group on every re-render. */
+export function selectedGroup(b: Battle, ui: UIState): BattleUnit[] {
+  const lead = selectedUnit(b, ui);
+  if (!lead) return [];
+  const ids = ui.battleUnits?.size ? ui.battleUnits : new Set([lead.id]);
+  return [lead, ...alive(b, b.active).filter((u) => u.id !== lead.id && ids.has(u.id))];
+}
+
 export function renderBattle(state: GameState, ui: UIState): string {
   const b = state.battle!;
   const me = playerSide(b);
   const myTurn = !b.outcome && !isAI(b, b.active);
   const sel = myTurn ? selectedUnit(b, ui) : undefined;
-  const reach = sel ? reachable(b, sel) : new Map<string, number>();
+  const group = myTurn ? selectedGroup(b, ui) : [];
+  const reach = group.length > 1 ? groupReachable(b, group.map((u) => u.id)) : sel ? reachable(b, sel) : new Map<string, number>();
   const casting = sel && ui.battleSpell ? spellTargets(b, sel, ui.battleSpell) : null;
-  const targets = new Set((casting ?? (sel ? attackTargets(b, sel) : [])).map((u) => u.id));
+  const targets = new Set((group.length > 1 ? [] : casting ?? (sel ? attackTargets(b, sel) : [])).map((u) => u.id));
   const chosen = sel && ui.battleSpell ? b.units.find((u) => u.id === ui.battleTarget && spellTargets(b, sel, ui.battleSpell!).includes(u)) : undefined;
   const affected = sel && chosen && ui.battleSpell ? spellAffected(b, sel, ui.battleSpell, chosen) : [];
   const destinations = sel && chosen && ui.battleSpell === 'teleport' ? new Set(teleportDestinations(b, sel, chosen).map(hexKey)) : new Set<string>();
@@ -74,7 +83,7 @@ export function renderBattle(state: GameState, ui: UIState): string {
       const spent = mine && myTurn && u.acted;
       const hero = !!t.hero;
       const cls = [
-        'unit', mine ? 'mine' : 'foe', hero ? 'hero' : '', sel?.id === u.id ? 'sel' : '', u.routing ? 'routing' : '', spent ? 'spent' : '',
+        'unit', mine ? 'mine' : 'foe', hero ? 'hero' : '', group.some((member) => member.id === u.id) ? 'sel' : '', u.routing ? 'routing' : '', spent ? 'spent' : '',
         targets.has(u.id) ? (u.side === sel?.side ? 'boon' : 'target') : '', affected.includes(u) ? 'spell-affected' : '',
       ].filter(Boolean).join(' ');
       const aimedBy = b.units.find((x) => x.aim === u.id && x.men > 0 && !x.fled);
@@ -113,7 +122,8 @@ export function renderBattle(state: GameState, ui: UIState): string {
     <span class="spacer"></span>
     ${b.outcome
       ? `<button data-action="battle-continue" class="primary">Back to the map</button>`
-      : `${me ? (() => {
+      : `${ui.undoMoveLabel ? `<button data-action="undo-move" class="ghost">${esc(ui.undoMoveLabel)}</button>` : ''}
+         ${me ? (() => {
           const q = escapeQuote(b, me);
           return `<button data-action="battle-retreat" class="ghost" ${q.reason ? `disabled title="${esc(q.reason)}"` : `title="Fails ${100 - Math.round(q.chance * 100)}% of the time and spends your turn; enemies next to your troops make it harder."`}>Run away${q.reason ? ` (after turn ${q.after})` : ` (${Math.round(q.chance * 100)}%)`}</button>`;
         })() : ''}
@@ -152,7 +162,9 @@ export function renderBattle(state: GameState, ui: UIState): string {
     </svg></section>
     <aside class="side">
       ${renderMinimap(b, w, h)}
-      ${b.outcome ? renderOutcome(state, b) : sel ? renderUnit(b, sel, ui) : '<p class="hint">Click one of your units (blue), then a glowing location to move or a marked enemy to attack. Each unit may move, then attack, once a turn. Heroes (★) can cast spells instead of attacking.</p>'}
+      ${ui.message ? `<p class="msg">${esc(ui.message)}</p>` : ''}
+      ${myTurn ? renderGroupSelector(b, group) : ''}
+      ${b.outcome ? renderOutcome(state, b) : group.length > 1 ? `<p class="hint">${group.length} formations selected. The slowest has ${Math.min(...group.map(movementOf))} movement. Click a glowing location to move together while keeping their spacing. Select one formation to attack or cast.</p>` : sel ? renderUnit(b, sel, ui) : '<p class="hint">Click one of your units (blue), then a glowing location to move or a marked enemy to attack. Each unit may move, then attack, once a turn. Heroes (★) can cast spells instead of attacking.</p>'}
       <p class="sub">The thin bar under each troop is its morale. Below ${ROUT_AT} it breaks and runs for its own edge of the field; at ${RALLY_AT} it may rally.</p>
       ${b.walls ? `<p class="sub">${me === 'defender' ? 'You fight behind town walls: +1 defense.' : 'The enemy is behind walls: +1 defense.'}</p>` : ''}
       ${renderReserves(b)}
@@ -190,6 +202,16 @@ function renderMinimap(b: Battle, w: number, h: number): string {
     <rect x="0" y="0" width="${w.toFixed(0)}" height="${h.toFixed(0)}" fill="#55704a"/>${ground}${dots}
     <rect class="minimap-view" x="0" y="0" width="0" height="0"/></svg>
     <figcaption>${b.width}×${b.height} field · click to look there</figcaption></figure>`;
+}
+
+function renderGroupSelector(b: Battle, group: BattleUnit[]): string {
+  const selected = new Set(group.map((u) => u.id));
+  return `<details class="battle-group" open><summary>Move together (${selected.size} selected)</summary>
+    <p class="sub">Tick formations here, or Shift-click blue units. A glowing destination moves them together at the slowest pace, keeping their spacing. One formation occupies each battle hex.</p>
+    <div class="battle-group-list">${alive(b, b.active).map((u) =>
+      `<label><input type="checkbox" data-change="battle-check" data-troop="${u.id}" ${selected.has(u.id) ? 'checked' : ''} ${u.moved || u.acted || u.routing ? 'disabled' : ''}>
+        ${esc(unitLabel(b, u))} · ${u.moved || u.acted ? 'moved' : `${movementOf(u)} move`}</label>`).join('')}</div>
+  </details>`;
 }
 
 function renderLegend(b: Battle): string {
