@@ -1,10 +1,14 @@
+import {explored} from './game/challenge';
+import {recruitReplacements} from './game/replacements';
+import { createRulerCampaign, SKIN_TONES } from './game/rulerCreation';
+import { feedbackSnapshot, newFeedback, renderFeedback, type GameplayNotice } from './ui/gameplayFeedback';
 import './style.css';
 import { HEX_ZOOMS, hexZoom } from './ui/hexMapView';
 import {
-  attack, attackTargets, autoResolve, castSpell, escapeQuote, groupReachable, moveGroup, moveUnit, playerEndTurn, playerSide, reachable, spellTargets, teleportDestinations, tryEscape, unitAt,
+  attackOrder, attackOrderQuote, autoResolve, castSpell, escapeQuote, groupReachable, moveGroup, moveUnit, playerEndTurn, playerSide, reachable, spellTargets, teleportDestinations, tryEscape, unitAt,
 } from './game/battle';
 import { applyBattle, armyAt, campaignOf, endTurn, hireHero, marchQuote, moveTroops, newGame, recruit, setTax } from './game/campaign';
-import { townLocation } from './game/world';
+import { townLocation, townAt } from './game/world';
 import { hexKey } from './game/hex';
 import type { CampaignId, GameState, SpellId } from './game/types';
 import { renderBattle, selectedGroup, selectedUnit } from './ui/battleView';
@@ -47,6 +51,7 @@ let state = loaded.state ?? newGame();
 let hasGame = loaded.state !== null;
 let savesOpen = false;
 let recoveryWarning = '';
+let feedback:GameplayNotice[]=[];
 let undoMove: MovementUndo | null = null;
 
 function save() {
@@ -61,13 +66,16 @@ function checkpoint(reason: Parameters<typeof captureRecovery>[2]): boolean {
 }
 
 function activate(next: GameState) {
-  undoMove = null;
+  undoMove = null;ui.marchMode=false;
+  feedback=[];
   state = next;
   hasGame = true;
   autosaveBlocked = false;
   saveWarning = '';
   savesOpen = false;
   ui.choosing = false;
+  ui.creatingFor=undefined;
+  ui.rulerDraft=undefined;
   ui.assault = null;
   ui.battleUnit = null;
   ui.battleUnits = new Set();
@@ -162,12 +170,13 @@ function render() {
     app.querySelector('.unit.mine')?.scrollIntoView({ block: 'center', inline: 'center' });
   }
   syncMinimap();
+  app.querySelector<HTMLElement>('#feedback-heading')?.focus({preventScroll:true});
   if (ui.assault) app.querySelector<HTMLElement>('[data-action="assault-attack"]:not(:disabled), [data-action="assault-retreat"]')?.focus();
 }
 
 function draw() {
   ui.undoMoveLabel = undoMove?.label;
-  app.innerHTML = `<nav class="save-bar" aria-label="Saved games">
+  app.innerHTML = `<div ${feedback.length ? 'inert' : ''}><nav class="save-bar" aria-label="Saved games">
     <button data-action="saved-games" aria-expanded="${savesOpen}" aria-controls="save-content">${savesOpen ? 'Back to game' : 'Saved games'}</button>
     <button data-action="export-save" ${hasGame ? '' : 'disabled'}>Export save</button>
     <button data-action="import-save">Import save</button>
@@ -175,7 +184,7 @@ function draw() {
     ${saveWarning ? `<p class="msg" role="alert">${esc(saveWarning)}</p>` : ''}
     ${recoveryWarning ? `<p class="msg" role="alert">${esc(recoveryWarning)}</p>` : ''}
     </nav><div id="save-content">${savesOpen ? renderSaveManager(storage, hasGame) :
-    state.battle ? renderBattle(state, ui) : renderCampaign(state, ui)}</div>`;
+    state.battle ? renderBattle(state, ui) : renderCampaign(state, ui)}</div></div>${renderFeedback(state,feedback)}`;
 }
 
 function selectNode(id: string) {
@@ -185,6 +194,9 @@ function selectNode(id: string) {
 }
 
 function onAction(action: string, data: DOMStringMap, additive = false) {
+  const before=feedbackSnapshot(state),previousState=state;
+  const nameInput=app.querySelector<HTMLInputElement>('#ruler-name');
+  if(ui.rulerDraft && nameInput)ui.rulerDraft.name=nameInput.value;
   ui.message = '';
   if (ui.assault && action !== 'assault-attack' && action !== 'assault-retreat') return;
   // A later consequential command closes the one-step undo window. Browsing the map does not.
@@ -225,6 +237,16 @@ function onAction(action: string, data: DOMStringMap, additive = false) {
         undoMove = null;
       }
       break;
+    case 'open-city':
+      if(data.node && explored(state,data.node) && townAt(state,data.node)){selectNode(data.node);ui.view='city';ui.cityTab='overview';ui.marchMode=false;}
+      break;
+    case 'close-city':ui.view='map';break;
+    case 'city-tab':
+      if(['overview','development','recruitment','army','quests'].includes(data.tab??''))ui.cityTab=data.tab as UIState['cityTab'];
+      break;
+    case 'march-mode':ui.marchMode=!ui.marchMode;break;
+    case 'feedback-dismiss': feedback.shift(); break;
+    case 'feedback-journal': feedback=[]; ui.view='journal'; break;
     case 'new-game':
       ui.choosing = true;
       break;
@@ -232,8 +254,27 @@ function onAction(action: string, data: DOMStringMap, additive = false) {
       ui.choosing = false;
       break;
     case 'start-campaign':
-      if (!checkpoint('Before new campaign')) break;
-      activate(newGame(undefined, data.campaign as CampaignId));
+      ui.creatingFor=data.campaign as CampaignId;ui.choosing=false;
+      ui.rulerDraft={name:'Aldric',gender:'male',skin:'fair'};
+      break;
+    case 'ruler-gender':
+      if(ui.rulerDraft && (data.value==='male'||data.value==='female')){
+        if(['Aldric','Elara'].includes(ui.rulerDraft.name))ui.rulerDraft.name=data.value==='female'?'Elara':'Aldric';
+        ui.rulerDraft.gender=data.value;
+      }
+      break;
+    case 'ruler-difficulty':
+      if(ui.rulerDraft && ['easy','normal','hard'].includes(data.value??''))ui.rulerDraft.difficulty=data.value as 'easy'|'normal'|'hard';
+      break;
+    case 'ruler-class':
+      if(ui.rulerDraft && ['knight','priest','mage'].includes(data.value??''))ui.rulerDraft.rulerClass=data.value as 'knight'|'priest'|'mage';
+      break;
+    case 'ruler-skin':
+      if(ui.rulerDraft && SKIN_TONES.some(s=>s===data.value))ui.rulerDraft.skin=data.value as typeof ui.rulerDraft.skin;
+      break;
+    case 'ruler-back':ui.creatingFor=undefined;ui.choosing=true;break;
+    case 'confirm-ruler':
+      if(ui.creatingFor && ui.rulerDraft && checkpoint('Before new campaign'))activate(createRulerCampaign(ui.creatingFor,ui.rulerDraft));
       break;
     case 'plan-route':
       ui.routeOrigin = ui.selected;
@@ -284,7 +325,7 @@ function onAction(action: string, data: DOMStringMap, additive = false) {
     case 'view-quest': {
       const destination = questFocus(state, data.quest ?? '');
       if (destination) {
-        ui.view = 'map';
+        ui.view = townAt(state,destination)?'city':'map';ui.cityTab='quests';
         selectNode(destination);
       }
       break;
@@ -311,6 +352,12 @@ function onAction(action: string, data: DOMStringMap, additive = false) {
     case 'discard-item':
       ui.message = discardItem(state, data.item ?? '') ?? '';
       break;
+    case 'replacements':
+      ui.message=recruitReplacements(state,Number(data.troop))??'Replacements recruited. This formation will be ready next month.';
+      break;
+    case 'inspect-refit':
+      if(Object.hasOwn(EQUIPMENT,data.item??''))ui.refitChoice={troop:Number(data.troop),item:data.item as EquipmentId};
+      break;
     case 'refit': {
       const item = data.item as EquipmentId;
       if (!Object.hasOwn(EQUIPMENT, item)) { ui.message = 'Unknown equipment.'; break; }
@@ -328,6 +375,7 @@ function onAction(action: string, data: DOMStringMap, additive = false) {
       break;
     }
     case 'end-turn':
+      ui.battleUnits = new Set();ui.battleUnit=null;ui.battleSpell=null;
       if (state.status === 'playing' && !state.battle && !checkpoint('Before month')) break;
       endTurn(state);
       if (ui.selected) selectNode(ui.selected);
@@ -345,6 +393,7 @@ function onAction(action: string, data: DOMStringMap, additive = false) {
       ui.view = ui.view === 'journal' ? 'map' : 'journal';
       break;
     case 'goto':
+      feedback=[];
       ui.view = 'map';
       selectNode(data.node!);
       break;
@@ -368,17 +417,20 @@ function onAction(action: string, data: DOMStringMap, additive = false) {
       break;
     case 'node': {
       const id = data.node!;
+      // In march mode (Move selected army) a click always marches; otherwise a known town opens its city screen.
+      const marching = !!ui.marchMode && !!ui.selected;
       if (ui.routeOrigin && !ui.routeDestination) {
         if (id !== ui.routeOrigin) ui.routeDestination = id;
         break;
       }
-      if (ui.selected && moveTargets(state, ui).has(id)) {
+      if(!marching && explored(state,id) && townAt(state,id) && !ui.routeOrigin){selectNode(id);ui.view='city';ui.cityTab='overview';break;}
+      if (ui.selected && (marching || moveTargets(state, ui).has(id))) {
         const decision = cityAssault(state, ui.selected, id, [...ui.checked]);
-        if (decision) { ui.assault = decision; break; }
+        if (decision) { ui.assault = decision; ui.marchMode = false; break; }
         const before = captureMove(state, ui, 'Undo march');
         const err = moveTroops(state, ui.selected, [...ui.checked], id);
         ui.message = err ?? '';
-        if (!err) { undoMove = before; selectNode(id); }
+        if (!err) { undoMove = before; selectNode(id); ui.marchMode = false; }
       } else {
         selectNode(id);
       }
@@ -397,9 +449,11 @@ function onAction(action: string, data: DOMStringMap, additive = false) {
       ui.battleZoom = Math.min(1.6, Math.max(0.5, Math.round(((ui.battleZoom ?? 1) + 0.2 * Number(data.dir)) * 10) / 10));
       break;
     case 'battle-auto':
+      ui.battleUnits = new Set();
       autoResolve(state.battle!);
       break;
     case 'battle-retreat': {
+      ui.battleUnits = new Set();
       const b = state.battle!;
       const got = tryEscape(b, playerSide(b)!);
       ui.message = got === null ? escapeQuote(b, playerSide(b)!).reason ?? '' : got ? '' : 'The enemy held you; your turn is spent.';
@@ -407,6 +461,7 @@ function onAction(action: string, data: DOMStringMap, additive = false) {
       break;
     }
     case 'battle-continue':
+      ui.selected=state.battle!.at;ui.view='map';
       applyBattle(state, state.battle!);
       ui.battleUnit = null;
       ui.battleUnits = new Set();
@@ -414,6 +469,7 @@ function onAction(action: string, data: DOMStringMap, additive = false) {
       if (ui.selected) selectNode(ui.selected);
       break;
   }
+  if(state===previousState) feedback.push(...newFeedback(state,before));
 }
 
 function onHex(col: number, row: number, additive = false) {
@@ -468,9 +524,12 @@ function onHex(col: number, row: number, additive = false) {
         ui.battleUnits = new Set();
       }
     }
-  } else if (clicked && attackTargets(b, sel).includes(clicked)) {
-    if (attack(b, sel.id, clicked.id)) undoMove = null;
-  } else if (!clicked && reachable(b, sel).has(hexKey({ col, row }))) {
+  } else if (clicked) {
+    // One click on an enemy moves into range if needed, then attacks. An attack can't be undone.
+    const q = attackOrderQuote(b, sel.id, clicked.id);
+    if (q.reason) ui.message = q.reason;
+    else { attackOrder(b, sel.id, clicked.id); ui.message = ''; undoMove = null; }
+  } else if (reachable(b, sel).has(hexKey({ col, row }))) {
     const before = captureMove(state, ui, 'Undo battle move');
     if (moveUnit(b, sel.id, { col, row })) undoMove = before;
   }
@@ -585,6 +644,17 @@ app.addEventListener('click', (e) => {
   render();
 });
 
+// Keep keyboard focus inside an outcome dialog until it is acknowledged.
+app.addEventListener('keydown',e=>{
+ const dialog=app.querySelector<HTMLElement>('.feedback-sheet');if(!dialog)return;
+ if(e.key==='Escape'){e.preventDefault();feedback.shift();render();return;}
+ if(e.key==='Tab'){
+  const buttons=[...dialog.querySelectorAll<HTMLElement>('button:not([disabled]),a[href]')];
+  const first=buttons[0],last=buttons.at(-1);if(!first||!last)return;
+  if(e.shiftKey && (document.activeElement===first||document.activeElement?.id==='feedback-heading')){e.preventDefault();last.focus();}
+  else if(!e.shiftKey && document.activeElement===last){e.preventDefault();first.focus();}
+ }
+});
 // SVG location groups are keyboard-operable, not mouse-only.
 app.addEventListener('keydown', (e) => {
   if (e.key !== 'Enter' && e.key !== ' ') return;

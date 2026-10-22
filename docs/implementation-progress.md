@@ -821,6 +821,74 @@ The build passes. 19 of 20 seeded full tours finish the chapter. Seed 12 runs ou
 - the farms losing a level;
 - the raid in the town's "Last raids" and in the journal's Raids section.
 
+## Planning screenshot integration (October 21, 2026)
+
+Owner supplied visual references for battle reports, terrain-specific evolving cities, varied battle geography, and four monster home-base types. Added original code-native settlement scenes with terrain backdrops and saved farm/lumber/mine/forge levels plus construction scaffolding; discovered lairs show species-specific camp, den, stronghold or sanctuary scenes and a cleared state. Finished battles now display a framed chronicle above the field, with both armies, casualties, fallen heroes, withdrawals and projected XP/level gains. The existing continue command applies consequences once; rendering grants nothing. Existing large seeded battlefields, camera/minimap, lairs and raid deterrence remain in use. These scenes are an initial illustration integration, not equivalent in detail to the supplied third-party artwork. Remaining: richer pixel-art production scenes, explicit wall/gate siege terrain and full review against the references in browser.
+
+## Rich scene artwork (October 21, 2026)
+
+Generated five original raster panoramas through the built-in image-generation tool: Aldenhold capital, goblin camp, troll den, giant stronghold and titan sanctuary. Runtime images live in `public/assets/scenes/`, with a source/description manifest. Aldenhold uses the rich backdrop with its existing state-driven development overlays; other cities retain their terrain-aware vector scenes pending additional artwork. Discovered monster lairs use their species panorama; cleared status retains its caption and desaturation. These are scenery, not tactical map tiles or changes to raid/combat rules. Owner visual approval and richer matching building overlays remain.
+
+## Rich overland terrain (October 21, 2026)
+
+Added original generated terrain and transparent settlement atlases under `public/assets/overland/`. Nine terrain samples are mapped to the actual hex geometry; roads and bridge strokes follow `roadsOf`, preserving passable crossings and movement. Capital, town, hostile stronghold and woodland village miniatures replace small settlement stamps. Ownership banners, names, armies, selection and movement hit targets remain separate live layers. This is a detailed terrain rendering pass, not a flattened painted replacement map. Atlas tiling and terrain-edge blending require visual review.
+
+## Battle artwork, bridge and heraldry (October 21, 2026)
+
+Integrated original transparent tactical sprite atlases for all 20 current unit types, with mirrored defender facing, separate team bases, stats, targeting and click areas. Battle terrain uses the detailed terrain atlas mapped to actual tactical terrain; special spring/ruin/thorn indicators remain on top. Replaced Stone Bridge’s cyan pixel stamp with a weathered masonry illustration. Replaced square ownership signs and army flags with shaded swallowtail cloth on timber poles; crowns, swords, sheaves, skulls and cleared checks preserve non-color identification. Gameplay rules, unit positions, saves and battle geometry are unchanged. Matching animation, smoother terrain transitions and owner visual review remain.
+
+## Towns and playtest improvements (October 21, 2026)
+
+Every settlement now selects a rich panorama: capital, plains/farmland, woodland, wetland, mountain/hill or badland stronghold. Panoramas are shared by setting, not individually commissioned for each town; state-driven development overlays remain separate. Added an original timber crossing illustration on real road/water cells. Victory spoils (25g plus deployed enemy strength, capped at 1000g) appear in battle results and post once through the treasury; quest and lair plunder remain separate. A consumed-result guard prevents repeated application. Single-click attack orders quote a reachable firing/melee position then use normal move/attack commands and their terrain, range and zone-of-control rules. Added H01 Royal Barrow and H02 Hillcrest Monastery: narrative ruler-only clue adventures with persistent stages, correction paths and one-time equippable leadership/defense relics. Soldiers wait outside in narrative; this is not yet a free-roaming point-and-click adventure renderer. Other landmark stories remain in the backlog.
+Validation: production build passed; full regression suite passed, 446 tests across 48 files (single worker, 20-second simulation timeout).
+
+
+## Wooden crossing rendering fix
+
+The first timber-art integration placed one small sprite per water hex and kept old plank strokes. Crossings now group contiguous road/water cells, draw one larger illustration between the two banks, and align it from the full span. The two-cell southern crossing uses one bridge; the named Stone Bridge keeps its separate masonry asset. Added a regression check for all three wooden crossings and removal of legacy plank strokes.
+
+Bridge perspective correction: replacing whole-sprite rotation with three purpose-drawn views (horizontal and both diagonals). Support posts remain upright in screen space; a renderer check prevents reintroducing rotation. New source atlas: `wood-bridges-v2.png`.
+
+## Playtest clarity and opening character selection
+
+Replaced flat city-development primitives with a transparent nine-cell illustration atlas (two tiers per production building plus scaffolding); reduced foreground sizes and kept actual saved levels. Battle ruins now use four weathered-stone variants over grass instead of flat glyphs on brown patches. Legal moves use gold-bordered hexes with dark outlines in both maps; combat destinations and spell areas retain distinct colors/patterns.
+
+Side-quest resolution now opens an acknowledgement panel listing the actual outcome, items and item rules, gold earned/paid and realm consequences. Reports can be reopened in Journal and quest cards. Newly joined heroes get role, upkeep, location, movement timing, equipment and spell instructions; the Journal retains each hero’s guide. Feedback is UI-only, applies no rewards, and has focus handling and an inert background.
+
+Starting a campaign now opens a ruler-selection screen: editable name, male/female presentation and four skin tones, with twenty-four original character illustrations across Knight, Priest and Mage. Appearance persists in saves and changes the ruler’s battlefield image; gender and skin tone are cosmetic while class changes abilities. Legacy saves keep their existing ruler.
+
+### Ruler classes
+Knight, Priest and Mage are now selectable rulers. Each class offers male/female characters across four skin tones with matching original portraits and battlefield art. Priest and Mage use their own hero stats, mana and spells. All classes preserve ruler-death defeat, ruler adventures and ruler-only relic access; legacy games retain Knight rulers.
+
+### Equipment and battle plan discoverability
+Equipment upgrades and army plan choices stay visible. Locked upgrades can be selected for inspection; their reason and cost are shown with a separate guarded purchase confirmation. Offensive, Defensive and Skirmish plans show explanations alongside their buttons; individual placement remains optional.
+
+### Formation silhouettes
+Regular battlefield formations render up to three smaller figures (mixed male/female humans); heroes remain single larger figures with the existing star marker. Very depleted formations show fewer figures. Individual giant creatures keep a single silhouette. These changes are visual and do not alter casualties, range or hit areas.
+
+### Campaign difficulty, preparation and replacements (owner playtest feedback)
+New campaigns offer Easy, Normal and Hard. New Western campaigns require M01–M04, Farms 2 plus a Tool Forge in Aldenhold, two upgraded formations, the Oathlance, Keeper’s Signet and Hillcrest Medallion, and conquest of Gharzak Hold. M04 no longer ends these campaigns early. Normal/Hard use permanent exploration: armies reveal nearby terrain; unknown hexes stop blind path expansion and hide site/army labels. Existing saves retain their previous rules.
+The Hold starts with 8/10/12 formations and progressively more experience; raids leave at least eight defenders. Other hostile armies gain experience by difficulty. Replacements restore existing formations at owned towns, cost population and gold including outfitting, dilute XP and spend remaining movement. Female figures now cover all nine human combat classes.
+The Barrow allows paid atonement after an initially rejected oath, preventing its required relic from silently making a campaign unwinnable. Difficulty and exploration are saved and validated.
+
+Validation: production build passes. The 476-test full run passed 474 checks; the two long legacy simulations exceeded their limits under load and both passed in a 29-test isolated recheck. The added scouting workflow and prepared-Hold battle checks pass, bringing coverage to 478 tests across these runs. Six Normal/Hard seeded starting-army assaults failed; a developed twelve-formation Normal army won with the ruler alive. Browser checks verified class selection, upgrade inspection, direct stance changes, and hired-hero guidance. Owner playtesting remains the balance acceptance step.
+
+### Battlefield scale and label clearance
+Normalized hero figures to the same approximate person height as soldiers in a formation, including the taller ruler portrait atlases. Individual large creatures remain slightly larger. Compact status badges now end within 19px below a hex center instead of 24px, leaving clearance above figures in the next row. Heroes retain their gold stars and HP labels.
+Battle-summary copy: removed the redundant sentence about quest and lair rewards. Validation: production build and 14 focused rendering/feedback tests pass; reviewed adjacent formations and heroes in the browser.
+
+
+## Backlog controls, rival cities and dedicated city management
+
+Battle group controls select ready formations, preserve their odd-q hex arrangement, and limit every route by the slowest member’s movement allowance. Occupancy, terrain and enemy zones of control are checked before the whole group moves; terrain wounds use normal movement rules. Grouping is a movement order, not tactical stacking or a mass attack. Clicking a formation returns to individual control.
+
+One-step undo restores a pure player move, including campaign army merges and movement points, while exact state matching prevents undo after later game actions. Combat, terrain casualties, captures, quest changes and new terrain/lair discoveries make a move irreversible. Undo history is session-only and is not restored by loading a save.
+
+Cities now open a dedicated screen with Overview, Development, Recruitment, Army & equipment, and Quests & diplomacy. The overland panel keeps a compact settlement summary and army selection. Move selected army explicitly orders travel into a city; a normal city click opens management. Returning to the map preserves the selected place. Existing build/recruit/refit/quest commands retain their quotes, costs and safeguards.
+
+Rival free cities can grow a capped muster and announce a war party one month ahead in Western difficulty campaigns. Parties use real troops, retain at least two home defenders, have per-city cooldowns and a global active-party limit, and use normal routes, terrain, city captures and defensive battles. Alliances, vassalage, truces and source conquest cancel expeditions. Hostility is scoped to the source settlement, with enemy banners and persistent threat reports. The AI phase contains this behavior; legacy campaigns retain the previous AI. Save validation covers warnings and expedition references. Millbrook must also be retaken if a rival city, rather than the orcs, captures it during M04.
+
+Validation: all 505 tests and the production build pass. Live browser checks verified the separate city tabs, uncluttered map, recruitment, campaign movement and undo, and battlefield group movement and undo. Rival-party balance remains subject to owner playtesting.
 ## Codex: city assault backlog and automatic battle setup
 
 The [city assault specification](city-assaults-and-sieges.md) records the owner's new Attack / Retreat / Besiege decision, month-scale sieges and possible vassal terms, settlement battlefields with developed hexes and once-only pillage, varying deployment areas, and distinct melee/HP growth for support troops. These are future gameplay slices, not implemented by this increment.

@@ -80,7 +80,7 @@ describe('Western Realm revision 2', () => {
     advanceCities(s);
     expect(s.cityEconomies.bellwater.lastMonth!.produced.food).toBeGreaterThan(s.cityEconomies.thornwatch.lastMonth!.produced.food);
     for (const id of added) {
-      const html = renderCampaign(s, { ...ui, selected: townLocation(s, id) });
+      const html = renderCampaign(s, { ...ui, selected: townLocation(s, id),view:'city',cityTab:'overview' });
       expect(html).toContain(getCampaign('western-realm').settlementProfiles![id].role);
     }
   });

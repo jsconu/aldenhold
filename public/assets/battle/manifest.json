@@ -1,0 +1,96 @@
+{
+  "source": "OpenAI built-in image_gen",
+  "date": "2026-10-21",
+  "review": "Owner review pending",
+  "style": "Detailed original elevated isometric pixel-art miniatures, transparent background; facing lower-right",
+  "humans": {
+    "file": "humans-v1.png",
+    "grid": [
+      3,
+      3
+    ],
+    "cells": [
+      "militia",
+      "spearmen",
+      "archers",
+      "woodlandArchers",
+      "knights",
+      "lord",
+      "champion",
+      "priest",
+      "mage"
+    ]
+  },
+  "monsters": {
+    "file": "monsters-v1.png",
+    "grid": [
+      4,
+      3
+    ],
+    "cells": [
+      "warband",
+      "orcArchers",
+      "cyclops",
+      "minotaur",
+      "goblinSkirmishers",
+      "goblinArchers",
+      "giant",
+      "titan",
+      "troll",
+      "warchief",
+      "shaman",
+      "empty"
+    ]
+  },
+  "prompt": "Original production tactical sprite atlases with isolated full-body figures and weapons, upper-left lighting, restrained earth tones, readable silhouettes, no UI, text, scenery or platforms; blue cloth accents for humans and red/ochre for monsters.",
+  "ruins": {
+    "file": "ruins-v1.png",
+    "source": "OpenAI built-in image_gen",
+    "layout": "2x2 original weathered stone ruins: walls, tower, chapel, gatehouse",
+    "prompt": "Detailed crisp pixel-art low stone ruins, moss and rubble, elevated isometric camera, transparent background, no terrain platform, text or UI."
+  },
+  "rulers": {
+    "file": "rulers-v1.png",
+    "source": "OpenAI built-in image_gen",
+    "layout": "4x2: male row then female row; fair, olive, brown, deep columns",
+    "prompt": "Original detailed full-body medieval rulers, practical silver armor, blue cloak, matching equipment and power presentation, elevated isometric view, transparent background, no UI or text."
+  },
+  "rulerPriests": {
+    "file": "ruler-priests-v1.png",
+    "grid": [
+      4,
+      2
+    ],
+    "source": "OpenAI built-in image_gen",
+    "promptFile": "ruler-classes-prompts.md"
+  },
+  "rulerMages": {
+    "file": "ruler-mages-v1.png",
+    "grid": [
+      4,
+      2
+    ],
+    "source": "OpenAI built-in image_gen",
+    "promptFile": "ruler-classes-prompts.md"
+  },
+  "femaleHumans": {
+    "file": "humans-female-v1.png",
+    "grid": [
+      3,
+      3
+    ],
+    "cells": [
+      "militia",
+      "spearmen",
+      "archers",
+      "woodlandArchers",
+      "knights",
+      "lord",
+      "champion",
+      "priest",
+      "mage"
+    ],
+    "source": "OpenAI built-in image_gen",
+    "prompt": "Original full-body female militia, spearmen, archers, woodland archers, mounted knights, ruler, champion, priest and mage; matching painterly materials, varied skin tones, transparent background, equal 3x3 cells, no UI or text."
+  }
+}

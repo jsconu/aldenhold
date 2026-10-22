@@ -2,7 +2,7 @@ import { ITEMS } from '../content/items';
 import { campaignOf, deed } from './campaign';
 import { recordReceipt } from './economy';
 import { UNIT_TYPES } from './data';
-import { heroMaxHp, heroMaxMana, isHero } from './units';
+import { heroMaxHp, heroMaxMana, isHero, heroCanUse } from './units';
 import { relationWith } from './diplomacy';
 import type { Army, GameState, HeroSlot, ItemHolding, Troop } from './types';
 import { townAt } from './world';
@@ -166,8 +166,8 @@ export function equipQuote(state: GameState, itemId: string, troopId: number): E
   if (!def?.equip) return refuse('That is not equipment.');
   if (heldQty(state, itemId) < 1) return refuse(`You have no ${def.name} to hand out.`);
   if (!found) return refuse('Choose one of your heroes.');
-  if (def.equip.heroes && !def.equip.heroes.includes(found.hero.type)) {
-    return refuse(`Only a ${def.equip.heroes.map((t) => UNIT_TYPES[t].name).join(' or ')} can carry the ${def.name}.`);
+  if (!heroCanUse(found.hero.type,def.equip.heroes)) {
+    return refuse(`Only a ${(def.equip.heroes??[]).map((t) => UNIT_TYPES[t].name).join(' or ')} can carry the ${def.name}.`);
   }
   const place = kitPlaceReason(state, found.army);
   return place ? refuse(place) : { replaces, reason: null };

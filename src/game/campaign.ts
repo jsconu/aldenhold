@@ -1,3 +1,5 @@
+import {cityWarbandTurn} from './cityWarbands';
+import {explore,holdApproachReason,challengeVictoryReady} from './challenge';
 import { SPECIES } from '../content/lairs';
 import { observeOrcRoutes } from './scouts';
 import { endRaid, planRaids, resolveRaids } from './raids';
@@ -7,14 +9,15 @@ import { orcTurn } from './ai';
 import { autoResolve, createBattle, isAI, runAI } from './battle';
 import { getCampaign } from '../content';
 import { hasPassage, relationWith } from './diplomacy';
-import { newTreasury, recordPurchase, settleTreasury, type CashFlow } from './economy';
+import { battleSpoils } from './battleRewards';
+import { recordReceipt, newTreasury, recordPurchase, settleTreasury, type CashFlow } from './economy';
 import { settleHeldQuests, advanceQuests, endEncounter, newQuestState, onTownOwnershipChange, recruitBan, unlockQuests } from './quests';
 import { advanceCities, cityMaintenance, startingCities, type CityPhaseResult } from './cities';
 import { basicLoadout, finishRefits, troopUpkeep } from './equipment';
 import { HERO_NAMES, HIREABLE_HEROES, UNIT_TYPES } from './data';
 import { random } from './rng';
 import type { Army, Battle, CampaignDefinition, CampaignId, DeedKind, FactionId, GameState, HeroOffer, MonsterSpecies, MonthlyLedger, Town, Troop } from './types';
-import { heroLevel, heroMaxHp, heroMaxMana, isHero } from './units';
+import { heroLevel, heroMaxHp, heroMaxMana, isHero, isRulerType } from './units';
 import {
   landAt, locationName, marchOptions, marchRate, neighbors, pathTo, stepCost, townAt, townLocation, worldOf,
 } from './world';
@@ -98,7 +101,7 @@ export function makeTroop(state: GameState, type: string, name?: string): Troop 
 }
 
 export function lordOf(state: GameState): Troop | undefined {
-  return state.armies.filter((a) => a.owner === 'player').flatMap((a) => a.troops).find((t) => t.type === 'lord');
+  return state.armies.filter((a) => a.owner === 'player').flatMap((a) => a.troops).find((t) => isRulerType(t.type));
 }
 
 /**
@@ -274,7 +277,9 @@ export function sharedMp(troops: Troop[]): number {
 /** Where the chosen troops at `from` can get to this month, with the cheapest route to each. */
 export function playerMarchOptions(state: GameState, from: string, troopIds: number[]) {
   const moving = armyAt(state, from, 'player')?.troops.filter((t) => troopIds.includes(t.id) && t.mp > 0 && !t.refit) ?? [];
-  return marchOptions(state, from, 'player', sharedMp(moving));
+  const options=marchOptions(state, from, 'player', sharedMp(moving));
+  for(const at of options.keys())if(holdApproachReason(state,at))options.delete(at);
+  return options;
 }
 
 /**
@@ -333,6 +338,7 @@ export interface MarchQuote {
 export function marchQuote(state: GameState, from: string, troopIds: number[], to: string): MarchQuote {
   const refuse = (reason: string): MarchQuote => ({ cost: 0, path: [], troopIds: [], ends: null, reason });
   if (state.battle || state.status !== 'playing') return refuse('Not now.');
+  const gate=holdApproachReason(state,to);if(gate)return refuse(gate);
   const src = armyAt(state, from, 'player');
   if (!src) return refuse('You have no troops there.');
   const moving = src.troops.filter((t) => troopIds.includes(t.id) && t.mp > 0 && !t.refit);
@@ -379,6 +385,7 @@ export function marchAlong(state: GameState, army: Army, path: string[]) {
   for (const at of path) {
     army.from = army.at;
     army.at = at;
+    if(army.owner==='player')explore(state);
     const enemy = state.armies.find((a) => blocks(state, army, a, at));
     if (enemy) {
       startBattle(state, army.id, enemy.id);
@@ -391,7 +398,7 @@ export function marchAlong(state: GameState, army: Army, path: string[]) {
 }
 
 function settle(state: GameState, army: Army) {
-  const friend = state.armies.find((a) => a !== army && a.at === army.at && a.owner === army.owner);
+  const friend = state.armies.find((a) => a !== army && a.at === army.at && a.owner === army.owner && ((!a.cityRaid && !army.cityRaid) || (a.cityRaid && army.cityRaid && a.cityRaid.origin===army.cityRaid.origin && a.cityRaid.target===army.cityRaid.target)));
   if (friend) {
     friend.troops.push(...army.troops);
     removeArmy(state, army);
@@ -399,6 +406,7 @@ function settle(state: GameState, army: Army) {
   }
   army.from = null;
   const town = townAt(state, army.at);
+  if(town?.owner==='player' && army.cityRaid && state.cityPolitics)state.cityPolitics.rivals[town.id]??={nextRaidTurn:state.turn+8};
   if (town && town.owner !== army.owner && !hasPassage(state, army.owner, town.id)) captureTown(state, town, army.owner);
 }
 
@@ -450,9 +458,18 @@ export function startBattle(state: GameState, attackerId: number, defenderId: nu
 
 /** Write the battle's losses back to the armies, move the loser out, and hand over the town. */
 export function applyBattle(state: GameState, b: Battle) {
-  if (!b.outcome) return;
+  if (!b.outcome || b.settled) return;
   // Optional encounters always belong to the active battle; settling a stale copy must not repeat XP.
   if (b.encounter && state.battle !== b) return;
+  const settlementId='battle:'+b.at+':'+b.attackerId+':'+b.defenderId+':'+b.seed;
+  if([...state.treasury.pending,...state.treasury.history.flatMap(month=>month.entries)].some(e=>e.actionId===settlementId))return;
+  b.settled=true;
+  const spoils=battleSpoils(b);
+  if(spoils){
+    state.gold+=spoils;
+    recordReceipt(state,townAt(state,b.at)?.id ?? campaignOf(state).capital,spoils,settlementId,'Battle at '+nodeName(state,b.at),'battle-spoils');
+    log(state,'Recovered '+spoils+' gold in battle spoils at '+nodeName(state,b.at)+'.');
+  }
   const attacker = findArmy(state, b.attackerId);
   const defender = findArmy(state, b.defenderId);
   for (const army of [attacker, defender]) {
@@ -543,7 +560,7 @@ export function fallBack(state: GameState, army: Army) {
     return;
   }
   removeArmy(state, army);
-  const lord = army.troops.find((t) => t.type === 'lord');
+  const lord = army.troops.find((t) => isRulerType(t.type));
   const capitalId = campaignOf(state).capital;
   const capital = townLocation(state, capitalId);
   const where = army.at;
@@ -573,9 +590,9 @@ export function endingReason(state: GameState): GameState['endingReason'] {
   if (state.towns[capital].owner !== 'player') return 'capital-lost';
   if (!lordOf(state)?.men) return 'lord-dead';
   if (state.battle || state.pending.length || runningMonths.has(state)) return null;
-  if (state.towns[lair].owner === 'player') return 'lair-captured';
+  if (state.towns[lair].owner === 'player' && (!state.challenge || state.campaignId!=='western-realm' || challengeVictoryReady(state))) return 'lair-captured';
   const chapter = campaignOf(state).chapter;
-  if (chapter && state.quests[chapter.finale]?.status === 'succeeded') return 'chapter-complete';
+  if ((!state.challenge || state.campaignId!=='western-realm') && chapter && state.quests[chapter.finale]?.status === 'succeeded') return 'chapter-complete';
   return null;
 }
 
@@ -723,7 +740,7 @@ const MONTH_PHASES: MonthPhase[] = [
   // Lairs found by armies that marched near them, and any whose garrison is gone.
   { id: 'lairs', run(state) { return [...discoverLairs(state), ...settleLairs(state)].map(news); } },
   // The orcs' own battles, captures and raids are recorded by the rules they trigger.
-  { id: 'ai', run(state) { orcTurn(state, observeOrcRoutes); return []; } },
+  { id: 'ai', run(state) { orcTurn(state, observeOrcRoutes); cityWarbandTurn(state); return []; } },
   // Monster raids: last month's arrive (fighting or plundering), then next month's are planned and announced.
   // Like the AI, this can start battles, so it runs after every economic phase.
   { id: 'raids', run(state) { return [...resolveRaids(state), ...planRaids(state)].map(news); } },
@@ -761,6 +778,7 @@ export function advanceMonth(state: GameState): MonthReport | null {
   finishBattles(state);
   report.ledger = ctx.ledger;
   report.battlePending = state.battle !== null || state.pending.length > 0;
+  explore(state);
   return report;
 }
 

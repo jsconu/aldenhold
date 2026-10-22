@@ -21,6 +21,8 @@ export interface ItemDefinition {
 
 /** Definitions are data, not hard-coded UI behavior; campaign state owns the actual inventory. */
 export const ITEMS: Record<string, ItemDefinition> = {
+  'keepers-signet': {id:'keepers-signet',name:'Keeper’s Signet',kind:'equipment',description:'A silver oath-ring earned beneath the Royal Barrow.',rules:'Your ruler: +4 leadership while equipped in the accessory slot.',source:'H01 The Oath Beneath the Hill',value:0,transfer:'hero',questIds:['H01'],policy:{sell:false,discard:false},equip:{slot:'accessory',leadership:4,heroes:['lord']}},
+  'hillcrest-medallion': {id:'hillcrest-medallion',name:'Hillcrest Medallion',kind:'equipment',description:'A bronze medallion earned by serving in Hillcrest’s infirmary.',rules:'Your ruler: +1 defense and +2 leadership while equipped in the accessory slot.',source:'H02 The Silent Infirmary',value:0,transfer:'hero',questIds:['H02'],policy:{sell:false,discard:false},equip:{slot:'accessory',defense:1,leadership:2,heroes:['lord']}},
   'fenwick-charter': {
     id: 'fenwick-charter',
     name: 'Sealed Fenwick Charter',
@@ -92,7 +94,7 @@ export const ITEMS: Record<string, ItemDefinition> = {
     source: 'Q03 Beneath the Old Tower; Q05 The Missing Caravan',
     value: 40,
     transfer: 'tradable',
-    questIds: ['Q03', 'Q05'],
+    questIds: ['Q03', 'Q05', 'H02'],
     policy: { sell: true, discard: true },
     use: { phase: 'campaign', target: 'hero', hp: 12 },
   },

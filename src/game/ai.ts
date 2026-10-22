@@ -23,10 +23,11 @@ export function orcTurn(state: GameState, beforeMarch?: (state: GameState, army:
     if (state.turn % RAID_EVERY === 0 && garrison && garrison.troops.filter((t) => !isHero(t.type)).length >= RAID_MIN_GARRISON) {
       // The warchief and shaman stay home; half the rank and file ride out.
       const ranks = garrison.troops.filter((t) => !isHero(t.type));
-      const raiders = ranks.slice(0, Math.ceil(ranks.length / 2));
+      if(state.challenge && garrison.troops.length<=8){ranks.length=0;}
+      const raiders = ranks.slice(0,state.challenge?Math.min(2,Math.max(0,garrison.troops.length-8)):Math.ceil(ranks.length / 2));
       garrison.troops = garrison.troops.filter((t) => !raiders.includes(t));
-      state.armies.push({ id: state.nextId++, owner: 'orcs', at: LAIR, from: null, troops: raiders });
-      log(state, 'A war party rides out of Gharzak Hold.');
+      if(raiders.length)state.armies.push({ id: state.nextId++, owner: 'orcs', at: LAIR, from: null, troops: raiders });
+      if(raiders.length)log(state, 'A war party rides out of Gharzak Hold.');
     }
   }
 

@@ -1,3 +1,7 @@
+import {campaignObjectives,explored,DIFFICULTIES} from '../game/challenge';
+import {replacementQuote} from '../game/replacements';
+import { renderRulerSelection } from './rulerSelection';
+import { questOutcome } from './gameplayFeedback';
 import { LAIRS, SPECIES, type LairDefinition } from '../content/lairs';
 import { DETERRENCE, monthsAway, raidLine, raidOdds, raidsOn, raidStakes } from '../game/raids';
 import { lairAt, lairGarrison } from '../game/lairs';
@@ -23,6 +27,7 @@ import { questFocus, questSites } from './questNavigation';
 import { BUILDING_IDS, BUILDINGS, cityMaintenance, constructionQuote, developmentSites, endowment, totalCityMaintenance } from '../game/cities';
 import { conditionHolds, conditionText, isOpen, questQuote, questsAt, questsAtSite, questSummary, stageOf, trackedQuests, type EncounterPreview } from '../game/quests';
 import { esc, type UIState } from './shared';
+import { placeScene } from './placeScene';
 import { renderOverland } from './overlandMap';
 import { previewRoute, type RoutePreview } from '../game/overlandRoutes';
 import { renderCityAssault } from './cityAssault';
@@ -38,6 +43,7 @@ export function moveTargets(state: GameState, ui: UIState): Map<string, MarchSte
 const isHexCampaign = (state: GameState) => worldOf(state).kind === 'hex';
 
 export function renderCampaign(state: GameState, ui: UIState): string {
+  if(ui.creatingFor && ui.rulerDraft)return renderRulerSelection(ui);
   const income = monthlyIncome(state);
   const upkeep = monthlyUpkeep(state);
   const operating = totalCityMaintenance(state);
@@ -53,12 +59,13 @@ export function renderCampaign(state: GameState, ui: UIState): string {
     <button data-action="treasury" class="ghost">${ui.view === 'treasury' ? 'Back to the map' : 'Treasury'}</button>
     <button data-action="journal" class="ghost">${ui.view === 'journal' ? 'Back to the map' : `Journal (${state.journal.length})`}</button>
     <button data-action="new-game" class="ghost">New game</button>
+    ${ui.view==='map' ? `<button data-action="march-mode" aria-pressed="${!!ui.marchMode}" class="${ui.marchMode?'primary':'ghost'}">${ui.marchMode?'Cancel movement':'Move selected army'}</button>` : ''}
     ${ui.undoMoveLabel ? `<button data-action="undo-move" class="ghost">${esc(ui.undoMoveLabel)}</button>` : ''}
     <button data-action="end-turn" class="primary" ${state.status !== 'playing' ? 'disabled' : ''}>End month</button>
   </header>
   ${ui.choosing ? renderChooser(state) : ''}
   ${state.status !== 'playing' ? `<div class="banner ${state.status}">${state.status === 'won' && state.endingReason === 'chapter-complete' ? `${esc(campaignOf(state).chapter!.title)} is complete. ${esc(campaignOf(state).chapter!.ending)}` : state.status === 'won' ? `You have won. ${isHexCampaign(state) ? 'The realm' : 'The valley'} is united.` : state.endingReason === 'lord-dead' ? 'You have lost. Your lord is dead.' : `You have lost. ${esc(nodeName(state, campaignOf(state).capital))} has fallen.`} <button data-action="new-game">Play again</button></div>` : ''}
-  ${ui.view === 'treasury' ? renderTreasury(state) : ui.view === 'journal' ? renderJournal(state) : `<main class="campaign" ${ui.assault ? 'inert' : ''}>
+  ${ui.view === 'city' ? renderCityScreen(state,ui) : ui.view === 'treasury' ? renderTreasury(state) : ui.view === 'journal' ? renderJournal(state) : `<main class="campaign" ${ui.assault ? 'inert' : ''}>
     ${isHexCampaign(state) ? renderHexSection(state, ui) : `<section class="map-wrap">
       ${renderMapToolbar(state, ui)}
       ${renderOverland(state, ui, [...moveTargets(state, ui).keys()], plannedRoute(state, ui)?.stops.map((s) => s.id) ?? [])}
@@ -73,6 +80,8 @@ export function renderCampaign(state: GameState, ui: UIState): string {
     </section>`}
     <aside class="side">
       ${ui.message ? `<p class="msg">${esc(ui.message)}</p>` : ''}
+      ${renderCityWarWarnings(state)}
+      ${renderCampaignObjectives(state)}
       ${renderOfferNotice(state, ui)}
       ${isHexCampaign(state) ? renderMarchGuide(state, ui) : ''}
       ${isHexCampaign(state) ? '' : renderRoutePlanner(state, ui)}
@@ -198,12 +207,18 @@ function renderRecruit(state: GameState, town: Town, title = 'Raise troops'): st
 
 /** Side panel for a location: its town (if any), the land on a hex map, and the armies there. */
 function renderNodePanel(state: GameState, ui: UIState, at: string): string {
+  if(!explored(state,at))return '<h2>Unexplored frontier</h2><p>March into an adjacent gold-bordered frontier hex to scout it. Terrain and nearby sites are revealed by your army; monsters can interrupt travel.</p>';
   const town = townAt(state, at);
+  if(town && ui.view==='map'){
+    const troops=state.armies.filter(a=>a.at===at && a.owner==='player');
+    return '<h2>'+esc(nodeName(state,at))+'</h2><p>'+(town.kind==='capital'?'Your capital':'Town')+' · '+OWNER_LABEL(town.owner)+(relationWith(state,town.id)&&relationWith(state,town.id)!=='self'?' · '+RELATION_LABEL[relationWith(state,town.id) as keyof typeof RELATION_LABEL]:'')+' · '+town.pop.toLocaleString()+' people</p><button data-action="open-city" data-node="'+esc(at)+'" class="primary">Open city</button><p class="sub">Development, recruitment, equipment and city quests are in the city screen. To march here, use Move selected army.</p>'+(town.owner==='player'?renderRaidThreat(state,town.id):'')+troops.map(a=>renderArmy(state,ui,a)).join('');
+  }
   const id = town?.id ?? at;
   const armies = state.armies.filter((a) => a.at === at);
   let html = `<h2>${esc(nodeName(state, at))}</h2>`;
   const world = worldOf(state);
   if (town) {
+    html += placeScene(state, town.id);
     const profile = campaignOf(state).settlementProfiles?.[id];
     if (profile) html += `<p class="sub"><b>${esc(profile.region)}</b> · ${esc(profile.role)}</p>`;
     html += `<p class="sub">${town.kind === 'lair' ? 'Orc stronghold' : town.kind === 'capital' ? 'Your capital' : 'Town'} · ${OWNER_LABEL(town.owner)}${(() => {
@@ -293,7 +308,7 @@ function renderQuests(state: GameState, defs: QuestDefinition[]): string {
     if (!isOpen(q)) {
       const passage = q.status === 'succeeded' && state.treaties[def.at]?.passage
         ? `<p class="sub">Your armies may share this town with its neutral garrison. ${esc(nodeName(state, def.at))} remains independent and pays no tax.</p>` : '';
-      return `${head}<p>${esc(questSummary(state, def.id))}.</p>${passage}</div>`;
+      return `${head}<p>${esc(questSummary(state, def.id))}.</p>${questOutcome(state,def.id)}${passage}</div>`;
     }
     const stage = stageOf(def, q.stage)!;
     const quotes = stage.choices.map((c) => ({ c, quote: questQuote(state, def.id, c.id) }));
@@ -304,12 +319,12 @@ function renderQuests(state: GameState, defs: QuestDefinition[]): string {
       ? `<p class="sub">Hold until ${esc(due)}.</p>`
       : `<p class="sub">${stage.choices.length ? 'Decide' : 'Finish'} by ${esc(due)}, or this ends on its own.</p>`;
     const destinations = questSites(state, def.id).filter((site) => site !== def.at);
-    const siteLinks = destinations.length ? `<p class="quest-sites">Encounter site${destinations.length > 1 ? 's' : ''}: ${destinations.map((site) => `<button class="link" data-action="goto" data-node="${startLocation(state, site)}">Show ${esc(nodeName(state, site))}</button>`).join(' · ')}</p>` : '';
+    const siteLinks = destinations.length ? `<p class="quest-sites">${def.adventureSite ? 'Adventure site' : 'Encounter site'}${destinations.length > 1 ? 's' : ''}: ${destinations.map((site) => `<button class="link" data-action="goto" data-node="${startLocation(state, site)}">Show ${esc(nodeName(state, site))}</button>`).join(' · ')}</p>` : '';
     const goals = stage.objectives?.length ? `<ul class="objectives">${stage.objectives.map((o) => {
       const met = o.when.every((c) => conditionHolds(state, c));
       return `<li class="${met ? 'met' : ''}">${met ? '✓' : '○'} ${o.when.map((c) => esc(conditionText(state, c))).join('; ')}</li>`;
     }).join('')}</ul><p class="sub">Goals are checked at the end of each month.</p>` : '';
-    return `${head}<p>${esc(def.summary)}</p><p class="sub">${esc(stage.text)}</p>${siteLinks}${goals}${deadline}
+    return `${head}${def.adventureSite ? '<p class="adventure-label">Ruler adventure · your army waits outside. Progress is saved after each choice.</p>' : ''}<p>${esc(def.summary)}</p><p class="sub">${esc(stage.text)}</p>${siteLinks}${goals}${deadline}
       ${shared ? `<p class="hint">${esc(shared)}</p>` : ''}
       ${quotes.length ? `<div class="quest-actions">${quotes.map(({ c, quote }) => `<div class="quest-option"><button data-action="quest-choice" data-quest="${def.id}" data-choice="${c.id}"
         ${quote.reason ? `disabled title="${esc(quote.reason)}"` : ''}>${esc(c.label)}${quote.gold ? ` · ${quote.gold}g` : ''}${'encounter' in c.then ? ` · battle at ${esc(nodeName(state, startLocation(state, c.then.encounter.site)))}` : ''}</button>${quote.reason && !shared ? `<small class="hint">${esc(quote.reason)}</small>` : ''}${quote.encounter ? renderEncounterParty(state, quote.encounter) : ''}</div>`).join('')}</div>` : ''}</div>`;
@@ -359,7 +374,7 @@ function renderLair(state: GameState, lair: LairDefinition): string {
   const st = state.lairs[lair.id];
   const sp = SPECIES[lair.species];
   const garrison = lairGarrison(state, lair);
-  return `<div class="quest-card lair"><h3>${esc(lair.name)} <small>${sp.name} · tier ${lair.tier}</small></h3>
+  return `${placeScene(state, lair.place, lair.species, st.status === 'cleared')}<div class="quest-card lair"><h3>${esc(lair.name)} <small>${sp.name} · tier ${lair.tier}</small></h3>
     ${st.status === 'cleared'
       ? `<p>Cleared${st.clearedTurn ? ` in ${esc(dateLabel(st.clearedTurn))}` : ''}. Nothing stirs here now.</p>`
       : `<p class="sub">${esc(sp.tactics)}</p><p class="sub">Counter: ${esc(sp.counter)}</p>
@@ -408,7 +423,7 @@ function renderArmy(state: GameState, ui: UIState, a: Army): string {
       if (type.hero) {
         const mana = type.hero.mana ? ` · ${t.mana ?? 0}/${heroMaxMana(t.type, t.xp)} mana` : '';
         return `<li class="hero ${spent && mine ? 'done' : ''}"><label>${box}<span class="tname">★ ${esc(t.name ?? type.name)}
-          <small>${type.name}</small></span><span class="men">${t.men}/${heroMaxHp(t.type, t.xp)} HP${mana}</span>
+          <small>${t.type==='lord' && state.rulerAppearance ? 'Knight' : type.name}</small></span><span class="men">${t.men}/${heroMaxHp(t.type, t.xp)} HP${mana}</span>
           <span class="lv">Lv ${heroLevel(t.xp)}</span>${marched}</label>${mine ? renderKit(state, t) : ''}</li>`;
       }
       const lv = level(t.xp);
@@ -424,23 +439,24 @@ function renderArmy(state: GameState, ui: UIState, a: Army): string {
     : 'Tick the troops to send, then click a glowing place on the map.';
   return `<div class="army-card own-${a.owner}"><h3>${mine ? 'Your troops' : a.owner === 'orcs' ? 'Orc host' : 'Town militia'}</h3>
     <ul class="troops">${rows}</ul>
+    ${mine && ui.view==='city' ? renderReplacements(state,a) : ''}
     ${mine ? a.troops.filter((t) => t.type === 'scout').map((t) => `<div class="scout-post"><b>Scout #${t.id}</b> · ${t.scoutPost === 'city' ? 'Watching this city' : t.scoutPost === 'road' ? 'Watching this road' : 'Unassigned'}
       <div class="save-actions">
         ${townAt(state, a.at)?.owner === 'player' ? `<button data-action="scout-post" data-troop="${t.id}" data-post="city" ${t.scoutPost === 'city' ? 'disabled' : ''}>Watch city</button>` : ''}
         ${hasRoad(state, a.at) ? `<button data-action="scout-post" data-troop="${t.id}" data-post="road" ${t.scoutPost === 'road' ? 'disabled' : ''}>Watch road</button>` : ''}
         ${t.scoutPost ? `<button data-action="scout-post" data-troop="${t.id}" data-post="recall">Recall</button>` : ''}
       </div><small class="sub">Move this scout to a new post using the map. Moving clears its current watch.</small></div>`).join('') : ''}
-    ${mine && townAt(state, a.at)?.owner === 'player' ? renderRefitChoices(state, a) : ''}
+    ${mine && ui.view==='city' && townAt(state, a.at)?.owner === 'player' ? renderRefitChoices(state, a, ui) : ''}
     ${mine ? '<p class="sub">In battle, your toughest melee formations set up in front; archers, casters and the leader start behind them.</p>' : ''}
     ${ready ? `<p class="hint">${hint}</p>` : ''}</div>`;
 }
 
-function renderRefitChoices(state: GameState, army: Army): string {
+function renderRefitChoices(state: GameState, army: Army, ui:UIState): string {
   // Formations the player can raise (orc troops captured in some future rule would not qualify).
   const choices = army.troops.filter((t) => !UNIT_TYPES[t.type].hero && UNIT_TYPES[t.type].recruit !== null);
   if (!choices.length) return '';
-  return `<details class="refit-panel"><summary>Equip veteran formations</summary>
-    <p class="sub">Upgrades require experience, a friendly city, enough gold and local materials. Refitting takes the rest of this month; the previous equipment remains in use until completion.</p>
+  return `<section class="refit-panel" aria-label="Troop equipment"><h3>Troop equipment upgrades</h3>
+    <p class="sub">Select an upgrade to inspect it. Chain armor needs level 2 troops and a Tool Forge; better bows and plate need more experience. Heroes use Journal → Inventory instead. Upgrades require experience, an owned city, enough gold and local materials. Refitting takes the rest of this month; the previous equipment remains in use until completion.</p>
     ${choices.map((troop) => {
       const options = usesBow(troop.type) ? ['long-bow', 'compound-bow', 'chain'] as const : ['chain', 'plate'] as const;
       return `<div class="refit-row"><b>${UNIT_TYPES[troop.type].name} #${troop.id}</b>
@@ -450,16 +466,16 @@ function renderRefitChoices(state: GameState, army: Army): string {
           const quote = refitQuote(state, townId, troop.id, id);
           const gear = EQUIPMENT[id];
           const inputs = Object.entries(quote.materials).map(([g, qty]) => `${qty} ${g}`).join(' + ');
-          return `<div class="refit-option"><button data-action="refit" data-node="${townId}"
-            data-troop="${troop.id}" data-item="${id}" ${quote.reason ? 'disabled' : ''}
-            title="${esc(quote.reason ?? 'Pay now; equipment arrives at month end')}">
+          return `<div class="refit-option"><button data-action="inspect-refit" data-node="${townId}"
+            data-troop="${troop.id}" data-item="${id}" aria-pressed="${ui.refitChoice?.troop===troop.id && ui.refitChoice.item===id}"
+            title="${esc(quote.reason ?? 'Inspect this upgrade and its cost')}">
             ${gear.name} · ${quote.gold}g${inputs ? ' + ' + inputs : ''}</button>
             <small>Lv ${gear.level}+ · ${gear.slot === 'bow' ? `Damage ×${gear.attackFactor}, range +${gear.rangeBonus}` :
               `Defense +${gear.defenseBonus}`} · upkeep ${gear.upkeep}g/mo
-              ${quote.reason ? ' · ' + esc(quote.reason) : ''}</small></div>`;
+              ${quote.reason ? ' · ' + esc(quote.reason) : ''}</small>${ui.refitChoice?.troop===troop.id && ui.refitChoice.item===id ? `<div class="refit-preview"><p>${quote.reason ? esc(quote.reason)+' Earn experience in battle, build the required forge and keep this formation in town to refit.' : 'Ready to order. Pay now; equipment arrives at month end.'}</p><button data-action="refit" data-node="${townId}" data-troop="${troop.id}" data-item="${id}" ${quote.reason?'disabled':''}>Confirm refit · ${quote.gold}g</button></div>` : ''}</div>`;
         }).join('')}</div>`;
     }).join('')}
-  </details>`;
+  </section>`;
 }
 
 function heroSummary(typeId: string): string {
@@ -530,4 +546,41 @@ function renderChooser(state: GameState): string {
   return `<div class="chooser" role="dialog" aria-label="Choose a campaign"><div class="chooser-box">
     <h2>Choose a campaign</h2>${warning}<div class="campaign-cards">${cards}</div>
     <button class="ghost" data-action="cancel-choose">Cancel</button></div></div>`;
+}
+
+function renderReplacements(state:GameState,army:Army):string{
+ const wounded=army.troops.filter(t=>!UNIT_TYPES[t.type].hero && t.men<UNIT_TYPES[t.type].men);if(!wounded.length)return '';
+ return '<section class="refit-panel"><h3>Recruit replacements</h3><p>Fill depleted formations at a town you rule. New recruits cost gold and population, dilute experience, and use the formation’s remaining movement this month. Existing equipment is retained; outfitting replacements is included in the price.</p>'+wounded.map(t=>{const q=replacementQuote(state,t.id);return '<p><b>'+esc(UNIT_TYPES[t.type].name)+' #'+t.id+'</b> · '+t.men+'/'+UNIT_TYPES[t.type].men+'<br><button data-action="replacements" data-troop="'+t.id+'" '+(q.reason?'disabled':'')+'>Recruit '+q.men+' replacements · '+q.gold+'g</button>'+(q.reason?'<small>'+esc(q.reason)+'</small>':'')+'</p>';}).join('')+'</section>';
+}
+function renderCampaignObjectives(state:GameState):string{
+ const objectives=campaignObjectives(state);if(!objectives.length)return '';
+ return '<section class="campaign-objectives"><h2>Unite the Western Realm</h2><p>'+DIFFICULTIES[state.challenge!.difficulty].name+' · '+(state.challenge!.fog?'Explore to reveal the map. ':'')+'Gharzak Hold is the final battle. Prepare the realm and gather all three relics before the assault.</p><ol>'+objectives.map(o=>'<li class="'+(o.done?'objective-done':'')+'">'+(o.done?'✓ ':'○ ')+esc(o.label)+(o.at?'<button class="link" data-action="goto" data-node="'+esc(startLocation(state,o.at))+'">Show objective</button>':'')+'</li>').join('')+'</ol></section>';
+}
+
+function renderCityScreen(state:GameState,ui:UIState):string{
+ const town=ui.selected?townAt(state,ui.selected):undefined;
+ if(!town || !ui.selected || !explored(state,ui.selected))return '<main class="city-screen"><button data-action="close-city">Back to overland map</button><p>Select a discovered settlement.</p></main>';
+ const owned=town.owner==='player' && town.kind!=='lair',ally=['ally','vassal'].includes(relationWith(state,town.id)??'');
+ const tabs:{id:NonNullable<UIState['cityTab']>;label:string}[]=[{id:'overview',label:'Overview'},...(owned?[{id:'development' as const,label:'Development'}]:[]),...(owned||ally?[{id:'recruitment' as const,label:'Recruitment'}]:[]),{id:'army',label:'Army & equipment'},{id:'quests',label:'Quests & diplomacy'}];
+ const tab=tabs.some(t=>t.id===ui.cityTab)?ui.cityTab!:'overview';
+ let content='';
+ if(tab==='overview'){
+  content=placeScene(state,town.id)+'<p>'+OWNER_LABEL(town.owner)+' · '+(RELATION_LABEL[relationWith(state,town.id) as keyof typeof RELATION_LABEL]??'Your city')+' · Population '+town.pop.toLocaleString()+'</p>';
+  if(owned)content+='<label class="tax">Tax rate<select data-change="tax" data-node="'+town.id+'">'+Array.from({length:11},(_,i)=>i*5).map(v=>'<option value="'+v+'" '+(town.tax===v?'selected':'')+'>'+v+'%</option>').join('')+'</select></label><p>Income: '+townIncome(town)+' gold/month. Population change: '+townGrowth(town)+'/month.</p>'+renderRaidThreat(state,town.id);
+  const profile=campaignOf(state).settlementProfiles?.[town.id];if(profile)content+='<p>'+esc(profile.role)+'</p>';
+  content+=renderMerchants(state,town.id);
+ }
+ if(tab==='development')content=renderCityDevelopment(state,town.id);
+ if(tab==='recruitment')content=renderRecruit(state,town,owned?'Raise troops':'Allied troops')+renderOffers(state,town.id);
+ if(tab==='army'){
+  const armies=state.armies.filter(a=>a.at===ui.selected);content=armies.map(a=>renderArmy(state,ui,a)).join('')||'<p>No formations are stationed here.</p>';
+ }
+ if(tab==='quests')content=renderQuests(state,questsAt(state,town.id))||'<p>No quests are currently offered here.</p>';
+ return '<main class="city-screen"><header class="city-heading"><div><p class="report-eyebrow">City management</p><h1>'+esc(nodeName(state,ui.selected))+'</h1></div><button class="primary" data-action="close-city">Back to overland map</button></header><nav class="city-tabs" aria-label="City management">'+tabs.map(t=>'<button data-action="city-tab" data-tab="'+t.id+'" aria-pressed="'+(t.id===tab)+'" class="'+(t.id===tab?'primary':'ghost')+'">'+t.label+'</button>').join('')+'</nav>'+(ui.message?'<p class="msg" role="status">'+esc(ui.message)+'</p>':'')+'<section class="city-content" aria-label="'+tabs.find(t=>t.id===tab)!.label+'">'+content+'</section><button data-action="close-city">Back to overland map</button></main>';
+}
+
+function renderCityWarWarnings(state:GameState):string{
+ const warnings=Object.entries(state.cityPolitics?.rivals??{}).filter(([,r])=>r.warning).map(([origin,r])=>'<li>'+esc(nodeName(state,origin))+' is mustering against '+esc(nodeName(state,r.warning!.target))+'. Marches '+(r.warning!.launchTurn<=state.turn?'now':'next month')+'.</li>');
+ const parties=state.armies.filter(a=>a.cityRaid && !a.cityRaid.returning).map(a=>'<li>'+esc(nodeName(state,a.cityRaid!.origin))+' has a war party marching on '+esc(nodeName(state,a.cityRaid!.target))+'.</li>');
+ return warnings.length+parties.length?'<section class="city-war-warning" role="status"><h3>Rival city threats</h3><ul>'+warnings.join('')+parties.join('')+'</ul><p>Reinforce the threatened city. Allies, vassals and truces do not send war parties.</p></section>':'';
 }

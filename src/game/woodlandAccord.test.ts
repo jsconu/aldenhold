@@ -172,7 +172,7 @@ describe('quest tracking', () => {
   it('tracks at most three open quests and offers them as header shortcuts', () => {
     const s = atGreenveil();
     expect(trackedQuests(s).map((q) => q.id)).toEqual(['M01', 'Q04', 'Q00']); // Q04's envoy waits four months; Q00 has no deadline
-    const html = renderCampaign(s, ui(townLocation(s, 'greenveil')));
+    const html = renderCampaign(s, {...ui(townLocation(s,'greenveil')),view:'city',cityTab:'recruitment'});
     expect(html).toContain('data-action="view-quest" data-quest="Q04"');
     chooseQuest(s, 'Q04', 'cap');
     expect(trackedQuests(s).map((q) => q.id)).toEqual(['M01', 'Q00']);
@@ -181,7 +181,7 @@ describe('quest tracking', () => {
   it('shows Greenveil’s allied recruits in its panel once the accord is signed', () => {
     const s = atGreenveil();
     chooseQuest(s, 'Q04', 'cap');
-    const html = renderCampaign(s, ui(townLocation(s, 'greenveil')));
+    const html = renderCampaign(s, {...ui(townLocation(s,'greenveil')),view:'city',cityTab:'recruitment'});
     expect(html).toContain('Allied troops');
     expect(html).toContain('data-action="recruit" data-node="greenveil" data-type="woodlandArchers"');
   });

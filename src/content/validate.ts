@@ -271,6 +271,7 @@ function validateQuests(catalog: Catalog, err: (msg: string) => void) {
       if (!campaign) err(`${where}: unknown campaign "${cid}"`);
       else if (!campaign.towns.some((t) => t.id === q.at)) err(`${where}: town "${q.at}" is not in campaign "${cid}"`);
     }
+    if(q.adventureSite) for(const cid of q.campaignIds) if(!placesOf(cid).includes(q.adventureSite)) err(where+': unknown adventure site '+q.adventureSite);
     if (!q.stages.length) err(`${where}: has no stages`);
     const townInCampaigns = (town: string) => q.campaignIds.every((cid) => catalog.campaigns[cid]?.towns.some((t) => t.id === town));
     const stageIds = new Set<string>();

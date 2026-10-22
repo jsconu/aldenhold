@@ -76,11 +76,11 @@ describe('the lair registry', () => {
     const gold = s.gold;
     applyBattle(s, b);
     expect(s.lairs.briarwood).toMatchObject({ status: 'cleared', discovered: true, clearedTurn: 1 });
-    expect(s.gold).toBe(gold + 120);
+    expect(s.gold).toBe(gold + 120 + s.treasury.pending.filter(e=>e.category==='battle-spoils').reduce((sum,e)=>sum+e.amount,0));
     expect(s.treasury.pending.some((e) => e.category === 'lair-plunder' && e.amount === 120)).toBe(true);
     expect(settleLairs(s)).toEqual([]);
     s = reload(s);
-    expect(s.gold).toBe(gold + 120);
+    expect(s.gold).toBe(gold + 120 + s.treasury.pending.filter(e=>e.category==='battle-spoils').reduce((sum,e)=>sum+e.amount,0));
     const report = advanceMonth(s)!;
     expect(report.ledger!.entries.some((e) => e.category === 'balance-correction')).toBe(false);
     expect(renderHexMap(s, ui(null), getCampaign('western-realm').hex!, new Map())).toContain('Briarwood Warren: goblins lair, tier 1. Cleared.');

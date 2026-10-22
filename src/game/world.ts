@@ -224,7 +224,7 @@ export function marchOptions(state: GameState, from: string, owner: FactionId, b
     from,
     (at) => stepCost(state, at),
     budget,
-    (at) => !throughEnemies && stopsMarch(state, at, owner),
+    (at) => (!throughEnemies && stopsMarch(state, at, owner)) || (owner==='player' && !!state.challenge?.fog && !state.challenge.explored.includes(at)),
     world.kind === 'graph' ? (at) => neighbors(state, at) : undefined,
   );
 }

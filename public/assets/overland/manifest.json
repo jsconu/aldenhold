@@ -1,0 +1,44 @@
+{
+  "source": "OpenAI built-in image_gen",
+  "date": "2026-10-21",
+  "review": "Owner visual review pending",
+  "terrain": {
+    "file": "terrain-atlas-v1.png",
+    "layout": "3x3 row-major",
+    "cells": [
+      "plains",
+      "farmland",
+      "forest",
+      "deepwood",
+      "hills",
+      "mountains",
+      "swamp",
+      "water",
+      "badlands"
+    ],
+    "prompt": "Detailed crisp pixel-art terrain texture atlas, elevated near-top-down view, natural earth palette, no text, UI or hex grid; nine terrain types in equal cells."
+  },
+  "settlements": {
+    "file": "settlements-atlas-v1.png",
+    "layout": "2x2 row-major with transparency",
+    "cells": [
+      "capital",
+      "town",
+      "fortress",
+      "woodland village"
+    ],
+    "prompt": "Original richly detailed isometric medieval map sprite atlas, stone and russet timber architecture, transparent background, consistent lighting, no labels, banners or UI."
+  },
+  "bridge": {
+    "file": "stone-bridge-v1.png",
+    "source": "OpenAI built-in image_gen",
+    "prompt": "Isolated original weathered limestone three-arch bridge, wide gentle diagonal, cobbles, low parapets, subtle moss, detailed pixel art, transparent background, no cyan water, scenery, text or UI."
+  },
+  "woodBridge": {
+    "file": "wood-bridges-v2.png",
+    "source": "OpenAI built-in image_gen",
+    "layout": "Three equal square cells in one row: horizontal, rising-right, falling-right",
+    "prompt": "Original detailed pixel-art oak bridges, low rails and sturdy short supports. Three perspectives drawn independently with every support post vertical on screen. Transparent background, no water, scenery, UI or text.",
+    "supersedes": "wood-bridge-v1.png"
+  }
+}

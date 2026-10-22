@@ -8,8 +8,8 @@ export function questSites(state: GameState, questId: string): string[] {
   const def = QUESTS[questId];
   const progress = state.quests[questId];
   if (!def?.campaignIds.includes(state.campaignId) || !progress || !isOpen(progress)) return [];
-  return [...new Set((stageOf(def, progress.stage)?.choices ?? [])
-    .flatMap((choice) => 'encounter' in choice.then ? [choice.then.encounter.site] : []))];
+  return [...new Set([...(def.adventureSite ? [def.adventureSite] : []), ...(stageOf(def, progress.stage)?.choices ?? [])
+    .flatMap((choice) => 'encounter' in choice.then ? [choice.then.encounter.site] : [])])];
 }
 
 /** Header shortcuts show the active encounter's card at its site, or the giver for ordinary conversation. */

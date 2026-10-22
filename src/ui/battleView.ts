@@ -1,6 +1,8 @@
+import { battleSpoils } from '../game/battleRewards';
+import { battleFigure, richBattleGround, richRuin } from './richBattle';
 import { EFFECTS } from '../content/spells';
 import {
-  attackOf, attackTargets, alive, commandOf, maxRounds, COMMAND_RANGE, defenseOf, escapeQuote, groupReachable, isAI, powerOf, knownSpells, playerSide, RALLY_AT, rangeOf, reachable, ROUT_AT, spellTargets,
+  attackOf, attackOrderQuote, alive, commandOf, maxRounds, COMMAND_RANGE, defenseOf, escapeQuote, groupReachable, isAI, powerOf, knownSpells, playerSide, RALLY_AT, rangeOf, reachable, ROUT_AT, spellTargets,
   terrainAt, unitLabel, reserves, FIELD_LIMIT, movementOf, previewSpell, spellAffected, spellCost, teleportDestinations,
 } from '../game/battle';
 import { nodeName } from '../game/campaign';
@@ -49,7 +51,8 @@ export function renderBattle(state: GameState, ui: UIState): string {
   const group = myTurn ? selectedGroup(b, ui) : [];
   const reach = group.length > 1 ? groupReachable(b, group.map((u) => u.id)) : sel ? reachable(b, sel) : new Map<string, number>();
   const casting = sel && ui.battleSpell ? spellTargets(b, sel, ui.battleSpell) : null;
-  const targets = new Set((group.length > 1 ? [] : casting ?? (sel ? attackTargets(b, sel) : [])).map((u) => u.id));
+  // A single formation can attack any enemy it can reach and strike this turn (one click moves it into range).
+  const targets = new Set((group.length > 1 ? [] : casting ?? (sel ? b.units.filter((t) => !attackOrderQuote(b, sel.id, t.id).reason) : [])).map((u) => u.id));
   const chosen = sel && ui.battleSpell ? b.units.find((u) => u.id === ui.battleTarget && spellTargets(b, sel, ui.battleSpell!).includes(u)) : undefined;
   const affected = sel && chosen && ui.battleSpell ? spellAffected(b, sel, ui.battleSpell, chosen) : [];
   const destinations = sel && chosen && ui.battleSpell === 'teleport' ? new Set(teleportDestinations(b, sel, chosen).map(hexKey)) : new Set<string>();
@@ -64,13 +67,13 @@ export function renderBattle(state: GameState, ui: UIState): string {
       const kind = b.terrain[col][row];
       const t = TERRAIN[kind];
       ground += `<polygon points="${hexPoints(cx, cy, S + 1)}" class="hex ${kind}"/>`;
-      groundArt += terrainArt(kind, cx, cy, col * 31 + row * 7);
+      if (kind === 'ruins') groundArt += richRuin(cx,cy,col*31+row*7);
+      else if (kind === 'spring' || kind === 'thorns') groundArt += terrainArt(kind,cx,cy,col*31+row*7);
       // A transparent hit area on top of the art carries the click, the tooltip and the move highlight.
       const reachable = (reach.has(hexKey({ col, row })) && !casting) || destinations.has(hexKey({ col, row }));
       const area = !!(chosen && ui.battleSpell && SPELLS[ui.battleSpell].radius && hexDistance(chosen, { col, row }) <= SPELLS[ui.battleSpell].radius);
-      // Circular glows communicate move/spell ranges without drawing the underlying hex lattice.
-      if (reachable || area) highlights += `<ellipse cx="${cx}" cy="${cy}" rx="21" ry="17"
-        class="battle-spot${reachable ? ' battle-spot-reach' : ''}${area ? ' battle-spot-spell' : ''}" />`;
+      // Hex outlines communicate move/spell ranges without drawing the underlying hex lattice.
+      if (reachable || area) highlights += `<polygon points="${hexPoints(cx,cy,S-2)}" class="move-border"/><polygon points="${hexPoints(cx,cy,S-2)}" class="battle-spot${reachable ? ' battle-spot-reach' : ''}${area ? ' battle-spot-spell' : ''}"/>`;
       overlay += `<polygon points="${hexPoints(cx, cy)}" class="hit" data-action="hex" data-col="${col}" data-row="${row}">
         <title>${t.name}: ${t.text}</title></polygon>`;
     }
@@ -93,15 +96,16 @@ export function renderBattle(state: GameState, ui: UIState): string {
         <title>${esc(unitLabel(b, u))}: ${u.men} ${hero ? 'HP' : `men, morale ${u.morale}${u.routing ? ', running' : ''}`}</title>
         <ellipse cx="${cx}" cy="${cy + 4}" rx="21" ry="17" class="mark"/>
         <ellipse cx="${cx}" cy="${cy + 9}" rx="15" ry="5" class="base"/>
-        ${pixelSprite(u.type, mine ? 'mine' : 'foe', cx, cy + 10, 2.5, u.side === 'defender')}
+        ${battleFigure(u.type, cx, cy, u.side === 'defender', u.men, mine ? state.rulerAppearance : undefined, u.name ? (/^(Mother|Sister|Edith|Tamsin|Ysolde)/.test(u.name)?'female':'male') : (u.troopId%2?'female':'male')) || pixelSprite(u.type, mine ? 'mine' : 'foe', cx, cy + 10, 2.5, u.side === 'defender')}
         ${hero ? `<path d="m${cx + 15} ${cy - 23} 1.5 3 3.3.5-2.4 2.3.6 3.3-3-1.6-3 1.6.6-3.3-2.4-2.3 3.3-.5z" class="star"/>` : ''}
-        <text x="${cx}" y="${cy + 17}" class="men">${u.routing ? 'RUN' : u.men}</text>
-        <rect x="${cx - 14}" y="${cy + 19}" width="28" height="3" class="hp-bg"/>
-        <rect x="${cx - 14}" y="${cy + 19}" width="${(28 * frac).toFixed(1)}" height="3" class="hp"/>
+        <rect x="${cx - 18}" y="${cy + 3}" width="36" height="16" rx="4" class="unit-status-back"/>
+        <text x="${cx}" y="${cy + 12}" class="men${hero ? ' hero-hp' : ''}">${u.routing ? 'RUN' : hero ? u.men+' HP' : u.men}</text>
+        <rect x="${cx - 14}" y="${cy + 14}" width="28" height="2" class="hp-bg"/>
+        <rect x="${cx - 14}" y="${cy + 14}" width="${(28 * frac).toFixed(1)}" height="2" class="hp"/>
         ${aimedBy ? `<g class="aimed"><title>${esc(unitLabel(b, aimedBy))} will throw a boulder here next turn if this formation is still within ${UNIT_TYPES[aimedBy.type].boulder!.range} hexes.</title><circle cx="${cx}" cy="${cy - 2}" r="24" class="aim-ring"/><text x="${cx - 18}" y="${cy - 14}" class="aim-mark">!</text></g>` : ''}
         ${u.effects.length ? `<text x="${cx + 16}" y="${cy - 10}" class="effect-badge"><title>${esc(u.effects.map((e) => `${EFFECTS[e.id].name}: ${e.turns} turns`).join('; '))}</title>✦</text>` : ''}
-        ${hero ? '' : `<rect x="${cx - 14}" y="${cy + 22}" width="28" height="2" class="hp-bg"/>
-        <rect x="${cx - 14}" y="${cy + 22}" width="${(28 * morale).toFixed(1)}" height="2" class="morale${u.morale < 40 ? ' low' : ''}"/>`}
+        ${hero ? '' : `<rect x="${cx - 14}" y="${cy + 17}" width="28" height="1.5" class="hp-bg"/>
+        <rect x="${cx - 14}" y="${cy + 17}" width="${(28 * morale).toFixed(1)}" height="1.5" class="morale${u.morale < 40 ? ' low' : ''}"/>`}
       </g>`;
     })
     .join('');
@@ -118,7 +122,7 @@ export function renderBattle(state: GameState, ui: UIState): string {
     <h1>Battle at ${esc(nodeName(state, b.at))}</h1>
     <span class="date">Round ${Math.min(b.round, maxRounds(b))} of ${maxRounds(b)}</span>
     <span class="turn ${myTurn ? 'mine' : ''}">${turnText}</span>
-    ${sel ? renderCastBar(b, sel, ui) : ''}
+    ${sel && group.length<2 ? renderCastBar(b, sel, ui) : ''}
     <span class="spacer"></span>
     ${b.outcome
       ? `<button data-action="battle-continue" class="primary">Back to the map</button>`
@@ -155,23 +159,23 @@ export function renderBattle(state: GameState, ui: UIState): string {
       </defs>
       <rect x="0" y="0" width="${w}" height="${h}" class="battle-earth"/>
       <g class="battle-terrain-wash" filter="url(#battle-terrain-blend)">${ground}</g>
-      ${battleScenery(b)}
+      ${richBattleGround(b, (x,y)=>hexPoints(x,y,S+.3))}${battleScenery(b)}
       <g class="battle-surface-details" pointer-events="none">${groundArt}</g>
       <g class="battle-move-highlights" pointer-events="none">${highlights}</g>
       ${overlay}${units}
     </svg></section>
     <aside class="side">
       ${renderMinimap(b, w, h)}
-      ${ui.message ? `<p class="msg">${esc(ui.message)}</p>` : ''}
+      ${ui.message ? `<p class="msg" role="status">${esc(ui.message)}</p>` : ''}
       ${myTurn ? renderGroupSelector(b, group) : ''}
-      ${b.outcome ? renderOutcome(state, b) : group.length > 1 ? `<p class="hint">${group.length} formations selected. The slowest has ${Math.min(...group.map(movementOf))} movement. Click a glowing location to move together while keeping their spacing. Select one formation to attack or cast.</p>` : sel ? renderUnit(b, sel, ui) : '<p class="hint">Click one of your units (blue), then a glowing location to move or a marked enemy to attack. Each unit may move, then attack, once a turn. Heroes (★) can cast spells instead of attacking.</p>'}
-      <p class="sub">The thin bar under each troop is its morale. Below ${ROUT_AT} it breaks and runs for its own edge of the field; at ${RALLY_AT} it may rally.</p>
+      ${b.outcome ? '' : group.length > 1 ? `<p class="hint">${group.length} formations selected. The slowest has ${Math.min(...group.map(movementOf))} movement. Click a glowing location to move together while keeping their spacing. Select one formation to attack or cast.</p>` : sel ? renderUnit(state, b, sel, ui) : '<p class="hint">Gold-bordered hexes show where you can move this turn. Click one of your units, then a marked enemy to move into range and attack in one click, or a glowing location to move. Each unit may move, then attack, once a turn. Heroes (★) can cast spells instead of attacking.</p>'}
+      <p class="sub">Groups of soldiers are formations; single figures marked ★ are heroes. People share the same scale; groups represent formations. Formation numbers count soldiers; hero numbers show HP. The thin bar under each troop is its morale. Below ${ROUT_AT} it breaks and runs for its own edge of the field; at ${RALLY_AT} it may rally.</p>
       ${b.walls ? `<p class="sub">${me === 'defender' ? 'You fight behind town walls: +1 defense.' : 'The enemy is behind walls: +1 defense.'}</p>` : ''}
       ${renderReserves(b)}
       ${renderLegend(b)}
       <details class="log" open><summary>Battle report</summary><ul>${b.log.slice(-14).reverse().map((l) => `<li>${esc(l)}</li>`).join('')}</ul></details>
     </aside>
-  </main>`;
+  </main>${b.outcome ? renderOutcome(state, b) : ''}`;
 }
 
 /** Ground colours for the minimap. */
@@ -219,16 +223,16 @@ function renderLegend(b: Battle): string {
   const kinds = (Object.keys(TERRAIN) as Terrain[]).filter((k) => k !== 'plain' && present.has(k));
   if (!kinds.length) return '';
   return `<details class="legend" open><summary>Ground on this field</summary><ul>${kinds
-    .map((k) => `<li><svg viewBox="-31 -27 62 54" class="swatch"><polygon points="${hexPoints(0, 0)}" class="hex ${k}"/>${terrainArt(k, 0, 0, 3)}</svg>
+    .map((k) => `<li><svg viewBox="-31 -27 62 54" class="swatch"><polygon points="${hexPoints(0, 0)}" class="hex ${k}"/>${k === 'ruins' ? richRuin(0,0,3) : terrainArt(k,0,0,3)}</svg>
       <span><b>${TERRAIN[k].name}.</b> ${TERRAIN[k].text}</span></li>`)
     .join('')}</ul></details>`;
 }
 
-function renderUnit(b: Battle, u: BattleUnit, ui: UIState): string {
+function renderUnit(state: GameState, b: Battle, u: BattleUnit, ui: UIState): string {
   const t = UNIT_TYPES[u.type];
   const spells = UNIT_TYPES[u.type].hero?.spells ?? [];
   const known = knownSpells(u);
-  const title = t.hero ? `★ ${esc(u.name ?? t.name)} <small>${t.name}, Lv ${heroLevel(u.xp)}</small>` : `${esc(t.name)}${level(u.xp) ? ` <small>Lv ${level(u.xp)}</small>` : ''}`;
+  const title = t.hero ? `★ ${esc(u.name ?? t.name)} <small>${u.type==='lord' && state.rulerAppearance ? 'Knight' : t.name}, Lv ${heroLevel(u.xp)}</small>` : `${esc(t.name)}${level(u.xp) ? ` <small>Lv ${level(u.xp)}</small>` : ''}`;
   const spellButtons = spells
     .map((id) => {
       const sp = SPELLS[id];
@@ -263,10 +267,19 @@ function renderOutcome(state: GameState, b: Battle): string {
   const lost = (side: 'attacker' | 'defender') =>
     b.units.filter((u) => u.side === side && !UNIT_TYPES[u.type].hero).reduce((s, u) => s + (u.startMen - u.men), 0);
   const me = playerSide(b)!;
-  return `<h2>${won ? 'Victory' : 'Defeat'}</h2>
-    <p>You lost ${lost(me)} men. The enemy lost ${lost(me === 'attacker' ? 'defender' : 'attacker')}.</p>
+  const rows = (side: 'attacker' | 'defender') => b.units.filter(u=>u.side===side).map(u=> {
+    const hero = !!UNIT_TYPES[u.type].hero;
+    const gain = u.men > 0 && !u.reserve ? (hero ? 1 + Math.floor(u.deeds / 2) : 1) : 0;
+    const before = hero ? heroLevel(u.xp) : level(u.xp);
+    const after = hero ? heroLevel(u.xp + gain) : level(u.xp + gain);
+    return '<tr><th scope="row">'+esc(u.name ?? UNIT_TYPES[u.type].name)+'</th><td>'+Math.max(0,u.startMen-u.men)+(hero ? ' HP' : '')+'</td><td>'+(u.men<=0 ? (hero ? 'Fallen' : 'Destroyed') : u.reserve ? 'Reserve' : u.fled ? 'Withdrew' : 'Survived')+'</td><td>'+ (gain ? '+'+gain+' XP'+(after>before ? ' · Level '+after : '') : '—')+'</td></tr>';
+  }).join('');
+  const army = (side: 'attacker' | 'defender') => '<section><h3>'+ (side===me ? 'Your army' : 'Enemy army')+'</h3><div class="report-table"><table><thead><tr><th>Formation</th><th>Losses</th><th>Fate</th><th>Advancement</th></tr></thead><tbody>'+rows(side)+'</tbody></table></div></section>';
+  return `<section class="battle-report" aria-labelledby="battle-result-title"><div class="battle-report-sheet"><p class="report-eyebrow">Chronicle of battle · Round ${b.round}</p><h2 id="battle-result-title">${won ? 'Victory' : 'Defeat'} at ${esc(nodeName(state,b.at))}</h2>
+    <p class="battle-spoils">Gold spoils: <b>${battleSpoils(b)}g</b>${won ? ' · collected when you continue' : ' · victory is required'}.</p><p>You lost ${lost(me)} men. The enemy lost ${lost(me === 'attacker' ? 'defender' : 'attacker')}.</p>
+    ${army(me)}${army(me === 'attacker' ? 'defender' : 'attacker')}
     ${b.retreated === me && !b.raid ? '<p class="sub">Your troops fall back to where they came from.</p>' : ''}
-    ${b.raid ? `<p class="raid-outcome">${esc(won ? `The raid is beaten off. ${nodeName(state, b.raid.town)} is safe.` : `The raiders break into ${nodeName(state, b.raid.town)}. ${raidAftermath(state, b.raid.lair, b.raid.town)}`)}</p>` : ''}`;
+    ${b.raid ? `<p class="raid-outcome">${esc(won ? `The raid is beaten off. ${nodeName(state, b.raid.town)} is safe.` : `The raiders break into ${nodeName(state, b.raid.town)}. ${raidAftermath(state, b.raid.lair, b.raid.town)}`)}</p>` : ''}<p class="sub">Experience and campaign consequences are applied when you continue.</p><button data-action="battle-continue" class="primary">Continue to the realm</button></div></section>`;
 }
 
 function renderReserves(b: Battle): string {

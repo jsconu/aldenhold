@@ -1,6 +1,11 @@
+import type { CampaignId } from '../game/types';
+import type { RulerChoice } from '../game/rulerCreation';
 import type { SpellId } from '../game/types';
 
 export interface UIState {
+  refitChoice?: {troop:number;item:import('../game/types').EquipmentId};
+  creatingFor?: CampaignId;
+  rulerDraft?: RulerChoice;
   /** The campaign chooser is open. */
   choosing?: boolean;
   /** Selected map node. */
@@ -23,7 +28,9 @@ export interface UIState {
   battleDestination?: { col: number; row: number } | null;
   message: string;
   /** Campaign screen: the province map or the full journal. */
-  view: 'map' | 'journal' | 'treasury';
+  view: 'map' | 'journal' | 'treasury' | 'city';
+  cityTab?:'overview'|'development'|'recruitment'|'army'|'quests';
+  marchMode?:boolean;
   /** Ephemeral map presentation; deliberately not part of the saved campaign. */
   mapLayer?: 'terrain' | 'political';
   mapZoom?: number;

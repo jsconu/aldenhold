@@ -452,6 +452,26 @@ export function attackTargets(b: Battle, u: BattleUnit): BattleUnit[] {
   });
 }
 
+/** A legal one-click attack, including moving to a reachable adjacent hex for melee. */
+export function attackOrderQuote(b: Battle, unitId: number, targetId: number): { reason: string | null; destination: Hex | null; cost: number } {
+  const u=b.units.find(x=>x.id===unitId),t=b.units.find(x=>x.id===targetId);
+  const no=(reason:string)=>({reason,destination:null,cost:0});
+  if(!u || !t || b.outcome || u.side!==b.active || t.side===u.side || t.reserve || t.fled || t.men<=0) return no('Choose a living enemy on the field.');
+  if(u.reserve || u.acted || u.fled || u.men<=0 || u.routing) return no('This formation cannot attack now.');
+  if(attackTargets(b,u).includes(t))return {reason:null,destination:null,cost:0};
+  const reach=reachable(b,u);
+  const options=[...reach.keys()].map(key=>{const [col,row]=key.split(',').map(Number);return {col,row};}).filter(h=>attackTargets(b,{...u,...h}).includes(t)).sort((a,c)=>(reach.get(hexKey(a))!-reach.get(hexKey(c))!) || terrainAt(b,a).moveLoss-terrainAt(b,c).moveLoss || a.col-c.col || a.row-c.row);
+  if(!options.length)return no('That enemy is beyond this turn’s movement and attack range.');
+  return {reason:null,destination:options[0],cost:reach.get(hexKey(options[0]))!};
+}
+
+export function attackOrder(b: Battle, unitId: number, targetId: number): boolean {
+  const quote=attackOrderQuote(b,unitId,targetId);
+  if(quote.reason)return false;
+  if(quote.destination && !moveUnit(b,unitId,quote.destination))return false;
+  return attack(b,unitId,targetId);
+}
+
 /** Missile range, including the bonus for standing on high ground. Melee troops stay at 1. */
 export function rangeOf(b: Battle, u: BattleUnit): number {
   const range = UNIT_TYPES[u.type].range + (u.gear.bow ? EQUIPMENT[u.gear.bow].rangeBonus : 0);
@@ -465,10 +485,14 @@ export function moveUnit(b: Battle, unitId: number, to: Hex): boolean {
   u.col = to.col;
   u.row = to.row;
   u.moved = true;
+  applyMoveGround(b, u);
+  return true;
+}
+
+function applyMoveGround(b:Battle,u:BattleUnit){
   const ground = terrainAt(b, u);
   const lost = Math.min(ground.moveLoss, u.men - 1);
   if (lost > 0) b.log.push(`${unitLabel(b, u)} push into the ${ground.name.toLowerCase()}: ${lost} ${isHero(u.type) ? 'wounds' : 'men hurt'}.${takeLosses(b, u, lost)}`);
-  return true;
 }
 
 export function unitLabel(b: Battle, u: BattleUnit): string {

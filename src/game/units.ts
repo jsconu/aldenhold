@@ -42,3 +42,10 @@ export function kitBonus(kit: HeroKit | undefined): { attack: number; defense: n
   }
   return total;
 }
+
+/** Ruler identity is independent of their combat class. Legacy lords remain knights. */
+export function isRulerType(type:string):boolean {return ['lord','rulerPriest','rulerMage'].includes(type);}
+/** Ruler-only relics remain available to every ruler class. */
+export function heroCanUse(type:string,allowed:readonly string[]|undefined):boolean {
+ return !allowed || allowed.includes(type) || (isRulerType(type) && allowed.includes('lord'));
+}

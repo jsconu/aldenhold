@@ -45,7 +45,7 @@ describe('Merra’s stall (Q05 follow-up)', () => {
   it('stays out of sight until the caravan’s fate is known', () => {
     const s = atFenwick();
     expect(merchantStatus(s, MERRA)).toBeNull();
-    expect(renderCampaign(s, ui(townLocation(s, 'fenwick')))).not.toContain('Merra’s stall');
+    expect(renderCampaign(s, {...ui(townLocation(s,'fenwick')),view:'city',cityTab:'overview'})).not.toContain('Merra’s stall');
     expect(buyQuote(s, 'merra', 'healing-draught').reason).toBe('Not open.');
   });
 
@@ -74,7 +74,7 @@ describe('Merra’s stall (Q05 follow-up)', () => {
     s.flags.push('caravan-rescued');
     expect(merchantStatus(s, MERRA)).toMatchObject({ open: true, markup: 1 });
     expect(buyQuote(s, 'merra', 'mana-draught')).toMatchObject({ gold: 50, left: 1 });
-    const html = renderCampaign(s, ui(townLocation(s, 'fenwick')));
+    const html = renderCampaign(s, {...ui(townLocation(s,'fenwick')),view:'city',cityTab:'overview'});
     expect(html).toContain('Merra trades with you at cost');
     expect(html).toMatch(/data-action="buy-item" data-merchant="merra" data-item="healing-draught"\s*>\s*Buy Healing Draught · 40g/);
   });
@@ -83,7 +83,7 @@ describe('Merra’s stall (Q05 follow-up)', () => {
     const s = atFenwick();
     s.flags.push('caravan-lost');
     expect(merchantStatus(s, MERRA)).toEqual({ open: false, note: 'Merra’s stall stands empty. Her caravan never came home.' });
-    expect(renderCampaign(s, ui(townLocation(s, 'fenwick')))).toContain('Merra’s stall stands empty');
+    expect(renderCampaign(s, {...ui(townLocation(s,'fenwick')),view:'city',cityTab:'overview'})).toContain('Merra’s stall stands empty');
     expect(buyQuote(s, 'merra', 'healing-draught').reason).toBe('Merra’s stall stands empty. Her caravan never came home.');
   });
 

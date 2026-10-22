@@ -14,7 +14,7 @@ import { BUILDING_IDS, BUILDINGS, developmentSites, GOODS, MAX_BUILDING_LEVEL, M
 import { basicLoadout, EQUIPMENT, equipmentQuoteGold, usesBow } from './equipment';
 import { endingReason, makeTroop, startLocation } from './campaign';
 import { TERRAIN, UNIT_TYPES } from './data';
-import { heroMaxHp, heroMaxMana, isHero } from './units';
+import { heroMaxHp, heroMaxMana, isHero, heroCanUse } from './units';
 import { hasRoad, isLocation, townAt } from './world';
 import type { CampaignId, DeedKind, GameState, JournalEntry, LedgerCategory, Town, EquipmentId } from './types';
 
@@ -48,14 +48,16 @@ const factions = Object.keys(FACTIONS);
 const deedKinds: DeedKind[] = ['story', 'battle', 'capture', 'loss', 'hero', 'realm', 'ending', 'earlier'];
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const sides = ['attacker', 'defender'];
-const ledgerCategories: LedgerCategory[] = ['tax', 'wages', 'recruitment', 'hero-hire', 'construction', 'maintenance', 'refit', 'quest', 'quest-reward', 'item-sale', 'item-purchase', 'lair-plunder', 'raid-loss', 'balance-correction'];
+const ledgerCategories: LedgerCategory[] = ['tax', 'wages', 'recruitment', 'hero-hire', 'construction', 'maintenance', 'refit', 'quest', 'quest-reward', 'item-sale', 'item-purchase', 'lair-plunder', 'raid-loss', 'battle-spoils', 'balance-correction'];
 
 /** Validate both shape and references before exposing a save to rules or rendering. */
 function validate(value: unknown, allowMissingBattleTroops = false): asserts value is GameState {
   const s = object(value);
   requireValue(s.version === 16, 'unsupported schema version');
+  if(s.rulerAppearance!==undefined){const look=object(s.rulerAppearance);requireValue(oneOf(look.gender,['male','female']) && oneOf(look.skin,['fair','olive','brown','deep']) && (look.rulerClass===undefined || oneOf(look.rulerClass,['knight','priest','mage'])),'ruler appearance');}
   requireValue(text(s.campaignId) && Object.hasOwn(CATALOG.campaigns, s.campaignId), 'unknown campaign');
   const def = getCampaign(s.campaignId as CampaignId);
+  if(s.challenge!==undefined){const c=object(s.challenge);requireValue(oneOf(c.difficulty,['easy','normal','hard']) && typeof c.fog==='boolean' && Array.isArray(c.explored) && c.explored.length<=10000 && c.explored.every(at=>typeof at==='string' && isLocation(value as GameState,at)) && new Set(c.explored).size===c.explored.length,'campaign difficulty and exploration');}
   requireValue(s.campaignRevision === def.revision, 'unsupported campaign revision');
   requireValue(integer(s.turn, 1) && integer(s.gold) && integer(s.nextId, 1) && integer(s.seed, -2147483648, 2147483647), 'campaign numbers');
   requireValue(oneOf(s.status, ['playing', 'won', 'lost']), 'campaign status');
@@ -82,6 +84,10 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
     const t = object(entry);
     requireValue(t.id === id && def.towns.some((d) => d.id === id) && oneOf(t.owner, factions) && integer(t.pop) && integer(t.tax, 0, 50) && oneOf(t.kind, ['capital', 'town', 'lair']), 'town');
   }
+  if(s.cityPolitics!==undefined){
+    const p=object(s.cityPolitics);requireValue(integer(p.lastTurn,0,Number(s.turn)),'city politics turn');
+    for(const [origin,raw] of Object.entries(object(p.rivals))){const r=object(raw);requireValue(Object.hasOwn(towns,origin)&&integer(r.nextRaidTurn,1),'rival city');if(r.warning!==undefined){const w=object(r.warning);requireValue(text(w.target)&&Object.hasOwn(towns,w.target)&&integer(w.launchTurn,1),'city muster warning');}}
+  }
   const ids = new Set<number>();
   const useId = (id: unknown) => {
     requireValue(integer(id, 1) && !ids.has(id) && id < Number(s.nextId), 'duplicate or invalid campaign ID');
@@ -91,6 +97,7 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
     const a = object(entry);
     useId(a.id);
     requireValue(oneOf(a.owner, factions) && loc(a.at) && (a.from === null || loc(a.from)), 'army location or owner');
+    if(a.cityRaid!==undefined){const r=object(a.cityRaid);requireValue(a.owner==='neutral' && text(r.origin) && Object.hasOwn(towns,r.origin) && text(r.target) && Object.hasOwn(towns,r.target) && integer(r.launched,1,Number(s.turn)) && (r.returning===undefined||bool(r.returning)),'city war party');}
     requireValue(a.target === undefined || (a.owner === 'orcs' && text(a.target) && Object.hasOwn(towns, a.target)), 'army target');
     if (a.tactics !== undefined) {
       const tactics = object(a.tactics);
@@ -123,7 +130,7 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
         const kit = object(t.kit);
         requireValue(isHero(t.type as string) && a.owner === 'player' && Object.keys(kit).length > 0 &&
           Object.entries(kit).every(([slot, id]) => oneOf(slot, ['weapon', 'armor', 'accessory']) && text(id) &&
-            ITEMS[id]?.equip?.slot === slot && (!ITEMS[id].equip!.heroes || ITEMS[id].equip!.heroes!.includes(t.type as string))), 'hero equipment');
+            ITEMS[id]?.equip?.slot === slot && heroCanUse(t.type as string,ITEMS[id].equip!.heroes)), 'hero equipment');
       }
       if (t.refit !== null) {
         const refit = object(t.refit);
@@ -165,7 +172,7 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
         text(e.counterparty) && text(e.actionId) && e.actionId.length > 0 &&
         !unique.has(e.actionId), 'treasury transaction');
       unique.add(e.actionId as string);
-      requireValue(e.category === 'tax' || e.category === 'quest-reward' || e.category === 'item-sale' || e.category === 'lair-plunder' ? Number(e.amount) > 0 :
+      requireValue(e.category === 'tax' || e.category === 'quest-reward' || e.category === 'item-sale' || e.category === 'lair-plunder' || e.category === 'battle-spoils' ? Number(e.amount) > 0 :
         e.category === 'balance-correction' ? Number(e.amount) !== 0 : Number(e.amount) < 0,
         'treasury transaction sign');
     }
@@ -366,6 +373,7 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
   });
   if (s.battle !== null) {
     const b = object(s.battle);
+    requireValue(b.settled === undefined || b.settled === false, 'already settled battle');
     requireValue(loc(b.at) && Object.values(BATTLE_SIZES).some((size) => size.width === b.width && size.height === b.height), 'battle map');
     const width = Number(b.width), height = Number(b.height);
     requireValue(integer(b.round, 1, maxRounds(b as { width: number }) + 1) && integer(b.seed, -2147483648, 2147483647) && bool(b.walls), 'battle numbers');

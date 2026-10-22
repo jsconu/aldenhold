@@ -155,6 +155,8 @@ export interface Army {
   troops: Troop[];
   /** Raiders only: the town this force marches on (a quest's incursion) instead of the nearest one. */
   target?: string;
+  /** Independent-city expedition; its home town has its own diplomacy. */
+  cityRaid?:{origin:string;target:string;launched:number;returning?:boolean};
   /** How this army sets up and fights; absent means Offensive. */
   tactics?: Tactics;
   /** A monster raiding party from this lair: it never captures, and leaves after its battle. */
@@ -223,6 +225,8 @@ export interface BattleUnit {
 }
 
 export interface Battle {
+  /** Set only when writing a completed result back; active saved battles must remain unsettled. */
+  settled?: boolean;
   at: string;
   attackerId: number;
   defenderId: number;
@@ -466,6 +470,8 @@ export interface QuestStage {
 }
 
 export interface QuestDefinition {
+  /** A narrative adventure entered by the ruler alone; their army waits at this site. */
+  adventureSite?: string;
   id: string;
   campaignIds: CampaignId[];
   kind: 'main' | 'side';
@@ -488,7 +494,7 @@ export interface QuestDefinition {
 }
 
 /** Signed cash movements: positive receipts, negative actual payments. */
-export type LedgerCategory = 'tax' | 'wages' | 'recruitment' | 'hero-hire' | 'construction' | 'maintenance' | 'refit' | 'quest' | 'quest-reward' | 'item-sale' | 'item-purchase' | 'lair-plunder' | 'raid-loss' | 'balance-correction';
+export type LedgerCategory = 'tax' | 'wages' | 'recruitment' | 'hero-hire' | 'construction' | 'maintenance' | 'refit' | 'quest' | 'quest-reward' | 'item-sale' | 'item-purchase' | 'lair-plunder' | 'raid-loss' | 'battle-spoils' | 'balance-correction';
 
 /** A monster lair's state: active until its garrison is destroyed; hidden until found. */
 export interface LairState {
@@ -597,7 +603,16 @@ export interface CityEconomy {
   lastMonth: CityProduction | null;
 }
 
+export type Difficulty='easy'|'normal'|'hard';
+export interface CampaignChallenge {difficulty:Difficulty;fog:boolean;explored:string[];}
+export type RulerClass='knight'|'priest'|'mage';
+export interface RulerAppearance { rulerClass?:RulerClass; gender:'male'|'female'; skin:'fair'|'olive'|'brown'|'deep' }
+
 export interface GameState {
+  /** Cosmetic ruler choice; absent on legacy saves. */
+  cityPolitics?:{lastTurn:number;rivals:Record<string,{nextRaidTurn:number;warning?:{target:string;launchTurn:number}}>};
+  challenge?:CampaignChallenge;
+  rulerAppearance?: RulerAppearance;
   version: 16;
   campaignId: CampaignId;
   campaignRevision: number;

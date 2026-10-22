@@ -12,7 +12,7 @@ export function recordPurchase(state: GameState, city: string, category: 'recrui
 
 /** Records a one-time receipt (a quest reward or a sale) already added to gold by a rules action. Not tax income. */
 export function recordReceipt(state: GameState, city: string, amount: number, actionId: string, counterparty: string,
-  category: 'quest-reward' | 'item-sale' | 'lair-plunder' = 'quest-reward') {
+  category: 'quest-reward' | 'item-sale' | 'lair-plunder' | 'battle-spoils' = 'quest-reward') {
   if (amount <= 0) return;
   state.treasury.pending.push({ turn: state.turn, city, category, amount, counterparty, actionId });
 }
