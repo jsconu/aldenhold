@@ -137,7 +137,8 @@ export interface Troop {
   gear: Loadout;
   refit: PendingRefit | null;
   /** A stationary watch assignment; moving the scout clears it. */
-  scoutPost?: 'city' | 'road';
+  /** A scout keeping watch where it stands ('city' and 'road' are the same watch, from older saves). */
+  scoutPost?: 'watch' | 'city' | 'road';
   /** Heroes only: campaign equipment they carry, by slot (item ids). */
   kit?: HeroKit;
 }
