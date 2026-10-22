@@ -1,5 +1,5 @@
 import {cityWarbandTurn} from './cityWarbands';
-import {explore,holdApproachReason,challengeVictoryReady} from './challenge';
+import {explore,remainingObjectives,challengeVictoryReady} from './challenge';
 import { SPECIES } from '../content/lairs';
 import { observeOrcRoutes } from './scouts';
 import { endRaid, planRaids, resolveRaids } from './raids';
@@ -277,9 +277,7 @@ export function sharedMp(troops: Troop[]): number {
 /** Where the chosen troops at `from` can get to this month, with the cheapest route to each. */
 export function playerMarchOptions(state: GameState, from: string, troopIds: number[]) {
   const moving = armyAt(state, from, 'player')?.troops.filter((t) => troopIds.includes(t.id) && t.mp > 0 && !t.refit) ?? [];
-  const options=marchOptions(state, from, 'player', sharedMp(moving));
-  for(const at of options.keys())if(holdApproachReason(state,at))options.delete(at);
-  return options;
+  return marchOptions(state, from, 'player', sharedMp(moving));
 }
 
 /**
@@ -338,7 +336,7 @@ export interface MarchQuote {
 export function marchQuote(state: GameState, from: string, troopIds: number[], to: string): MarchQuote {
   const refuse = (reason: string): MarchQuote => ({ cost: 0, path: [], troopIds: [], ends: null, reason });
   if (state.battle || state.status !== 'playing') return refuse('Not now.');
-  const gate=holdApproachReason(state,to);if(gate)return refuse(gate);
+
   const src = armyAt(state, from, 'player');
   if (!src) return refuse('You have no troops there.');
   const moving = src.troops.filter((t) => troopIds.includes(t.id) && t.mp > 0 && !t.refit);
@@ -425,6 +423,11 @@ export function captureTown(state: GameState, town: Town, owner: FactionId) {
     deed(state, 'loss', `${owner === 'orcs' ? 'Orcs have' : owner in SPECIES ? `${SPECIES[owner as MonsterSpecies].name} have` : 'The enemy has'} taken ${name} from you.`, townLocation(state, town.id));
   } else if (owner === 'orcs') {
     log(state, `Orcs have taken ${name}.`);
+  }
+  // Taking the Hold before everything else is done: say what still stands between you and victory.
+  if (owner === 'player' && state.challenge && town.id === campaignOf(state).lair) {
+    const left = remainingObjectives(state);
+    if (left.length) deed(state, 'realm', `${name} is yours, but the realm is not yet won. Still to do: ${left.join('; ')}.`, townLocation(state, town.id));
   }
   checkStatus(state);
 }

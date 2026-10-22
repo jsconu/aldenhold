@@ -1,7 +1,7 @@
 import {describe,it,expect} from 'vitest';
 import {createRulerCampaign} from './rulerCreation';
-import {newGame,lordOf,endingReason,armyAt,moveTroops,marchQuote,playerMarchOptions} from './campaign';
-import {campaignObjectives,holdApproachReason,explore,explored} from './challenge';
+import {newGame,lordOf,endingReason,armyAt,moveTroops,marchQuote,playerMarchOptions,captureTown} from './campaign';
+import {campaignObjectives,remainingObjectives,explore,explored} from './challenge';
 import {replacementQuote,recruitReplacements} from './replacements';
 import {townLocation,marchOptions} from './world';
 import {parseSave} from './saves';
@@ -13,21 +13,30 @@ import {chooseQuest} from './quests';
 import {richUnit} from '../ui/richBattle';
 const choice={name:'Rowan',gender:'female' as const,skin:'brown' as const};
 describe('campaign challenge and exploration',()=>{
- it('preserves legacy campaign endings while new Western campaigns require the final assault',()=>{
+ it('preserves legacy campaign endings while new Western campaigns need every objective, the Hold included',()=>{
  const legacy=newGame(1,'western-realm');legacy.quests.M04.status='succeeded';expect(endingReason(legacy)).toBe('chapter-complete');
  const s=createRulerCampaign('western-realm',choice,1);s.quests.M04.status='succeeded';expect(endingReason(s)).toBeNull();
- const hold=townLocation(s,'gharzak'),home=townLocation(s,'aldenhold');
- expect(holdApproachReason(s,hold)).toContain('Signet');expect(marchQuote(s,home,[lordOf(s)!.id],hold).reason).toContain('final assault');
- expect(playerMarchOptions(s,home,[lordOf(s)!.id]).has(hold)).toBe(false);
+ expect(remainingObjectives(s).some(o=>o.includes('Signet'))).toBe(true);
  expect(campaignObjectives(s).filter(o=>!o.done).length).toBeGreaterThan(3);
  });
- it('opens the final assault only after the relics, development and veteran equipment are ready',()=>{
- const s=createRulerCampaign('western-realm',choice,1);s.quests.M04.status='succeeded';
+ it('lets you storm the Hold at any time; the realm is won once every objective is done, in any order',()=>{
+ const s=createRulerCampaign('western-realm',choice,1);
+ const hold=townLocation(s,'gharzak'),home=townLocation(s,'aldenhold');
+ // The march is never locked: it is quoted like any other march.
+ expect(marchQuote(s,home,[lordOf(s)!.id],hold).reason ?? '').not.toContain('not ready');
+ // Take the Hold first: it is yours, the journal lists what remains, and the game goes on.
+ captureTown(s,s.towns.gharzak,'player');
+ expect(s.towns.gharzak.owner).toBe('player');
+ expect(s.status).toBe('playing');
+ expect(s.journal.at(-1)!.text).toMatch(/Gharzak Hold is yours, but the realm is not yet won\. Still to do: .*Signet/);
+ // Finish the rest in any order; the last one wins the realm.
+ s.quests.M04.status='succeeded';
  for(const id of ['oathlance','keepers-signet','hillcrest-medallion'])s.items[id]={qty:1,spent:0,archived:false};
  s.cityEconomies.aldenhold.buildings.farm=2;s.cityEconomies.aldenhold.buildings.forge=1;
- const troops=s.armies.find(a=>a.owner==='player')!.troops.filter(t=>t.type!=='lord');troops[0].gear.armor='chain';troops[1].gear.armor='chain';
- expect(holdApproachReason(s,townLocation(s,'gharzak'))).toBeNull();
- s.towns.gharzak.owner='player';expect(endingReason(s)).toBe('lair-captured');
+ expect(endingReason(s)).toBeNull();
+ const troops=s.armies.filter(a=>a.owner==='player').flatMap(a=>a.troops).filter(t=>t.type!=='lord' && !t.name);troops[0].gear.armor='chain';troops[1].gear.armor='chain';
+ expect(remainingObjectives(s)).toEqual([]);
+ expect(endingReason(s)).toBe('lair-captured');
  });
  it('keeps exploration permanent, hides labels and armies, and stops blind pathfinding after a frontier hex',()=>{
  const s=createRulerCampaign('western-realm',choice,4),home=townLocation(s,'aldenhold'),hold=townLocation(s,'gharzak');

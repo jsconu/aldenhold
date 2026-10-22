@@ -554,7 +554,7 @@ function renderReplacements(state:GameState,army:Army):string{
 }
 function renderCampaignObjectives(state:GameState):string{
  const objectives=campaignObjectives(state);if(!objectives.length)return '';
- return '<section class="campaign-objectives"><h2>Unite the Western Realm</h2><p>'+DIFFICULTIES[state.challenge!.difficulty].name+' · '+(state.challenge!.fog?'Explore to reveal the map. ':'')+'Gharzak Hold is the final battle. Prepare the realm and gather all three relics before the assault.</p><ol>'+objectives.map(o=>'<li class="'+(o.done?'objective-done':'')+'">'+(o.done?'✓ ':'○ ')+esc(o.label)+(o.at?'<button class="link" data-action="goto" data-node="'+esc(startLocation(state,o.at))+'">Show objective</button>':'')+'</li>').join('')+'</ol></section>';
+ return '<section class="campaign-objectives"><h2>Unite the Western Realm</h2><p>'+DIFFICULTIES[state.challenge!.difficulty].name+' · '+(state.challenge!.fog?'Explore to reveal the map. ':'')+'Complete these in any order. You can storm Gharzak Hold whenever you dare (its garrison is elite); the realm is won once every objective is done.</p><ol>'+objectives.map(o=>'<li class="'+(o.done?'objective-done':'')+'">'+(o.done?'✓ ':'○ ')+esc(o.label)+(o.at?'<button class="link" data-action="goto" data-node="'+esc(startLocation(state,o.at))+'">Show objective</button>':'')+'</li>').join('')+'</ol></section>';
 }
 
 function renderCityScreen(state:GameState,ui:UIState):string{

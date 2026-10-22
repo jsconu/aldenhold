@@ -30,10 +30,12 @@ export function campaignObjectives(state:GameState):{id:string;label:string;done
  {id:'hold',label:'Defeat the elite garrison and conquer Gharzak Hold',done:state.towns.gharzak.owner==='player',at:'gharzak'}
  ];
 }
-export function holdApproachReason(state:GameState,to:string):string|null{
- if(!state.challenge || state.campaignId!=='western-realm' || to!==townLocation(state,'gharzak') || state.towns.gharzak.owner==='player')return null;
- const missing=campaignObjectives(state).filter(o=>o.id!=='hold' && !o.done);
- return missing.length?'The final assault is not ready: '+missing.map(o=>o.label).join('; ')+'. Open Campaign objectives for guidance.':null;
+/**
+ * The objectives besides the Hold still to do. They can be done in any order, the Hold included: storming it early
+ * is allowed (and hard), and the realm is won once every objective is done.
+ */
+export function remainingObjectives(state:GameState):string[]{
+ return campaignObjectives(state).filter(o=>o.id!=='hold' && !o.done).map(o=>o.label);
 }
 export function challengeVictoryReady(state:GameState):boolean{return campaignObjectives(state).every(o=>o.done);}
 export function holdLocation(state:GameState):string{return townLocation(state,getCampaign(state.campaignId).lair);}
