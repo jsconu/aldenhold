@@ -153,6 +153,8 @@ export interface Army {
   troops: Troop[];
   /** Raiders only: the town this force marches on (a quest's incursion) instead of the nearest one. */
   target?: string;
+  /** Independent-city expedition; its home town has its own diplomacy. */
+  cityRaid?:{origin:string;target:string;launched:number;returning?:boolean};
   /** How this army sets up and fights; absent means Offensive. */
   tactics?: Tactics;
   /** A monster raiding party from this lair: it never captures, and leaves after its battle. */
@@ -606,6 +608,7 @@ export interface RulerAppearance { rulerClass?:RulerClass; gender:'male'|'female
 
 export interface GameState {
   /** Cosmetic ruler choice; absent on legacy saves. */
+  cityPolitics?:{lastTurn:number;rivals:Record<string,{nextRaidTurn:number;warning?:{target:string;launchTurn:number}}>};
   challenge?:CampaignChallenge;
   rulerAppearance?: RulerAppearance;
   version: 16;

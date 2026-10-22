@@ -9,7 +9,7 @@ export function relationWith(state: GameState, townId: string): Relation | 'self
   const town = state.towns[townId];
   if (!town) return null;
   if (town.owner === 'player') return 'self';
-  return state.treaties[townId]?.relation ?? FACTIONS[town.owner].defaultRelation;
+  return state.treaties[townId]?.relation ?? (town.owner==='neutral' && state.cityPolitics?.rivals[townId] ? 'hostile' : FACTIONS[town.owner].defaultRelation);
 }
 
 /** Whether your armies may enter this town without fighting: allies and vassals that granted passage. */

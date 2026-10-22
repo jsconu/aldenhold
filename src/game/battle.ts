@@ -440,10 +440,14 @@ export function moveUnit(b: Battle, unitId: number, to: Hex): boolean {
   u.col = to.col;
   u.row = to.row;
   u.moved = true;
+  applyMoveGround(b, u);
+  return true;
+}
+
+function applyMoveGround(b:Battle,u:BattleUnit){
   const ground = terrainAt(b, u);
   const lost = Math.min(ground.moveLoss, u.men - 1);
   if (lost > 0) b.log.push(`${unitLabel(b, u)} push into the ${ground.name.toLowerCase()}: ${lost} ${isHero(u.type) ? 'wounds' : 'men hurt'}.${takeLosses(b, u, lost)}`);
-  return true;
 }
 
 export function unitLabel(b: Battle, u: BattleUnit): string {
@@ -950,4 +954,53 @@ function aiUnit(b: Battle, u: BattleUnit) {
     const weakest = targets.reduce((a, c) => ((c.routing ? 0 : c.men) < (a.routing ? 0 : a.men) ? c : a));
     attack(b, u.id, weakest.id);
   }
+}
+
+/** Translate odd-q hex positions without distorting a formation on odd columns. */
+function translatedHex(position:Hex,from:Hex,to:Hex):Hex{
+ const z=(h:Hex)=>h.row-(h.col-(h.col&1))/2;
+ const col=position.col+to.col-from.col;
+ return {col,row:z(position)+z(to)-z(from)+(col-(col&1))/2};
+}
+export interface GroupMoveQuote {reason:string|null;cost:number;budget:number;moves:{id:number;to:Hex}[];}
+/** Plans use every member's real terrain and enemy-control costs, bounded by the slowest member. */
+function groupPlans(b:Battle,ids:number[],anchorId:number):{reason:string|null;budget:number;plans:Map<string,GroupMoveQuote>}{
+ const plans=new Map<string,GroupMoveQuote>(),units=ids.map(id=>b.units.find(u=>u.id===id));
+ const refuse=(reason:string)=>({reason,budget:0,plans});
+ if(b.outcome || b.active!==playerSide(b))return refuse('You can move a group only on your turn.');
+ if(!ids.length || new Set(ids).size!==ids.length || !ids.includes(anchorId) || units.some(u=>!u))return refuse('Choose ready formations and an anchor.');
+ const members=units as BattleUnit[];
+ if(members.some(u=>u.side!==b.active || u.reserve || u.fled || u.routing || u.men<=0 || u.moved || u.acted))return refuse('Every selected formation must be ready to move.');
+ const anchor=members.find(u=>u.id===anchorId)!,budget=Math.min(...members.map(movementOf));
+ const selected=new Set(ids),reaches=new Map<number,Map<string,number>>();
+ for(const u of members){
+  const board={...b,units:b.units.filter(other=>!selected.has(other.id)||other.id===u.id)};
+  const reach=reachable(board,u);reach.set(hexKey(u),0);reaches.set(u.id,reach);
+ }
+ for(const [key] of reaches.get(anchorId)!){
+  const [col,row]=key.split(',').map(Number),to={col,row};
+  const occupying=unitAt(b,to);if(key===hexKey(anchor)||(occupying&&!selected.has(occupying.id)))continue;
+  let cost=0;const moves:{id:number;to:Hex}[]=[];
+  for(const u of members){
+   const destination=translatedHex(u,anchor,to),n=reaches.get(u.id)!.get(hexKey(destination));
+   if(n===undefined || n>budget){moves.length=0;break;}
+   cost=Math.max(cost,n);moves.push({id:u.id,to:destination});
+  }
+  if(moves.length===members.length)plans.set(key,{reason:null,cost,budget,moves});
+ }
+ return {reason:null,budget,plans};
+}
+export function groupMovementOptions(b:Battle,ids:number[],anchorId:number):Map<string,number>{
+ return new Map([...groupPlans(b,ids,anchorId).plans].map(([key,q])=>[key,q.cost]));
+}
+export function groupMoveQuote(b:Battle,ids:number[],anchorId:number,to:Hex):GroupMoveQuote{
+ const p=groupPlans(b,ids,anchorId);
+ return p.plans.get(hexKey(to))??{reason:p.reason??'The whole group cannot reach that position. Keep its shape clear of occupied hexes, terrain and the field edge.',cost:0,budget:p.budget,moves:[]};
+}
+/** Commit a fully validated group atomically; terrain wounds and morale use the normal move rules. */
+export function moveGroup(b:Battle,ids:number[],anchorId:number,to:Hex):string|null{
+ const q=groupMoveQuote(b,ids,anchorId,to);if(q.reason)return q.reason;
+ for(const move of q.moves){const u=b.units.find(u=>u.id===move.id)!;u.col=move.to.col;u.row=move.to.row;u.moved=true;}
+ for(const move of q.moves)applyMoveGround(b,b.units.find(u=>u.id===move.id)!);
+ return null;
 }

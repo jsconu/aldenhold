@@ -3,7 +3,7 @@ import {newGame} from '../game/campaign';
 import {renderCampaign} from './campaignView';
 import {beginRefit,refitQuote} from '../game/equipment';
 import {UIState} from './shared';
-const ui:UIState={selected:'aldenhold',checked:new Set(),battleUnit:null,battleSpell:null,message:'',view:'map'};
+const ui:UIState={selected:'aldenhold',checked:new Set(),battleUnit:null,battleSpell:null,message:'',view:'city',cityTab:'army'};
 describe('visible equipment and battle plans',()=>{
  it('shows equipment previews and battle plans without opening menus',()=>{
  const s=newGame(1),html=renderCampaign(s,ui);

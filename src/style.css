@@ -596,3 +596,11 @@ button.travel-destination b { color: var(--gold); font-size: 11px; }
 @media(min-width:561px) and (max-width:850px){.ruler-creation{grid-template-columns:180px minmax(0,1fr);gap:18px;padding:16px}.ruler-portrait svg{width:180px;max-width:180px;height:240px}.ruler-selection{padding:12px}.ruler-creation fieldset{padding:8px}.ruler-creation fieldset button{padding:8px 10px}}
 
 .unit .unit-status-back{fill:#19251ee8;stroke:#bcad83;stroke-width:.5;pointer-events:none}.unit .men.hero-hp{font-size:8px}.unit .men{stroke-width:2px}
+
+.battle-group-panel{padding:12px;border:1px solid #968057;margin-bottom:16px;background:#263126}.battle-group-panel h2{font-size:18px;margin-top:0}.battle-group-panel p{font-size:13px;line-height:1.5}.group-roster{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:6px;margin-top:10px}.group-roster button{font-size:12px;min-height:40px;white-space:normal;text-align:left}.group-roster button[aria-pressed="true"]{background:#5a4a27;border-color:#efd184}.group-actions{display:flex;gap:8px;flex-wrap:wrap}
+
+.city-screen{max-width:1100px;margin:0 auto;padding:24px}.city-heading{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}.city-heading h1{margin:4px 0 20px;color:var(--gold)}.city-tabs{display:flex;gap:8px;flex-wrap:wrap;border-bottom:1px solid #968057;padding-bottom:14px;margin:16px 0}.city-tabs button{min-height:44px}.city-content{padding:20px;background:#273027;border:1px solid #847451;margin-bottom:20px}.city-content .building-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px}.city-content .place-scene{max-width:960px;margin:0 auto}.city-content .troops{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:8px}.city-content .refit-panel,.city-content .tactics{max-width:900px}.city-screen .report-eyebrow{margin:0}@media(max-width:600px){.city-screen{padding:12px}.city-content{padding:12px}}
+
+.city-war-warning{border:2px solid #b2784e;background:#392c23;padding:14px;margin-bottom:16px}.city-war-warning h3{margin-top:0}.city-war-warning li{margin:8px 0}
+
+.city-screen,.ruler-selection{display:block;min-height:0}

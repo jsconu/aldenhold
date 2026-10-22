@@ -128,7 +128,7 @@ describe('tactics', () => {
 
   it('shows the battle plan with its stance buttons and deployment grid', () => {
     const s = newGame(1, 'western-realm');
-    const html = renderCampaign(s, ui(townLocation(s, 'aldenhold')));
+    const html = renderCampaign(s, {...ui(townLocation(s,'aldenhold')),view:'city',cityTab:'army'});
     expect(html).toContain('Battle plan: Offensive');
     expect(html).toContain('data-action="set-stance"');
     expect(html).toContain('<th>Back</th><th>Middle</th><th>Front</th>');

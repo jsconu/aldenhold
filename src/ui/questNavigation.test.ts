@@ -22,7 +22,7 @@ describe('quest destination navigation', () => {
     const before = JSON.stringify(state);
     expect(questFocus(state, 'Q05')).toBe(startLocation(state, 'mine'));
     expect(renderJournal(state)).toContain('data-node="26,3">Show Abandoned Mine');
-    const html = renderCampaign(state, ui(townLocation(state, 'fenwick')));
+    const html = renderCampaign(state, {...ui(townLocation(state,'fenwick')),view:'city',cityTab:'quests'});
     expect(html).toContain('data-node="26,3">Show Abandoned Mine');
     expect(html).toContain('Storm the mine');
     expect(JSON.stringify(state)).toBe(before); // inspecting a destination never moves or pays for the party
@@ -35,7 +35,7 @@ describe('quest destination navigation', () => {
     expect(questFocus(state, 'Q02')).toBe(startLocation(state, 'quarry'));
     armyAt(state, townLocation(state, 'aldenhold'), 'player')!.at = '7,7';
     expect(chooseQuest(state, 'Q00', 'decline')).toBeNull();
-    const html = renderCampaign(state, ui(townLocation(state, 'aldenhold')));
+    const html = renderCampaign(state, {...ui(townLocation(state,'aldenhold')),view:'city',cityTab:'quests'});
     expect(html.includes('title="Show Old Quarry on the map"')).toBe(true);
     expect(html).toContain('data-node="24,15">Show Old Quarry');
     expect(html).toContain('Divert the workers');

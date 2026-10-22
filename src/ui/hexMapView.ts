@@ -127,7 +127,7 @@ function bannerDefs(): string {
 export function bannerFor(state: GameState, townId: string): BannerKind {
   const town = state.towns[townId];
   if (!town || town.kind === 'lair') return 'lair';
-  return town.owner === 'player' ? 'player' : town.owner === 'neutral' ? 'free' : 'enemy';
+  return town.owner === 'player' ? 'player' : town.owner === 'neutral' && relationWith(state,townId)!=='hostile' ? 'free' : 'enemy';
 }
 
 /** The banner as an SVG fragment, for the map and its legend. */
@@ -171,7 +171,7 @@ function terrainImage(world: HexWorld): string {
 
 function armyTitle(a: Army): string {
   const men = a.troops.reduce((s, t) => s + t.men, 0);
-  const who = a.owner === 'player' ? 'Your troops' : a.owner === 'orcs' ? 'Orc host' : a.owner === 'neutral' ? 'Town militia' : FACTIONS[a.owner].name;
+  const who = a.cityRaid ? 'Rival city war party' : a.owner === 'player' ? 'Your troops' : a.owner === 'orcs' ? 'Orc host' : a.owner === 'neutral' ? 'Town militia' : FACTIONS[a.owner].name;
   return `${who}: ${a.troops.length} ${a.troops.length === 1 ? 'troop' : 'troops'}, ${men} men`;
 }
 
@@ -245,7 +245,7 @@ export function renderHexMap(
       const hx = cx + (shared ? 5 : 0) - (list.length - 1) * 3.5 + i * 7;
       const hy = cy + (shared ? 3 : 0);
       armies += `<g class="map-army owner-${a.owner}"><title>${esc(armyTitle(a))}</title>
-        <ellipse cx="${hx}" cy="${hy}" rx="9" ry="7.5" class="army-halo"/>${bannerSvg(a.owner === 'player' ? 'player' : a.owner === 'neutral' ? 'free' : 'enemy', hx - 13, hy - 22, 14)}
+        <ellipse cx="${hx}" cy="${hy}" rx="9" ry="7.5" class="army-halo"/>${bannerSvg(a.owner === 'player' ? 'player' : a.owner === 'neutral' && !a.cityRaid ? 'free' : 'enemy', hx - 13, hy - 22, 14)}
         <text x="${hx}" y="${hy + 2}" class="army-count">${a.troops.length}</text></g>`;
     });
   }

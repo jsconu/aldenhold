@@ -84,6 +84,10 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
     const t = object(entry);
     requireValue(t.id === id && def.towns.some((d) => d.id === id) && oneOf(t.owner, factions) && integer(t.pop) && integer(t.tax, 0, 50) && oneOf(t.kind, ['capital', 'town', 'lair']), 'town');
   }
+  if(s.cityPolitics!==undefined){
+    const p=object(s.cityPolitics);requireValue(integer(p.lastTurn,0,Number(s.turn)),'city politics turn');
+    for(const [origin,raw] of Object.entries(object(p.rivals))){const r=object(raw);requireValue(Object.hasOwn(towns,origin)&&integer(r.nextRaidTurn,1),'rival city');if(r.warning!==undefined){const w=object(r.warning);requireValue(text(w.target)&&Object.hasOwn(towns,w.target)&&integer(w.launchTurn,1),'city muster warning');}}
+  }
   const ids = new Set<number>();
   const useId = (id: unknown) => {
     requireValue(integer(id, 1) && !ids.has(id) && id < Number(s.nextId), 'duplicate or invalid campaign ID');
@@ -93,6 +97,7 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
     const a = object(entry);
     useId(a.id);
     requireValue(oneOf(a.owner, factions) && loc(a.at) && (a.from === null || loc(a.from)), 'army location or owner');
+    if(a.cityRaid!==undefined){const r=object(a.cityRaid);requireValue(a.owner==='neutral' && text(r.origin) && Object.hasOwn(towns,r.origin) && text(r.target) && Object.hasOwn(towns,r.target) && integer(r.launched,1,Number(s.turn)) && (r.returning===undefined||bool(r.returning)),'city war party');}
     requireValue(a.target === undefined || (a.owner === 'orcs' && text(a.target) && Object.hasOwn(towns, a.target)), 'army target');
     if (a.tactics !== undefined) {
       const tactics = object(a.tactics);

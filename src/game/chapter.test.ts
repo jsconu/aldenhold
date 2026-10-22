@@ -64,7 +64,7 @@ describe('Act I: M01 The Inheritance', () => {
     expect(s.quests.M01).toMatchObject({ status: 'available', stage: 'muster' });
     expect(newGame(1).quests.M01.status).toBe('unavailable');
     expect(conditionText(s, { kind: 'formations', atLeast: 7 })).toBe('Field 7 formations (now 5)');
-    const html = renderCampaign(s, ui(townLocation(s, 'aldenhold')));
+    const html = renderCampaign(s, {...ui(townLocation(s,'aldenhold')),view:'city',cityTab:'quests'});
     expect(html).toContain('Objective: The Inheritance');
     expect(html).toContain('○ Field 7 formations (now 5)');
     expect(html).toContain('Goals are checked at the end of each month.');

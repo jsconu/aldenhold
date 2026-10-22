@@ -29,7 +29,7 @@ describe('action quotes: each command refuses with exactly its quote’s reason'
     expect(quote.reason).toBe('Millbrook has no more men to spare.');
     expect(recruit(s, 'millbrook', 'militia')).toBe(quote.reason);
     // Before quotes the button only checked gold, so it stayed enabled here.
-    const html = renderCampaign(s, ui('millbrook'));
+    const html = renderCampaign(s, {...ui('millbrook'),view:'city',cityTab:'recruitment'});
     expect(html).toMatch(/data-action="recruit" data-node="millbrook" data-type="militia" disabled/);
     expect(html).toContain('Millbrook has no more men to spare.');
   });
@@ -58,7 +58,7 @@ describe('action quotes: each command refuses with exactly its quote’s reason'
     const far = questQuote(s, 'Q00', 'sign');
     expect(far.reason).toMatch(/Send an army to Fenwick/);
     expect(chooseQuest(s, 'Q00', 'sign')).toBe(far.reason);
-    const html = renderCampaign(s, ui('fenwick'));
+    const html = renderCampaign(s, {...ui('fenwick'),view:'city',cityTab:'quests'});
     expect(html).toMatch(/data-action="quest-choice" data-quest="Q00" data-choice="sign"\s+disabled/);
     expect(html).toContain(far.reason!);
   });

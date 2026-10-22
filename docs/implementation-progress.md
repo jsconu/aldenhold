@@ -870,3 +870,16 @@ Validation: production build passes. The 476-test full run passed 474 checks; th
 ### Battlefield scale and label clearance
 Normalized hero figures to the same approximate person height as soldiers in a formation, including the taller ruler portrait atlases. Individual large creatures remain slightly larger. Compact status badges now end within 19px below a hex center instead of 24px, leaving clearance above figures in the next row. Heroes retain their gold stars and HP labels.
 Battle-summary copy: removed the redundant sentence about quest and lair rewards. Validation: production build and 14 focused rendering/feedback tests pass; reviewed adjacent formations and heroes in the browser.
+
+
+## Backlog controls, rival cities and dedicated city management
+
+Battle group controls select ready formations, preserve their odd-q hex arrangement, and limit every route by the slowest member’s movement allowance. Occupancy, terrain and enemy zones of control are checked before the whole group moves; terrain wounds use normal movement rules. Grouping is a movement order, not tactical stacking or a mass attack. Clicking a formation returns to individual control.
+
+One-step undo restores a pure player move, including campaign army merges and movement points, while exact state matching prevents undo after later game actions. Combat, terrain casualties, captures, quest changes and new terrain/lair discoveries make a move irreversible. Undo history is session-only and is not restored by loading a save.
+
+Cities now open a dedicated screen with Overview, Development, Recruitment, Army & equipment, and Quests & diplomacy. The overland panel keeps a compact settlement summary and army selection. Move selected army explicitly orders travel into a city; a normal city click opens management. Returning to the map preserves the selected place. Existing build/recruit/refit/quest commands retain their quotes, costs and safeguards.
+
+Rival free cities can grow a capped muster and announce a war party one month ahead in Western difficulty campaigns. Parties use real troops, retain at least two home defenders, have per-city cooldowns and a global active-party limit, and use normal routes, terrain, city captures and defensive battles. Alliances, vassalage, truces and source conquest cancel expeditions. Hostility is scoped to the source settlement, with enemy banners and persistent threat reports. The AI phase contains this behavior; legacy campaigns retain the previous AI. Save validation covers warnings and expedition references. Millbrook must also be retaken if a rival city, rather than the orcs, captures it during M04.
+
+Validation: all 505 tests and the production build pass. Live browser checks verified the separate city tabs, uncluttered map, recruitment, campaign movement and undo, and battlefield group movement and undo. Rival-party balance remains subject to owner playtesting.

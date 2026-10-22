@@ -210,7 +210,7 @@ export const M04_INCURSION: QuestDefinition = {
         { kind: 'spawn', owner: 'orcs', at: 'pass', troops: ['warband', 'warband', 'orcArchers', 'troll'], target: 'millbrook' },
         { kind: 'spawn', owner: 'orcs', at: 'camp', troops: ['warband', 'warband', 'orcArchers'], target: 'aldenhold' },
       ],
-      objectives: [{ id: 'millbrook-lost', label: 'Lost Millbrook', when: [{ kind: 'town-owner', town: 'millbrook', owner: 'orcs' }], then: { stage: 'retake' } }],
+      objectives: [{ id: 'millbrook-lost', label: 'Lost Millbrook', when: [{kind:'any',of:(['orcs','neutral','goblins','trolls','giants','titans'] as const).map(owner=>({kind:'town-owner' as const,town:'millbrook',owner}))}], then: { stage: 'retake' } }],
       deadline: { months: 4, afterBattles: true, outcome: {
         status: 'succeeded', effects: [],
         journal: 'Four months on, the incursion has broken against your towns. The west is safe for now.',

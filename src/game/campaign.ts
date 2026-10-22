@@ -1,3 +1,4 @@
+import {cityWarbandTurn} from './cityWarbands';
 import {explore,holdApproachReason,challengeVictoryReady} from './challenge';
 import { SPECIES } from '../content/lairs';
 import { endRaid, planRaids, resolveRaids } from './raids';
@@ -393,7 +394,7 @@ export function marchAlong(state: GameState, army: Army, path: string[]) {
 }
 
 function settle(state: GameState, army: Army) {
-  const friend = state.armies.find((a) => a !== army && a.at === army.at && a.owner === army.owner);
+  const friend = state.armies.find((a) => a !== army && a.at === army.at && a.owner === army.owner && ((!a.cityRaid && !army.cityRaid) || (a.cityRaid && army.cityRaid && a.cityRaid.origin===army.cityRaid.origin && a.cityRaid.target===army.cityRaid.target)));
   if (friend) {
     friend.troops.push(...army.troops);
     removeArmy(state, army);
@@ -401,6 +402,7 @@ function settle(state: GameState, army: Army) {
   }
   army.from = null;
   const town = townAt(state, army.at);
+  if(town?.owner==='player' && army.cityRaid && state.cityPolitics)state.cityPolitics.rivals[town.id]??={nextRaidTurn:state.turn+8};
   if (town && town.owner !== army.owner && !hasPassage(state, army.owner, town.id)) captureTown(state, town, army.owner);
 }
 
@@ -731,7 +733,7 @@ const MONTH_PHASES: MonthPhase[] = [
   // Lairs found by armies that marched near them, and any whose garrison is gone.
   { id: 'lairs', run(state) { return [...discoverLairs(state), ...settleLairs(state)].map(news); } },
   // The orcs' own battles, captures and raids are recorded by the rules they trigger.
-  { id: 'ai', run(state) { orcTurn(state); return []; } },
+  { id: 'ai', run(state) { orcTurn(state); cityWarbandTurn(state); return []; } },
   // Monster raids: last month's arrive (fighting or plundering), then next month's are planned and announced.
   // Like the AI, this can start battles, so it runs after every economic phase.
   { id: 'raids', run(state) { return [...resolveRaids(state), ...planRaids(state)].map(news); } },

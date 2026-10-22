@@ -1,13 +1,15 @@
+import {explored} from './game/challenge';
+import {MovementUndo} from './game/movementUndo';
 import {recruitReplacements} from './game/replacements';
 import { createRulerCampaign, SKIN_TONES } from './game/rulerCreation';
 import { feedbackSnapshot, newFeedback, renderFeedback, type GameplayNotice } from './ui/gameplayFeedback';
 import './style.css';
 import { HEX_ZOOMS, hexZoom } from './ui/hexMapView';
 import {
-  attackOrder, attackOrderQuote, autoResolve, castSpell, escapeQuote, moveUnit, planDeployment, playerEndTurn, playerSide, reachable, spellTargets, teleportDestinations, tryEscape, unitAt,
+  attackOrder, attackOrderQuote, autoResolve, castSpell, escapeQuote, moveUnit, moveGroup, groupMoveQuote, planDeployment, playerEndTurn, playerSide, reachable, spellTargets, teleportDestinations, tryEscape, unitAt,
 } from './game/battle';
 import { applyBattle, armyAt, campaignOf, endTurn, hireHero, moveTroops, newGame, recruit, setTax } from './game/campaign';
-import { townLocation } from './game/world';
+import { townLocation, townAt } from './game/world';
 import { hexKey } from './game/hex';
 import type { CampaignId, GameState, SpellId } from './game/types';
 import { renderBattle, selectedUnit } from './ui/battleView';
@@ -49,6 +51,7 @@ let hasGame = loaded.state !== null;
 let savesOpen = false;
 let recoveryWarning = '';
 let feedback:GameplayNotice[]=[];
+const movementUndo=new MovementUndo();
 
 function save() {
   if (autosaveBlocked || !hasGame) return;
@@ -62,6 +65,7 @@ function checkpoint(reason: Parameters<typeof captureRecovery>[2]): boolean {
 }
 
 function activate(next: GameState) {
+  movementUndo.clear();ui.battleGroup=[];ui.marchMode=false;
   feedback=[];
   state = next;
   hasGame = true;
@@ -167,6 +171,7 @@ function render() {
 }
 
 function draw() {
+  ui.movementUndo=movementUndo.status(state);
   app.innerHTML = `<div ${feedback.length ? 'inert' : ''}><nav class="save-bar" aria-label="Saved games">
     <button data-action="saved-games" aria-expanded="${savesOpen}" aria-controls="save-content">${savesOpen ? 'Back to game' : 'Saved games'}</button>
     <button data-action="export-save" ${hasGame ? '' : 'disabled'}>Export save</button>
@@ -186,10 +191,38 @@ function selectNode(id: string) {
 
 function onAction(action: string, data: DOMStringMap) {
   const before=feedbackSnapshot(state),previousState=state;
+  const moveBefore=structuredClone(state);const origin=ui.selected;
   const nameInput=app.querySelector<HTMLInputElement>('#ruler-name');
   if(ui.rulerDraft && nameInput)ui.rulerDraft.name=nameInput.value;
   ui.message = '';
   switch (action) {
+    case 'undo-move': {
+      const restored=movementUndo.undo(state);
+      if(restored){state=restored.state;if(!state.battle && restored.location)selectNode(restored.location);ui.message='Last move undone.';}
+      else ui.message=movementUndo.status(state).reason;
+      break;
+    }
+    case 'open-city':
+      if(data.node && explored(state,data.node) && townAt(state,data.node)){selectNode(data.node);ui.view='city';ui.cityTab='overview';ui.marchMode=false;}
+      break;
+    case 'close-city':ui.view='map';break;
+    case 'city-tab':
+      if(['overview','development','recruitment','army','quests'].includes(data.tab??''))ui.cityTab=data.tab as UIState['cityTab'];
+      break;
+    case 'march-mode':ui.marchMode=!ui.marchMode;break;
+    case 'battle-group-toggle': {
+      const b=state.battle,id=Number(data.unit),u=b?.units.find(u=>u.id===id);
+      if(!b || !u || b.outcome || u.side!==playerSide(b) || b.active!==u.side || u.moved || u.acted || u.routing || u.fled || u.reserve || u.men<=0)break;
+      const selected=new Set(ui.battleGroup??[]);
+      selected.has(id)?selected.delete(id):selected.add(id);
+      ui.battleGroup=[...selected];ui.battleUnit=ui.battleGroup[0]??null;ui.battleSpell=null;ui.battleTarget=null;break;
+    }
+    case 'battle-group-all': {
+      const b=state.battle;if(!b || b.outcome || b.active!==playerSide(b))break;
+      ui.battleGroup=b.units.filter(u=>u.side===b.active && !u.reserve && !u.fled && !u.routing && u.men>0 && !u.moved && !u.acted).map(u=>u.id);
+      ui.battleUnit=ui.battleGroup[0]??null;ui.battleSpell=null;ui.battleTarget=null;break;
+    }
+    case 'battle-group-clear':ui.battleGroup=[];ui.battleSpell=null;break;
     case 'feedback-dismiss': feedback.shift(); break;
     case 'feedback-journal': feedback=[]; ui.view='journal'; break;
     case 'new-game':
@@ -266,7 +299,7 @@ function onAction(action: string, data: DOMStringMap) {
     case 'view-quest': {
       const destination = questFocus(state, data.quest ?? '');
       if (destination) {
-        ui.view = 'map';
+        ui.view = townAt(state,destination)?'city':'map';ui.cityTab='quests';
         selectNode(destination);
       }
       break;
@@ -333,6 +366,7 @@ function onAction(action: string, data: DOMStringMap) {
       break;
     }
     case 'end-turn':
+      ui.battleGroup=[];ui.battleUnit=null;ui.battleSpell=null;
       if (state.status === 'playing' && !state.battle && !checkpoint('Before month')) break;
       endTurn(state);
       if (ui.selected) selectNode(ui.selected);
@@ -374,10 +408,15 @@ function onAction(action: string, data: DOMStringMap) {
       break;
     case 'node': {
       const id = data.node!;
+      if(ui.marchMode && ui.selected){
+        const err=moveTroops(state,ui.selected,[...ui.checked],id);ui.message=err??'';
+        if(!err){selectNode(id);ui.marchMode=false;}break;
+      }
       if (ui.routeOrigin && !ui.routeDestination) {
         if (id !== ui.routeOrigin) ui.routeDestination = id;
         break;
       }
+      if(explored(state,id) && townAt(state,id) && !ui.routeOrigin){selectNode(id);ui.view='city';ui.cityTab='overview';break;}
       if (ui.selected && moveTargets(state, ui).has(id)) {
         const err = moveTroops(state, ui.selected, [...ui.checked], id);
         ui.message = err ?? '';
@@ -393,15 +432,18 @@ function onAction(action: string, data: DOMStringMap) {
     case 'battle-end':
       playerEndTurn(state.battle!);
       ui.battleUnit = null;
+      ui.battleGroup=[];
       ui.battleSpell = null;
       break;
     case 'battle-zoom':
       ui.battleZoom = Math.min(1.6, Math.max(0.5, Math.round(((ui.battleZoom ?? 1) + 0.2 * Number(data.dir)) * 10) / 10));
       break;
     case 'battle-auto':
+      ui.battleGroup=[];
       autoResolve(state.battle!);
       break;
     case 'battle-retreat': {
+      ui.battleGroup=[];
       const b = state.battle!;
       const got = tryEscape(b, playerSide(b)!);
       ui.message = got === null ? escapeQuote(b, playerSide(b)!).reason ?? '' : got ? '' : 'The enemy held you; your turn is spent.';
@@ -409,6 +451,8 @@ function onAction(action: string, data: DOMStringMap) {
       break;
     }
     case 'battle-continue':
+      ui.selected=state.battle!.at;ui.view='map';
+      ui.battleGroup=[];
       applyBattle(state, state.battle!);
       ui.battleUnit = null;
       ui.battleSpell = null;
@@ -416,6 +460,10 @@ function onAction(action: string, data: DOMStringMap) {
       break;
   }
   if(state===previousState) feedback.push(...newFeedback(state,before));
+  const sameBattle=moveBefore.battle && state.battle && moveBefore.battle.round===state.battle.round;
+  const battleMoved=action==='hex' && sameBattle && moveBefore.battle!.units.some(u=>{const next=state.battle!.units.find(n=>n.id===u.id);return next && (next.col!==u.col || next.row!==u.row);});
+  const worldMoved=['node','route-first-leg'].includes(action) && !moveBefore.battle && (moveBefore.nextId!==state.nextId || JSON.stringify(moveBefore.armies)!==JSON.stringify(state.armies));
+  if(battleMoved || worldMoved)movementUndo.record(moveBefore,state,origin);
 }
 
 function onHex(col: number, row: number) {
@@ -437,7 +485,14 @@ function onHex(col: number, row: number) {
     }
     return;
   }
+  if((ui.battleGroup?.length??0)>1 && sel && !ui.battleSpell){
+    const q=groupMoveQuote(b,ui.battleGroup!,sel.id,{col,row});
+    if(!q.reason){moveGroup(b,ui.battleGroup!,sel.id,{col,row});ui.message='Group moved. Select a formation to attack.';return;}
+    if(!clicked){ui.message=q.reason;return;}
+    if(clicked.side!==b.active){ui.message='Click a formation to select it individually before attacking or casting.';return;}
+  }
   if (clicked && clicked.side === b.active) {
+    ui.battleGroup=[];
     if (clicked.id !== ui.battleUnit) ui.battleSpell = null;
     ui.battleUnit = clicked.id;
     return;
