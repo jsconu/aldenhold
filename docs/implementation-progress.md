@@ -974,3 +974,9 @@ Scout reports now require the hostile army to be currently within sight; a hidde
 Reconciled merged city views, results, seasons, movement and rival expeditions in the backlog, and recorded the superseding Gharzak and watch rules. Six legacy chapter simulations (seeds 1, 42, 2026; charter and ignore routes) completed in 9–14 months with the ruler alive and no unpaid upkeep, food shortages or ledger corrections. This does not establish full Normal-difficulty relic/fortress balance; that controller and owner acceptance remain required.
 
 Validation: all 520 tests pass; production build passes. Six seeded legacy chapter tours pass. Full Normal victory balance and dynamic scout report retirement remain outstanding.
+
+## Scout contact lifecycle and full campaign diagnostic
+
+Added optional validated scout contacts to v17 saves, retaining legacy report keys and journal history. Contacts track latest destination, observation month and estimated arrival, update without duplicate unchanged reports, retire on loss of observation, and reacquire. Zero remaining movement produces unknown arrival. Map/city intelligence distinguishes current estimates from lost/ended watches.
+
+Added `npm run simulate:campaign` for a real Normal campaign with fog, quoted commands, paid development/refits/replacements, relic adventures and Hold travel. This diagnostic is intentionally separate from legacy chapter acceptance. Default mode exits unsuccessfully if victory, ruler survival or economy requirements fail; `--report-only` prints failures for investigation. See full-campaign-baselines.md and issue #76 for current failures and the production dependency blocker.

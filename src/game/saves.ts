@@ -161,6 +161,16 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
   }
   requireValue(array(s.log).every(text), 'chronicle');
   requireValue(s.scoutReports === undefined || (array(s.scoutReports).every(text) && new Set(s.scoutReports as string[]).size === (s.scoutReports as string[]).length), 'scout reports');
+  if (s.scoutContacts !== undefined) {
+    const pairs = new Set<string>();
+    for (const raw of array(s.scoutContacts)) {
+      const c = object(raw), key = String(c.armyId) + ':' + String(c.scoutId);
+      requireValue(integer(c.armyId, 1, Number(s.nextId)-1) && integer(c.scoutId, 1, Number(s.nextId)-1) && !pairs.has(key) &&
+        loc(c.post) && loc(c.destination) && integer(c.seenTurn, 1, Number(s.turn)) && typeof c.active === 'boolean' &&
+        (c.arrivalTurn === null || integer(c.arrivalTurn, Number(c.seenTurn), Number.MAX_SAFE_INTEGER)), 'scout contact');
+      pairs.add(key);
+    }
+  }
   const treasury = object(s.treasury);
   requireValue(integer(treasury.opening), 'treasury opening balance');
   const checkEntries = (entries: unknown, month: number) => {

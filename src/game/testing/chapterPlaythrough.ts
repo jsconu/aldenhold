@@ -1,3 +1,6 @@
+import {createRulerCampaign} from '../rulerCreation';
+import {campaignObjectives} from '../challenge';
+import {runPreparationTurn} from './fullCampaignPolicy';
 import { UNIT_TYPES } from '../../content/rules';
 import { advanceMonth, armyAt, lordOf, newGame, recruit, recruitQuote } from '../campaign';
 import { buildCity, constructionQuote } from '../cities';
@@ -26,11 +29,12 @@ export interface ChapterPlaythrough {
   actions: string[];
   /** Every raid that came due during the tour. */
   raids: RaidRecord[];
+  remaining?: string[];
 }
 
 /** A conservative public-command policy, not a fixture: it never grants resources or edits game state. */
-export function playChapter(seed: number, crossing: 'charter' | 'ignore' = 'charter', maxMonths = 30): ChapterPlaythrough {
-  let state = newGame(seed, 'western-realm');
+export function playChapter(seed: number, crossing: 'charter' | 'ignore' = 'charter', maxMonths = 30, fullCampaign = false): ChapterPlaythrough {
+  let state = fullCampaign ? createRulerCampaign('western-realm',{name:'Rowan',gender:'female',skin:'brown',difficulty:'normal'},seed) : newGame(seed, 'western-realm');
   const envoyId = armyAt(state, townLocation(state, 'aldenhold'), 'player')!.troops.find((t) => t.type === 'militia')!.id;
   const report: ChapterPlaythrough = {
     seed, crossing, status: state.status, ending: state.endingReason, months: 0, gold: state.gold, minimumGold: state.gold,
@@ -82,6 +86,11 @@ export function playChapter(seed: number, crossing: 'charter' | 'ignore' = 'char
         for (let n = count; n < target; n++) if (!raise('millbrook', type, reserve)) break;
       }
     }
+    if (fullCampaign) {
+      runPreparationTurn(state, note);
+      resolveBattles();
+      if (state.status !== 'playing') break;
+    }
     campInTheOpen(state);
     const closed = advanceMonth(state);
     if (!closed?.ledger) throw new Error('Month did not close.');
@@ -99,6 +108,7 @@ export function playChapter(seed: number, crossing: 'charter' | 'ignore' = 'char
     // Every checkpoint passes the same strict validation used by the player's import/load command.
     state = parseSave(JSON.stringify(state));
   }
+  if (fullCampaign) report.remaining = campaignObjectives(state).filter(o=>!o.done).map(o=>o.id);
   report.status = state.status;
   report.ending = state.endingReason;
   report.gold = state.gold;

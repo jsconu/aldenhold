@@ -1,6 +1,6 @@
 import {campaignObjectives,explored,DIFFICULTIES} from '../game/challenge';
 import { currentWeather, exposureLoss, SEASON_NAME } from '../game/weather';
-import { onWatch, SCOUT_RANGE } from '../game/scouts';
+import { onWatch, SCOUT_RANGE, scoutContactStatus } from '../game/scouts';
 import {replacementQuote} from '../game/replacements';
 import { renderRulerSelection } from './rulerSelection';
 import { questOutcome } from './gameplayFeedback';
@@ -84,6 +84,7 @@ export function renderCampaign(state: GameState, ui: UIState): string {
     <aside class="side">
       ${ui.message ? `<p class="msg">${esc(ui.message)}</p>` : ''}
       ${renderCityWarWarnings(state)}
+      ${renderScoutContacts(state)}
       ${renderCampaignObjectives(state)}
       ${renderOfferNotice(state, ui)}
       ${isHexCampaign(state) ? renderMarchGuide(state, ui) : ''}
@@ -584,7 +585,7 @@ function renderCityScreen(state:GameState,ui:UIState):string{
  const tab=tabs.some(t=>t.id===ui.cityTab)?ui.cityTab!:'overview';
  let content='';
  if(tab==='overview'){
-  content=placeScene(state,town.id)+'<p>'+OWNER_LABEL(town.owner)+' · '+(RELATION_LABEL[relationWith(state,town.id) as keyof typeof RELATION_LABEL]??'Your city')+' · Population '+town.pop.toLocaleString()+'</p>';
+  content=renderScoutContacts(state,ui.selected!)+placeScene(state,town.id)+'<p>'+OWNER_LABEL(town.owner)+' · '+(RELATION_LABEL[relationWith(state,town.id) as keyof typeof RELATION_LABEL]??'Your city')+' · Population '+town.pop.toLocaleString()+'</p>';
   if(owned)content+='<label class="tax">Tax rate<select data-change="tax" data-node="'+town.id+'">'+Array.from({length:11},(_,i)=>i*5).map(v=>'<option value="'+v+'" '+(town.tax===v?'selected':'')+'>'+v+'%</option>').join('')+'</select></label><p>Income: '+townIncome(town)+' gold/month. Population change: '+townGrowth(town)+'/month.</p>'+renderRaidThreat(state,town.id);
   const profile=campaignOf(state).settlementProfiles?.[town.id];if(profile)content+='<p>'+esc(profile.role)+'</p>';
   content+=renderMerchants(state,town.id);
@@ -602,4 +603,14 @@ function renderCityWarWarnings(state:GameState):string{
  const warnings=Object.entries(state.cityPolitics?.rivals??{}).filter(([,r])=>r.warning).map(([origin,r])=>'<li>'+esc(nodeName(state,origin))+' is mustering against '+esc(nodeName(state,r.warning!.target))+'. Marches '+(r.warning!.launchTurn<=state.turn?'now':'next month')+'.</li>');
  const parties=state.armies.filter(a=>a.cityRaid && !a.cityRaid.returning).map(a=>'<li>'+esc(nodeName(state,a.cityRaid!.origin))+' has a war party marching on '+esc(nodeName(state,a.cityRaid!.target))+'.</li>');
  return warnings.length+parties.length?'<section class="city-war-warning" role="status"><h3>Rival city threats</h3><ul>'+warnings.join('')+parties.join('')+'</ul><p>Reinforce the threatened city. Allies, vassals and truces do not send war parties.</p></section>':'';
+}
+
+function renderScoutContacts(state:GameState, destination?:string):string {
+ const contacts=(state.scoutContacts??[]).filter(c=>!destination || c.destination===destination).slice(-5).reverse();
+ if(!contacts.length)return '';
+ return '<section class="scout-intel"><h3>Scout intelligence</h3><ul>'+contacts.map(c=>{
+   const status=scoutContactStatus(state,c);
+   const detail=status==='watch-ended'?'Watch ended — previous estimate withdrawn':status==='lost'?'Contact lost — previous estimate withdrawn':c.arrivalTurn===null?'Movement halted — arrival unknown':'Estimated arrival: month '+c.arrivalTurn;
+   return '<li><b>'+esc(nodeName(state,c.destination))+'</b>: '+detail+'<small class="sub">Scout #'+c.scoutId+' · last observed month '+c.seenTurn+'</small></li>';
+ }).join('')+'</ul></section>';
 }

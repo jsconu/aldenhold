@@ -614,6 +614,16 @@ export type WeatherKind = 'clear' | 'rain' | 'storm' | 'snow' | 'blizzard';
 
 export interface RulerAppearance { rulerClass?:RulerClass; gender:'male'|'female'; skin:'fair'|'olive'|'brown'|'deep' }
 
+export interface ScoutContact {
+  armyId: number;
+  scoutId: number;
+  post: string;
+  destination: string;
+  seenTurn: number;
+  arrivalTurn: number | null;
+  active: boolean;
+}
+
 export interface GameState {
   /** Cosmetic ruler choice; absent on legacy saves. */
   cityPolitics?:{lastTurn:number;rivals:Record<string,{nextRaidTurn:number;warning?:{target:string;launchTurn:number}}>};
@@ -661,5 +671,7 @@ export interface GameState {
   raidLog: RaidRecord[];
   /** Deduplication keys for scout reports, which themselves are preserved in the journal. */
   scoutReports?: string[];
+  /** Latest observation per scout/force pair; old journal entries remain historical. */
+  scoutContacts?: ScoutContact[];
   status: 'playing' | 'won' | 'lost';
 }
