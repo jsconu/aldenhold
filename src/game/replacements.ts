@@ -6,6 +6,7 @@ import {EQUIPMENT} from './equipment';
 import {recordPurchase} from './economy';
 import {recruitBan} from './quests';
 import {formationCapacity} from './formationCapacity';
+import {armySupportReason} from './armySupport';
 export function replacementQuote(state:GameState,troopId:number,requested?:number){
  const army=state.armies.find(a=>a.owner==='player' && a.troops.some(t=>t.id===troopId)),troop=army?.troops.find(t=>t.id===troopId),town=army?townAt(state,army.at):undefined;
  const type=troop?UNIT_TYPES[troop.type]:undefined,capacity=troop?formationCapacity(troop):0;
@@ -24,6 +25,7 @@ export function replacementQuote(state:GameState,troopId:number,requested?:numbe
  else if(troop.refit||troop.mp<=0)reason='This unit has already acted or is refitting; wait until next month.';
  else if(town.pop-men<500)reason='This town cannot spare enough recruits.';
  else if(state.gold<gold)reason='You need '+gold+' gold.';
+ else reason=armySupportReason(state,men,town.id);
  return {men,gold,capacity,reason,town,troop};
 }
 export function recruitReplacements(state:GameState,id:number,requested?:number):string|null{

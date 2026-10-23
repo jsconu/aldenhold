@@ -69,3 +69,12 @@ Next priority: resolve #76 before claiming the Normal campaign is winnable throu
 ## Playtest handoff, October 23, 2026
 
 Claude's spy/action-bar/quest-screen changes are merged in #81. The current increment adds leader-only Cyclops/Minotaur encounters (including every ruler class), campaign morale and town unrest, scout-gated incoming-army warnings, clearer leader HP/recovery, larger battle zoom, battle Select all / Deselect all, PANIC routing labels, honest noncombatant reserve explanations, and two context-relevant quest highlights with longer side-quest failure deadlines. All other quests remain available. #76's production-site blocker was addressed by redevelopment in #78; remaining full Normal-campaign policy/balance acceptance is still outstanding.
+
+
+## Owner playtest decisions, October 23 (growth and city combat)
+
+City improvements may grow without a level/type ceiling. Recruitment is constrained by actual people supported by developed cities, with each hero counting once. Marches and new battles allow 24 units per side; city garrisons have no formation-count ceiling. The Cities overview exposes population, support and relevant growth tasks. Construction shortfalls must name the quantities missing.
+
+Settlement attacks now have buildings as occupied defensive positions, a defender placement phase and persistent pillage of an improvement or local treasury. Future work remains broader seeded layout variety and AI monthly sieges; the new tactical city slice does not claim those are complete. See the October 23 implementation-progress entry.
+
+For world growth, retain an authored map and regional campaigns, add generated local events around them, and expand one populated region at a time toward the established 128×80 goal. The three objective layers are local side quests, regional campaigns and realm-wide goals; map enlargement itself is a separate next increment.

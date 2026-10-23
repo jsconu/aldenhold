@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { alive, attackTargets, autoResolve, castSpell, createBattle, reachable, reserves, retreat, spellTargets, unitAt } from './battle';
+import { FIELD_LIMIT, alive, attackTargets, autoResolve, castSpell, createBattle, reachable, reserves, retreat, spellTargets, unitAt } from './battle';
 import { applyBattle, armyAt, checkStatus, endTurn, makeTroop, moveTroops, newGame } from './campaign';
 import { LEGACY_SAVE_KEY, loadGame, parseSave, SAVE_KEY, saveGame, type SaveStorage } from './saves';
 import type { GameState } from './types';
@@ -71,19 +71,31 @@ describe('ending precedence', () => {
 });
 
 describe('explicit reserves', () => {
-  it.each([27, 28, 60])('accounts for every unit in %i-unit armies on both sides', (count) => {
+  it('preserves an active legacy battle with 27 deployed units but enforces the new limit on new fights', () => {
+    const { s, b } = largeBattle(27);
+    const empty: {col:number;row:number}[] = [];
+    for (let col = 0; col < b.width && empty.length < 3; col++) for (let row = 0; row < b.height && empty.length < 3; row++) {
+      if (!unitAt(b, { col, row })) empty.push({ col, row });
+    }
+    reserves(b, 'attacker').forEach((u, i) => Object.assign(u, empty[i], { reserve: false }));
+    expect(() => parseSave(JSON.stringify(s))).toThrow(/field capacity/);
+    delete b.deploymentLimit;
+    const loaded = parseSave(JSON.stringify(s));
+    expect(alive(loaded.battle!, 'attacker')).toHaveLength(27);
+  });
+  it.each([24, 25, 60])('accounts for every unit in %i-unit armies on both sides', (count) => {
     const { s, b, a, d } = largeBattle(count);
     expect(b.units).toHaveLength(count * 2);
     expect(new Set(b.units.map((u) => u.troopId))).toEqual(new Set([...a.troops, ...d.troops].map((t) => t.id)));
     for (const side of ['attacker', 'defender'] as const) {
-      expect(alive(b, side)).toHaveLength(27);
-      expect(reserves(b, side)).toHaveLength(count - 27);
+      expect(alive(b, side)).toHaveLength(FIELD_LIMIT);
+      expect(reserves(b, side)).toHaveLength(count - FIELD_LIMIT);
     }
     expect(parseSave(JSON.stringify(s))).toEqual(s);
-    if (count > 27) expect(renderBattle(s, ui)).toContain(`Reserves (${2 * (count - 27)} units)`);
+    if (count > FIELD_LIMIT) expect(renderBattle(s, ui)).toContain(`Reserves (${2 * (count - FIELD_LIMIT)} units)`);
   });
   it('cannot select, move, attack with, target, or cast from a reserve', () => {
-    const { s, a, d } = largeBattle(27);
+    const { s, a, d } = largeBattle(FIELD_LIMIT);
     a.troops.push(makeTroop(s, 'mage'));
     d.troops.push(makeTroop(s, 'shaman'));
     const b = createBattle(a.at, a, d, true, 7);
@@ -118,7 +130,7 @@ describe('explicit reserves', () => {
     expect(parseSave(JSON.stringify(s))).toEqual(s);
   });
   it('does not keep a defeated field army fighting solely because it has reserves', () => {
-    const { b } = largeBattle();
+    const { b } = largeBattle(FIELD_LIMIT+1);
     for (const u of alive(b, 'attacker')) u.men = 0;
     autoResolve(b);
     expect(b.outcome).toBe('defender');
@@ -147,7 +159,7 @@ describe('save migration and recovery', () => {
     const { s, b } = largeBattle(30);
     const migrated = parseSave(legacy(s));
     expect(migrated.battle!.units).toHaveLength(60);
-    expect(reserves(migrated.battle!)).toHaveLength(6);
+    expect(reserves(migrated.battle!)).toHaveLength(12);
     expect(migrated.battle!.seed).toBe(b.seed);
     expect(migrated.battle!.terrain).toEqual(b.terrain);
     expect(alive(migrated.battle!)).toEqual(alive(b));

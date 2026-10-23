@@ -143,8 +143,9 @@ describe('orc AI', () => {
     expect(b).not.toBeNull();
     expect(b.owners.attacker).toBe('orcs');
     expect(b.owners.defender).toBe('player');
-    // The AI attacker has already played its first turn; it is now the player's move.
-    expect(b.active === 'defender' || b.outcome !== null).toBe(true);
+    // A city defender places the garrison before the attackers take their first turn.
+    expect(b.city?.deploying).toBe(true);
+    expect(b.active).toBe('attacker');
   });
 });
 

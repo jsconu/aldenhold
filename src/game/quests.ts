@@ -1,3 +1,4 @@
+import { UNIT_TYPES } from './data';
 import { FIELD_LIMIT } from './battle';
 import { getCampaign } from '../content';
 import { QUESTS } from '../content/quests';
@@ -334,10 +335,10 @@ function previewEncounter(state: GameState, encounter: QuestEncounter): Encounte
   const army = armyAt(state, startLocation(state, encounter.site), 'player');
   const troops = army?.troops ?? [];
   const eligible = encounter.heroesOnly ? partyOf(troops) : troops;
-  const ids = eligible.map((t) => t.id);
+  const ids = eligible.filter(t=>t.type!=='scout' && UNIT_TYPES[t.type].noncombat!=='spy').slice(0,FIELD_LIMIT).map(t=>t.id);
   return {
     site: encounter.site, heroesOnly: !!encounter.heroesOnly, armyId: army?.id ?? null,
-    deployed: ids.slice(0, FIELD_LIMIT), reserves: ids.slice(FIELD_LIMIT),
+    deployed: ids, reserves: eligible.filter(t=>!ids.includes(t.id)).map(t=>t.id),
     waiting: troops.filter((t) => !eligible.includes(t)).map((t) => t.id),
   };
 }

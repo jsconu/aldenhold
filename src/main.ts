@@ -1,3 +1,4 @@
+import { pillageCityBuilding, placeCityDefender } from './game/cityBattle';
 import {explored} from './game/challenge';
 import { bearingFrom } from './game/intel';
 import { QUESTS } from './content/quests';
@@ -14,7 +15,7 @@ import { HEX_ZOOMS, hexZoom } from './ui/hexMapView';
 import {
   attackOrder, attackOrderQuote, autoResolve, castSpell, escapeQuote, groupReachable, moveGroup, moveUnit, playerEndTurn, playerSide, reachable, spellTargets, teleportDestinations, tryEscape, unitAt,
 } from './game/battle';
-import { applyBattle, armyAt, campaignOf, endTurn, hireHero, marchQuote, moveTroops, newGame, nodeName, recruit, setTax } from './game/campaign';
+import { ARMY_CAP, applyBattle, armyAt, campaignOf, endTurn, hireHero, marchQuote, moveTroops, newGame, nodeName, recruit, setTax } from './game/campaign';
 import { UNIT_TYPES } from './game/data';
 import { townLocation, townAt } from './game/world';
 import { hexKey } from './game/hex';
@@ -184,8 +185,12 @@ function render() {
     after.scrollLeft = scroll.left * (after.scrollWidth / Math.max(1, scroll.width));
     after.scrollTop = scroll.top * (after.scrollHeight / Math.max(1, scroll.height));
   } else if (after && state.battle) {
-    // A new battle opens on the player's own troops.
-    app.querySelector('.unit.mine')?.scrollIntoView({ block: 'center', inline: 'center' });
+    if (state.battle.city) {
+      // Frame the approach and city together so the new layout is immediately visible.
+      const field=after.querySelector<SVGSVGElement>('svg.field')!;
+      after.scrollLeft=field.clientWidth * (state.battle.city.deploying ? .65 : .52) - after.clientWidth / 2;
+      after.scrollTop=field.clientHeight * .52 - after.clientHeight / 2;
+    } else app.querySelector('.unit.mine')?.scrollIntoView({ block: 'center', inline: 'center' });
   }
   syncMinimap();
   app.querySelector<HTMLElement>('#feedback-heading')?.focus({preventScroll:true});
@@ -220,10 +225,10 @@ function onAction(action: string, data: DOMStringMap, additive = false) {
   ui.message = '';
   if (ui.assault && !['assault-attack', 'assault-retreat', 'assault-besiege'].includes(action)) return;
   if (ui.notice && action !== 'notice-close') return;
-  if (ui.townChoice && !['town-choice-move', 'town-choice-city', 'town-choice-close', 'town-choice-cancel', 'troops-all', 'troops-none'].includes(action)) return;
+  if (ui.townChoice && !['town-choice-move', 'town-choice-city', 'town-choice-close', 'town-choice-cancel', 'troops-all', 'troops-none', 'troops-max'].includes(action)) return;
   // A later consequential command closes the one-step undo window. Browsing the map does not.
   if (!['node', 'hex', 'undo-move', 'assault-retreat', 'route-first-leg', 'locate-army', 'plan-route', 'route-clear',
-    'route-preference', 'map-layer', 'map-zoom', 'hex-zoom', 'battle-zoom', 'view-quest', 'goto', 'journal', 'treasury', 'spell'].includes(action)) undoMove = null;
+    'route-preference', 'map-layer', 'map-zoom', 'hex-zoom', 'battle-zoom', 'view-quest', 'goto', 'journal', 'treasury', 'cities', 'summary-city', 'spell'].includes(action)) undoMove = null;
   switch (action) {
     case 'troops-pick':
       if (ui.selected) ui.townChoice = { at: ui.selected, step: 'troops' };
@@ -249,6 +254,11 @@ function onAction(action: string, data: DOMStringMap, additive = false) {
     case 'troops-all': {
       const army = ui.selected ? armyAt(state, ui.selected, 'player') : undefined;
       ui.checked = new Set(army?.troops.filter((t) => t.mp > 0 && !t.refit).map((t) => t.id) ?? []);
+      break;
+    }
+    case 'troops-max': {
+      const army = ui.selected ? armyAt(state, ui.selected, 'player') : undefined;
+      ui.checked = new Set(army?.troops.filter(t=>t.mp>0&&!t.refit).slice(0,ARMY_CAP).map(t=>t.id) ?? []);
       break;
     }
     case 'troops-none':
@@ -322,6 +332,11 @@ function onAction(action: string, data: DOMStringMap, additive = false) {
         undoMove = null;
       }
       break;
+    case 'summary-city':
+      if(data.node && townAt(state,data.node)?.owner==='player') { selectNode(data.node); ui.view='city'; ui.cityTab=['development','army'].includes(data.tab??'') ? data.tab as 'development'|'army' : 'overview'; ui.marchMode=false; }
+      break;
+    case 'cities':
+      ui.view=ui.view==='cities'?'map':'cities';ui.marchMode=false;break;
     case 'open-city':
       if(data.node && explored(state,data.node) && townAt(state,data.node)){selectNode(data.node);ui.view='city';ui.cityTab='overview';ui.marchMode=false;}
       break;
@@ -558,6 +573,9 @@ function onAction(action: string, data: DOMStringMap, additive = false) {
     case 'hex':
       onHex(Number(data.col), Number(data.row), additive);
       break;
+    case 'battle-pillage':
+      if(state.battle && ui.battleUnit != null && pillageCityBuilding(state.battle, ui.battleUnit)) undoMove=null;
+      break;
     case 'battle-end':
       playerEndTurn(state.battle!);
       ui.battleUnit = null;
@@ -603,6 +621,12 @@ function onAction(action: string, data: DOMStringMap, additive = false) {
 
 function onHex(col: number, row: number, additive = false) {
   const b = state.battle!;
+  if (b.city?.deploying && !b.outcome) {
+    const clicked=unitAt(b,{col,row});
+    if(clicked?.side==='defender') { ui.battleUnit=clicked.id; ui.battleUnits=new Set([clicked.id]); }
+    else if(ui.battleUnit != null) placeCityDefender(b,ui.battleUnit,{col,row});
+    return;
+  }
   if (b.outcome || b.active !== playerSide(b)) return;
   const clicked = unitAt(b, { col, row });
   const sel = selectedUnit(b, ui);

@@ -1,3 +1,4 @@
+import { beginCityCombat, cityBuildingDefense, openCityWalls, pillageCityBuilding } from './cityBattle';
 import { campaignMorale } from './readiness';
 import { EFFECTS } from '../content/spells';
 import { LAND, SPELLS, TERRAIN, UNIT_TYPES } from './data';
@@ -10,7 +11,7 @@ import { EQUIPMENT } from './equipment';
 
 /** Rows in each side's deployment zone; the zone is 3 columns deep, centred on the field. */
 export const ZONE_ROWS = 9;
-export const FIELD_LIMIT = 3 * ZONE_ROWS;
+export const FIELD_LIMIT = 24;
 export const MAX_ROUNDS = 20;
 
 /**
@@ -59,6 +60,7 @@ export function other(side: Side): Side {
 export function createBattle(at: string, attacker: Army, defender: Army, walls: boolean, seed: number, land: Land = 'plains'): Battle {
   const b: Battle = {
     at,
+    deploymentLimit: FIELD_LIMIT,
     attackerId: attacker.id,
     defenderId: defender.id,
     owners: { attacker: attacker.owner, defender: defender.owner },
@@ -328,7 +330,7 @@ export function commandOf(b: Battle, u: BattleUnit): number {
 
 export function defenseOf(b: Battle, u: BattleUnit): number {
   const wall = b.walls && u.side === 'defender' ? 1 : 0;
-  return Math.max(1, UNIT_TYPES[u.type].defense + EQUIPMENT[u.gear.armor].defenseBonus + kitBonus(u.kit).defense + terrainAt(b, u).defense + wall + (hasEffect(u, 'ward') ? 2 : 0));
+  return Math.max(1, UNIT_TYPES[u.type].defense + EQUIPMENT[u.gear.armor].defenseBonus + kitBonus(u.kit).defense + terrainAt(b, u).defense + cityBuildingDefense(b, u) + wall + (hasEffect(u, 'ward') ? 2 : 0));
 }
 
 /** Fighting weight: men for a troop, a fixed value for a hero (wounds don't weaken their blows). */
@@ -375,7 +377,7 @@ function reachFrom(b: Battle, u: BattleUnit): Map<string, number> {
 
 /** Hexes the unit can move to this turn, with their movement cost. Enemies exert a zone of control. */
 export function reachable(b: Battle, u: BattleUnit): Map<string, number> {
-  if (u.reserve || u.moved || u.acted || u.men <= 0 || u.fled || u.routing) return new Map();
+  if (b.city?.deploying || u.reserve || u.moved || u.acted || u.men <= 0 || u.fled || u.routing) return new Map();
   return reachFrom(b, u);
 }
 
@@ -470,12 +472,13 @@ export function buildTargets(b: Battle, u: BattleUnit, kind: Build): Hex[] {
 
 /** Engineers spend their turn building. Returns whether anything was built. */
 export function build(b: Battle, unitId: number, kind: Build, at?: Hex): boolean {
+  if (b.city?.deploying) return false;
   const u = b.units.find((x) => x.id === unitId);
   if (!u) return false;
   const target = buildTargets(b, u, kind).find((h) => kind === 'tower' || (at && h.col === at.col && h.row === at.row));
   if (!target) return false;
   if (kind === 'tower') {
-    b.walls = false;
+    b.walls = false; openCityWalls(b);
     b.log.push('Engineers roll a siege tower against the walls: the defenders lose their wall bonus.');
   } else {
     b.terrain[target.col][target.row] = kind;
@@ -500,6 +503,7 @@ export function attackTargets(b: Battle, u: BattleUnit): BattleUnit[] {
 export function attackOrderQuote(b: Battle, unitId: number, targetId: number): { reason: string | null; destination: Hex | null; cost: number } {
   const u=b.units.find(x=>x.id===unitId),t=b.units.find(x=>x.id===targetId);
   const no=(reason:string)=>({reason,destination:null,cost:0});
+  if(b.city?.deploying) return no('Place defenders and begin the assault first.');
   if(!u || !t || b.outcome || u.side!==b.active || t.side===u.side || t.reserve || t.fled || t.men<=0) return no('Choose a living enemy on the field.');
   if(u.reserve || u.acted || u.fled || u.men<=0 || u.routing) return no('This unit cannot attack now.');
   if(attackTargets(b,u).includes(t))return {reason:null,destination:null,cost:0};
@@ -578,6 +582,7 @@ function rollDamage(b: Battle, from: BattleUnit, to: BattleUnit, factor: number)
 }
 
 export function attack(b: Battle, unitId: number, targetId: number): boolean {
+  if (b.city?.deploying) return false;
   const u = b.units.find((x) => x.id === unitId);
   const t = b.units.find((x) => x.id === targetId);
   if (!u || !t || b.outcome || u.side !== b.active) return false;
@@ -700,6 +705,7 @@ export function previewSpell(b: Battle, caster: BattleUnit, id: SpellId, target:
 }
 
 export function castSpell(b: Battle, unitId: number, spellId: SpellId, targetId: number, destination?: Hex): boolean {
+  if (b.city?.deploying) return false;
   const u = b.units.find((x) => x.id === unitId), t = b.units.find((x) => x.id === targetId);
   if (!u || !t) return false;
   const preview = previewSpell(b, u, spellId, t, destination);
@@ -726,7 +732,7 @@ export function castSpell(b: Battle, unitId: number, spellId: SpellId, targetId:
       if (target.morale >= RALLY_AT) target.routing = false;
     }
   }
-  if (preview.breaksWalls) { b.walls = false; b.log.push('The quake breaks the battlefield walls: defenders lose their wall bonus.'); }
+  if (preview.breaksWalls) { b.walls = false; openCityWalls(b); b.log.push('The quake breaks the battlefield walls: defenders lose their wall bonus.'); }
   if (preview.destination) {
     t.col = preview.destination.col; t.row = preview.destination.row; t.moved = true;
     b.log.push(`${unitLabel(b, t)} teleports to ${t.col + 1}, ${t.row + 1}; its move is spent.`);
@@ -884,6 +890,7 @@ export function endSideTurn(b: Battle) {
 
 /** Let AI-controlled sides play until it is the player's turn or the battle ends. */
 export function runAI(b: Battle) {
+  if (b.city?.deploying) return;
   while (!b.outcome && isAI(b, b.active)) {
     aiSide(b);
     endSideTurn(b);
@@ -891,12 +898,14 @@ export function runAI(b: Battle) {
 }
 
 export function playerEndTurn(b: Battle) {
+  if (b.city?.deploying) { beginCityCombat(b); return; }
   endSideTurn(b);
   runAI(b);
 }
 
 /** Fight the battle out with the AI on both sides. */
 export function autoResolve(b: Battle) {
+  if (b.city) b.city.deploying = false;
   while (!b.outcome) {
     aiSide(b);
     endSideTurn(b);
@@ -992,7 +1001,7 @@ export const HOLD_RANGE = 3;
  * at a distance. Offensive and Custom armies advance.
  */
 export function holdsGround(b: Battle, u: BattleUnit): boolean {
-  const stance = b.stances?.[u.side] ?? 'offensive';
+  const stance = b.stances?.[u.side] ?? (b.city && u.side === 'defender' ? 'defensive' : 'offensive');
   const missile = UNIT_TYPES[u.type].range > 1 && !isHero(u.type);
   if (stance === 'defensive' || (stance === 'skirmish' && !missile)) {
     return nearestEnemyDistance(b, u, u.side) > HOLD_RANGE;
@@ -1001,6 +1010,7 @@ export function holdsGround(b: Battle, u: BattleUnit): boolean {
 }
 
 function aiUnit(b: Battle, u: BattleUnit) {
+  if (b.city && u.side === 'attacker' && !attackTargets(b, u).length && pillageCityBuilding(b, u.id)) return;
   const boulder = UNIT_TYPES[u.type].boulder;
   if (boulder && aiBoulder(b, u, boulder)) return;
   if (holdsGround(b, u)) {
@@ -1038,6 +1048,7 @@ function aiUnit(b: Battle, u: BattleUnit) {
     if (caster && aiSpell(b, u)) return;
     targets = attackTargets(b, u);
   }
+  if (b.city && u.side === 'attacker' && !targets.length && pillageCityBuilding(b, u.id)) return;
   if (targets.length) {
     // Finish off running troops first, then go for the weakest.
     const weakest = targets.reduce((a, c) => ((c.routing ? 0 : c.men) < (a.routing ? 0 : a.men) ? c : a));

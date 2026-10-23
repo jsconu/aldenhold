@@ -34,7 +34,7 @@ describe('city development and conservation', () => {
     expect(s.cityEconomies.aldenhold.lastMonth?.produced.timber).toBeGreaterThan(0);
   });
 
-  it('requires local deposits, development sites and resources; never takes partial payment', () => {
+  it('requires local deposits and resources without limiting industry types; never takes partial payment', () => {
     const s = newGame(1);
     const initialGold = s.gold;
     const initialStock = { ...s.cityEconomies.millbrook.goods };
@@ -45,7 +45,8 @@ describe('city development and conservation', () => {
     const city = s.cityEconomies.aldenhold;
     city.buildings.lumber = 1;
     city.buildings.mine = 1;
-    expect(buildCity(s, 'aldenhold', 'forge')).toMatch(/No development sites/);
+    city.goods.ore=3;
+    expect(buildCity(s, 'aldenhold', 'forge')).toBeNull();
   });
 
   it('production and civilian consumption conserve local goods and cannot create negative stock', () => {
@@ -153,7 +154,7 @@ describe('city development and conservation', () => {
     broken.cityEconomies.aldenhold.project!.paidGold = 1;
     expect(() => parseSave(JSON.stringify(broken))).toThrow(/city project gold/);
     broken.cityEconomies.aldenhold.project = null;
-    broken.cityEconomies.aldenhold.buildings.farm = 3;
+    broken.cityEconomies.aldenhold.buildings.farm = -1;
     expect(() => parseSave(JSON.stringify(broken))).toThrow(/city buildings/);
   });
 });

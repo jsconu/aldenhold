@@ -8,17 +8,15 @@ import { townLocation } from './world';
 /** One cargo unit is an abstract monthly shipment, never a gold coin. */
 export const GOODS: readonly GoodId[] = ['food', 'timber', 'ore', 'tools'];
 export const BUILDING_IDS: readonly BuildingId[] = ['farm', 'lumber', 'mine', 'forge'];
-export const MAX_DEVELOPMENT_SITES = 3;
-export const MAX_BUILDING_LEVEL = 2;
-/** Set by the Woodland Accord (Q04): lumber camps may not be upgraded past this level anywhere in the realm. */
+/** The Woodland Accord keeps timber harvesting sustainable: 25% less output, without a building-level cap. */
 export const LOGGING_CAP_FLAG = 'logging-cap';
-export const LOGGING_CAP_LEVEL = 1;
 /** Q02 One Eye at the Quarry: clearing the quarry lifts your ore mines' output; diverting the workers cuts it. */
 export const QUARRY_CLEARED_FLAG = 'quarry-cleared';
 export const QUARRY_DIVERTED_FLAG = 'quarry-diverted';
 
 /** How the realm's standing decisions change a building's output in your towns. */
 export function yieldFactor(state: GameState, townId: string, kind: BuildingId): number {
+  if (kind === 'lumber' && state.towns[townId]?.owner === 'player' && state.flags.includes(LOGGING_CAP_FLAG)) return 0.75;
   if (kind !== 'mine' || state.towns[townId]?.owner !== 'player') return 1;
   if (state.flags.includes(QUARRY_CLEARED_FLAG)) return 1.25;
   if (state.flags.includes(QUARRY_DIVERTED_FLAG)) return 0.75;
@@ -111,14 +109,13 @@ export function constructionQuote(state: GameState, townId: string, kind: Buildi
   else if (!town || town.owner !== 'player' || town.kind === 'lair') reason = 'You can only develop towns you rule.';
   else if (!city) reason = 'City records are unavailable.';
   else if (city.project) reason = 'One construction project at a time.';
-  else if (next > MAX_BUILDING_LEVEL) reason = 'Already at the maximum tier.';
-  else if (next === 1 && developmentSites(city) >= MAX_DEVELOPMENT_SITES) reason = 'No development sites remain.';
-  else if (def.resource !== null && endowment(townId)[def.resource] === 0) reason = 'This region lacks the required resources.';
-  else if (kind === 'lumber' && next > LOGGING_CAP_LEVEL && state.flags.includes(LOGGING_CAP_FLAG)) {
-    reason = 'You promised Greenveil that no lumber camp would grow past its first tier.';
+  else if (def.resource !== null && endowment(townId)[def.resource] === 0) reason = `This region lacks the required resources: ${def.resource} is needed for ${def.name}.`;
+  else {
+    const missing = Object.entries(materials).filter(([good, qty]) => city.goods[good as GoodId] < qty)
+      .map(([good, qty]) => `${good}: need ${qty}, have ${city.goods[good as GoodId]} (short ${qty - city.goods[good as GoodId]})`);
+    if (state.gold < gold) missing.unshift(`gold: need ${gold}, have ${state.gold} (short ${gold - state.gold})`);
+    if (missing.length) reason = `Not enough ${state.gold < gold ? 'construction funds or materials' : 'local construction materials'}. ${missing.join('; ')}.`;
   }
-  else if (state.gold < gold) reason = 'Not enough gold.';
-  else if (Object.entries(materials).some(([good, qty]) => city.goods[good as GoodId] < qty)) reason = 'Not enough local construction materials.';
   return { gold, materials, targetLevel: next, reason };
 }
 
@@ -139,7 +136,7 @@ export function dismantleCity(state: GameState, townId: string, kind: BuildingId
   const quote = dismantleQuote(state, townId, kind);
   if (quote.reason) return quote.reason;
   state.cityEconomies[townId].buildings[kind] = 0;
-  deed(state, 'realm', `${nodeName(state, townId)} dismantles its ${BUILDINGS[kind].name} (level ${quote.levels}), freeing a development site. Stored materials remain; construction costs are not refunded.`, townLocation(state, townId));
+  deed(state, 'realm', `${nodeName(state, townId)} dismantles its ${BUILDINGS[kind].name} (level ${quote.levels}), removing its upkeep. Stored materials remain; construction costs are not refunded.`, townLocation(state, townId));
   return null;
 }
 
