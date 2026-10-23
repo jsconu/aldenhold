@@ -1,6 +1,7 @@
+import { scoutedTarget } from './intel';
 import { ARMY_CAP, armyAt, campaignOf, enterNode, log, makeTroop, marchAlong, neighborsOf, nodeName, sharedMp } from './campaign';
 import type { Army, GameState } from './types';
-import { marchOptions, pathTo, stepCost, stopsMarch, townAt, townLocation, worldOf } from './world';
+import { marchOptions, pathTo, stepCost, stopsMarch, townAt, townLocation, worldOf, isCovert } from './world';
 import { isHero } from './units';
 
 const SPAWN_EVERY = 3;
@@ -32,7 +33,7 @@ export function orcTurn(state: GameState, beforeMarch?: (state: GameState, army:
   }
 
   // Everything outside the Hold, plus a fresh war party, marches one step.
-  const marching = state.armies.filter((a) => a.owner === 'orcs' && (a.at !== LAIR || a !== armyAt(state, LAIR, 'orcs')));
+  const marching = state.armies.filter((a) => a.owner === 'orcs' && !isCovert(a) && (a.at !== LAIR || a !== armyAt(state, LAIR, 'orcs')));
   const hex = worldOf(state).kind === 'hex';
   for (const army of marching) {
     if (state.status !== 'playing' || !state.armies.includes(army)) continue;
@@ -97,12 +98,20 @@ function raidAcrossHexes(state: GameState, army: Army, beforeMarch?: (state: Gam
 export function raidPath(state: GameState, army: Army): string[] {
   const options = marchOptions(state, army.at, 'orcs', Infinity, true);
   let best: { at: string; cost: number } | null = null;
+  // A quest's incursion keeps its target.
   const target = army.target && state.towns[army.target]?.owner !== 'orcs' ? townLocation(state, army.target) : null;
   if (target && options.has(target)) best = { at: target, cost: options.get(target)!.cost };
   for (const [at, step] of target && best ? [] : options) {
     const town = townAt(state, at);
     if (!town || town.owner === 'orcs') continue;
     if (!best || step.cost < best.cost) best = { at, cost: step.cost };
+  }
+  // A war party's usual target is the nearest town; a weak town of yours that the orcs' hidden scouts have seen
+  // draws it instead, if it isn't much further (at most half as far again).
+  if (!target && best && army.owner === 'orcs') {
+    const nearest = best.cost;
+    const scouted = scoutedTarget(state, (at) => options.has(at) && options.get(at)!.cost <= nearest * 1.5);
+    if (scouted) best = { at: scouted, cost: options.get(scouted)!.cost };
   }
   if (!best) return [];
   const path = pathTo(options, best.at);

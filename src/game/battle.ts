@@ -207,7 +207,7 @@ export function planDeployment(army: Army): Map<number, DeployCell> {
   const key = (c: DeployCell) => `${c.depth},${c.row}`;
   const role = (t: Army['troops'][number]) => {
     const type = UNIT_TYPES[t.type];
-    if (t.type === 'lord' || t.type === 'warchief' || (type.hero?.spells.length ?? 0) > 0) return 2;
+    if (t.type === 'lord' || t.type === 'warchief' || (type.hero?.spells.length ?? 0) > 0 || type.noncombat) return 2;
     return type.range > 1 ? 1 : 0;
   };
   const strength = (t: Army['troops'][number]) => {
@@ -222,7 +222,8 @@ export function planDeployment(army: Army): Map<number, DeployCell> {
     [1, 2, 0], // Casters and the leader stay behind the melee screen.
   ];
   // Keep the same fielded contingent as older saves/encounter previews; rank only its starting positions.
-  const troops = army.troops.filter(t => t.type !== 'scout').slice(0, FIELD_LIMIT).sort((a, b) => role(a) - role(b) || strength(b) - strength(a) || a.id - b.id);
+  // Scouts and spies never take the field; engineers do, at the rear, to build.
+  const troops = army.troops.filter(t => t.type !== 'scout' && UNIT_TYPES[t.type].noncombat !== 'spy').slice(0, FIELD_LIMIT).sort((a, b) => role(a) - role(b) || strength(b) - strength(a) || a.id - b.id);
   for (const t of troops) {
     const cell = byRole[role(t)].flatMap((depth) => rows.map((row) => ({ depth, row })))
       .find((c) => !taken.has(key(c)));
@@ -442,8 +443,50 @@ export function moveGroup(b: Battle, unitIds: number[], destination: Hex): boole
 }
 
 /** Enemies the unit can strike now: adjacent ones, or ones in missile range if it isn't engaged. */
+export type Build = 'fort' | 'tower' | 'bridge';
+
+/** What engineers can build, in their own words, for the battle panel. */
+export const BUILDS: Record<Build, { name: string; text: string }> = {
+  fort: { name: 'Field fort', text: 'Raise a palisade on an empty hex next to the engineers: whoever holds it gets +3 defense.' },
+  tower: { name: 'Siege tower', text: 'Roll a tower against the town walls: the defenders lose their wall bonus for the rest of the battle.' },
+  bridge: { name: 'Bridge', text: 'Lay a bridge over a stream or marsh hex next to the engineers: it is crossed like open ground.' },
+};
+
+function canBuild(b: Battle, u: BattleUnit): boolean {
+  return UNIT_TYPES[u.type].noncombat === 'engineer' && !b.outcome && u.side === b.active && !u.reserve && !u.acted && !u.fled && !u.routing && u.men > 0;
+}
+
+/** Where engineers can build: forts on empty passable hexes next to them, bridges on water or marsh next to them. */
+export function buildTargets(b: Battle, u: BattleUnit, kind: Build): Hex[] {
+  if (!canBuild(b, u)) return [];
+  if (kind === 'tower') return u.side === 'attacker' && b.walls ? [{ col: u.col, row: u.row }] : [];
+  return hexNeighbors(u).filter((h) => h.col >= 0 && h.row >= 0 && h.col < b.width && h.row < b.height).filter((h) => {
+    const t = b.terrain[h.col][h.row];
+    if (kind === 'bridge') return t === 'stream' || t === 'marsh';
+    return !unitAt(b, h) && TERRAIN[t].move < Infinity && t !== 'fort' && t !== 'stream' && t !== 'marsh';
+  });
+}
+
+/** Engineers spend their turn building. Returns whether anything was built. */
+export function build(b: Battle, unitId: number, kind: Build, at?: Hex): boolean {
+  const u = b.units.find((x) => x.id === unitId);
+  if (!u) return false;
+  const target = buildTargets(b, u, kind).find((h) => kind === 'tower' || (at && h.col === at.col && h.row === at.row));
+  if (!target) return false;
+  if (kind === 'tower') {
+    b.walls = false;
+    b.log.push('Engineers roll a siege tower against the walls: the defenders lose their wall bonus.');
+  } else {
+    b.terrain[target.col][target.row] = kind;
+    b.log.push(kind === 'fort' ? 'Engineers raise a field fort.' : 'Engineers lay a bridge.');
+  }
+  u.moved = true;
+  u.acted = true;
+  return true;
+}
+
 export function attackTargets(b: Battle, u: BattleUnit): BattleUnit[] {
-  if (u.reserve || u.acted || u.men <= 0 || u.fled || u.routing) return [];
+  if (u.reserve || u.acted || u.men <= 0 || u.fled || u.routing || UNIT_TYPES[u.type].noncombat) return [];
   const range = rangeOf(b, u);
   const engaged = nextToEnemy(b, u, u.side);
   return alive(b, other(u.side)).filter((e) => {

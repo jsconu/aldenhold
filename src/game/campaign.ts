@@ -1,3 +1,4 @@
+import { advanceIntel, catchScouts } from './intel';
 import { advanceSieges, siegeStormed, wallsBreached } from './sieges';
 import { rollWeather, weatherMarch, weatherToll } from './weather';
 import {cityWarbandTurn} from './cityWarbands';
@@ -21,8 +22,7 @@ import { random } from './rng';
 import type { Army, Battle, CampaignDefinition, CampaignId, DeedKind, FactionId, GameState, HeroOffer, MonsterSpecies, MonthlyLedger, Town, Troop } from './types';
 import { heroLevel, heroMaxHp, heroMaxMana, isHero, isRulerType } from './units';
 import {
-  landAt, locationName, marchOptions, marchRate, neighbors, pathTo, stepCost, townAt, townLocation, worldOf,
-} from './world';
+  landAt, locationName, marchOptions, marchRate, neighbors, pathTo, stepCost, townAt, townLocation, worldOf, isCovert } from './world';
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const MAX_TAX = 50;
@@ -322,6 +322,8 @@ export function moveTroops(state: GameState, from: string, troopIds: number[], t
   const army: Army = { id: state.nextId++, owner: 'player', at: from, from: null, troops: moving, ...(src.tactics ? { tactics: structuredClone(src.tactics) } : {}) };
   state.armies.push(army);
   marchAlong(state, army, quote.path);
+  // Hidden enemy scouts on the way are caught.
+  catchScouts(state, quote.path);
   refreshScoutContacts(state);
   discoverLairs(state);
   return null;
@@ -366,7 +368,7 @@ export function marchQuote(state: GameState, from: string, troopIds: number[], t
 export function arrivalOutcome(state: GameState, at: string): 'battle' | 'capture' | null {
   const town = townAt(state, at);
   const passage = town !== undefined && hasPassage(state, 'player', town.id);
-  if (state.armies.some((a) => a.at === at && a.owner !== 'player' && !(a.owner === 'neutral' && passage))) return 'battle';
+  if (state.armies.some((a) => a.at === at && a.owner !== 'player' && !isCovert(a) && !(a.owner === 'neutral' && passage))) return 'battle';
   if (town && town.owner !== 'player' && !passage) return 'capture';
   return null;
 }
@@ -378,7 +380,7 @@ export function enterNode(state: GameState, army: Army, to: string) {
 
 /** A neutral army an ally lets through doesn't fight; anyone else of another faction does. */
 function blocks(state: GameState, mover: Army, other: Army, at: string): boolean {
-  if (other === mover || other.at !== at || other.owner === mover.owner) return false;
+  if (other === mover || other.at !== at || other.owner === mover.owner || isCovert(other)) return false;
   const townId = townAt(state, at)?.id;
   return !(other.owner === 'neutral' && townId !== undefined && hasPassage(state, mover.owner, townId));
 }
@@ -632,7 +634,7 @@ export function checkStatus(state: GameState) {
 /** The phases of a month, in the order they run. */
 export type MonthPhaseId =
   | 'snapshot' | 'cities' | 'population' | 'heroes' | 'treasury' | 'construction' | 'refits' | 'shortages'
-  | 'desertion' | 'exposure' | 'calendar' | 'weather' | 'offers' | 'quests' | 'lairs' | 'ai' | 'raids' | 'sieges' | 'ending';
+  | 'desertion' | 'exposure' | 'calendar' | 'weather' | 'offers' | 'quests' | 'lairs' | 'intel' | 'ai' | 'raids' | 'sieges' | 'ending';
 
 /** One line the month produced: news for the chronicle, or a deed that also goes in the journal. */
 export interface MonthNote {
@@ -769,6 +771,8 @@ const MONTH_PHASES: MonthPhase[] = [
   { id: 'quests', run(state) { return advanceQuests(state).map(news); } },
   // Lairs found by armies that marched near them, and any whose garrison is gone.
   { id: 'lairs', run(state) { return [...discoverLairs(state), ...settleLairs(state)].map(news); } },
+  // Scouts and spies: enemy scouts are posted, spies hunt them, enemy spies hunt yours (before the orcs move).
+  { id: 'intel', run(state) { return advanceIntel(state).map(news); } },
   // The orcs' own battles, captures and raids are recorded by the rules they trigger.
   { id: 'ai', run(state) { orcTurn(state, observeOrcRoutes); cityWarbandTurn(state); refreshScoutContacts(state); return []; } },
   // Monster raids: last month's arrive (fighting or plundering), then next month's are planned and announced.

@@ -1,4 +1,6 @@
 import {explored} from './game/challenge';
+import { stationScout } from './game/intel';
+import { build, type Build } from './game/battle';
 import { acceptTerms, beginSiege, liftSiege, refuseTerms, siegeOf } from './game/sieges';
 import { mapClickIntent } from './ui/mapClick';
 import { makeCamp } from './game/weather';
@@ -240,6 +242,10 @@ function onAction(action: string, data: DOMStringMap, additive = false) {
     case 'troops-none':
       ui.checked = new Set();
       break;
+    case 'station-scout':
+      ui.message = stationScout(state, Number(data.troop)) ?? 'The scout stays here on watch; the rest of the army can march on.';
+      if (ui.selected) { const army = armyAt(state, ui.selected, 'player'); ui.checked = new Set([...ui.checked].filter((id) => army?.troops.some((t) => t.id === id))); }
+      break;
     case 'make-camp':
       ui.message = makeCamp(state, Number(data.army)) ?? 'Camp is set: the army stays put this month, and the weather costs it half as many men.';
       break;
@@ -465,7 +471,19 @@ function onAction(action: string, data: DOMStringMap, additive = false) {
       ui.view = 'map';
       selectNode(data.node!);
       break;
+    case 'build':
+      ui.battleBuild = ui.battleBuild === data.build ? null : (data.build as Build);
+      ui.battleSpell = null;
+      break;
+    case 'build-tower': {
+      const b = state.battle;
+      const u = b ? selectedUnit(b, ui) : undefined;
+      if (b && u && build(b, u.id, 'tower')) undoMove = null;
+      ui.battleBuild = null;
+      break;
+    }
     case 'spell':
+      ui.battleBuild = null;
       ui.battleSpell = ui.battleSpell === data.spell ? null : (data.spell as SpellId);
       ui.battleTarget = null;
       ui.battleDestination = null;
@@ -547,6 +565,12 @@ function onHex(col: number, row: number, additive = false) {
   const clicked = unitAt(b, { col, row });
   const sel = selectedUnit(b, ui);
   const group = selectedGroup(b, ui);
+  if (sel && ui.battleBuild) {
+    // Engineers build on the clicked hex; clicking anywhere else cancels.
+    if (build(b, sel.id, ui.battleBuild, { col, row })) undoMove = null;
+    ui.battleBuild = null;
+    return;
+  }
   if (sel && ui.battleSpell) {
     if (clicked && clicked.id === ui.battleTarget && ui.battleSpell !== 'teleport') {
       // Clicking the chosen target a second time casts, the same as the Cast button.

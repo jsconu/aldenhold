@@ -62,14 +62,20 @@ export function blockade(state: GameState, siege: Siege): number {
   return Math.max(0.25, Math.min(1, ours / (1.5 * theirs)));
 }
 
-/** What next month will do to the town under this siege, for the player to see before ending the month. */
+/**
+ * What next month will do to the town under this siege, for the player to see before ending the month. Without
+ * engineers the walls barely fall (a siege can still starve the town); each engineer formation batters them down,
+ * and boulder-throwers add their own blows.
+ */
 export function siegeOutlook(state: GameState, siege: Siege) {
   const army = state.armies.find((a) => a.id === siege.army);
   const engines = army?.troops.filter((t) => UNIT_TYPES[t.type].boulder).length ?? 0;
+  const engineers = army?.troops.filter((t) => UNIT_TYPES[t.type].noncombat === 'engineer').length ?? 0;
   const b = blockade(state, siege);
   return {
     blockade: b,
-    walls: Math.round(8 + 12 * b + 10 * engines),
+    engineers,
+    walls: Math.round((engineers ? 8 + 12 * b + 6 * (engineers - 1) : 2 + 2 * b) + 10 * engines),
     supplies: Math.round(b * 10) / 10,
     starving: siege.supplies <= Math.round(b * 10) / 10,
   };

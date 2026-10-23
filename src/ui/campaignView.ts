@@ -1,4 +1,5 @@
 import {campaignObjectives,explored,DIFFICULTIES} from '../game/challenge';
+import { detectChance } from '../game/intel';
 import { BREACH, siegeOf, siegeOutlook, surrenderPolicy } from '../game/sieges';
 import { currentWeather, exposureLoss, SEASON_NAME } from '../game/weather';
 import { onWatch, SCOUT_RANGE, scoutContactStatus } from '../game/scouts';
@@ -465,11 +466,12 @@ function renderArmy(state: GameState, ui: UIState, a: Army): string {
     : `<p class="msg exposure-warning">${esc(`In the open: this ${weather.rule.name.toLowerCase()} will cost the army ${pct(loss)} of its men at month end unless it reaches one of your towns or an allied one.`)}
       <br><button data-action="make-camp" data-army="${a.id}" title="Ends this army's marching for the month">Set up camp</button> <small>Halves the loss to ${pct(loss / 2)}, but the army can't march again this month.</small></p>`;
   return `<div class="army-card own-${a.owner}"><h3>${mine ? 'Your troops' : a.owner === 'orcs' ? 'Orc host' : 'Town militia'}</h3>
-    ${mine ? renderBesieging(state, a) : ''}${cold}${mine && a.troops.length > 1 && a.at === ui.selected ? `<div class="troop-quick"><button data-action="troops-all" class="ghost">Select all</button><button data-action="troops-none" class="ghost">Deselect all</button></div>` : ''}<ul class="troops">${rows}</ul>
+    ${mine ? renderBesieging(state, a) : ''}${mine ? a.troops.filter((t) => t.type === 'spy').map((t) => `<p class="sub spy-note"><b>${esc(t.name ?? 'Spy')} #${t.id}</b> · Lv ${level(t.xp)}: each month may unmask hidden enemy scouts within ${SCOUT_RANGE} hexes (${Math.round(detectChance(level(t.xp), 1) * 100)}% against a new scout). It gains experience with every scout it finds.</p>`).join('') : ''}${mine && a.troops.some((t) => t.type === 'engineer') ? '<p class="sub">Engineers march with the army but never fight. In battle they build field forts, bridges and siege towers; in a siege they batter down the walls.</p>' : ''}${cold}${mine && a.troops.length > 1 && a.at === ui.selected ? `<div class="troop-quick"><button data-action="troops-all" class="ghost">Select all</button><button data-action="troops-none" class="ghost">Deselect all</button></div>` : ''}<ul class="troops">${rows}</ul>
     ${mine ? a.troops.filter((t) => t.type === 'scout').map((t) => `<div class="scout-post"><b>Scout #${t.id}</b> · ${onWatch(t) ? `On watch over ${esc(nodeName(state, a.at))}` : 'Not on watch'}
       <div class="save-actions">
         ${onWatch(t) ? `<button data-action="scout-post" data-troop="${t.id}" data-post="recall">Stop watching</button>` : `<button data-action="scout-post" data-troop="${t.id}" data-post="watch">Keep watch here</button>`}
-      </div><small class="sub">A scout on watch sees ${SCOUT_RANGE} hexes all around (shaded on the map) and reports visible orc and rival-city forces with an estimated destination. Scouts stay out of battle and cannot capture towns; an enemy reaching their post ends their watch. Isolated scouts cannot hold a position. Marching the scout ends its watch.</small></div>`).join('') : ''}
+        ${a.troops.length > 1 ? `<button data-action="station-scout" data-troop="${t.id}" title="The scout leaves this army and keeps watch here alone; the army can march on">Station scout here</button>` : ''}
+      </div><small class="sub">Lv ${level(t.xp)}: gains experience each month on watch, and the higher its level the harder it is for enemy spies to find. A scout on watch sees ${SCOUT_RANGE} hexes all around (shaded on the map) and reports visible orc and rival-city forces with an estimated destination. Scouts stay out of battle and cannot capture towns; an enemy reaching their post ends their watch. Isolated scouts cannot hold a position. Marching the scout ends its watch.</small></div>`).join('') : ''}
     ${mine && ui.view==='city' && townAt(state, a.at)?.owner === 'player' ? renderRefitChoices(state, a, ui) : ''}
     ${mine ? '<p class="sub">In battle, your toughest melee formations set up in front; archers, casters and the leader start behind them.</p>' : ''}
     ${ready ? `<p class="hint">${hint}</p>` : ''}</div>`;
@@ -638,7 +640,7 @@ function renderTownChoice(state: GameState, ui: UIState, choice: NonNullable<UIS
     return `<div class="assault-shade"><section class="assault-prompt town-choice" role="dialog" aria-modal="true" aria-labelledby="town-choice-title">
       <h2 id="town-choice-title">${name}</h2>
       <p>Your troops are here. What would you like to do?</p>
-      <div class="assault-actions">
+      <div class="assault-actions stacked">
         <button data-action="town-choice-move" class="primary">Select and move troops</button>
         <button data-action="town-choice-city">Open city screen</button>
         <button data-action="town-choice-close" class="ghost">Cancel</button>
@@ -686,7 +688,7 @@ function renderSiege(state: GameState, townId: string): string {
       <div><dt>Morale</dt><dd>${siege.morale}</dd></div>
       <div><dt>Blockade</dt><dd>${Math.round(next.blockade * 100)}%</dd></div>
     </dl>
-    <p class="sub">Next month: walls −${next.walls}, supplies −${next.supplies}${next.starving ? ', and the garrison starts to starve' : ''}. ${siege.walls < BREACH ? 'The walls are breached: an assault no longer faces them.' : `Below ${BREACH}% walls, an assault no longer faces them.`} ${esc(policy.why)}</p>
+    <p class="sub">Next month: walls −${next.walls}, supplies −${next.supplies}${next.starving ? ', and the garrison starts to starve' : ''}. ${next.engineers ? '' : 'Without engineers the walls barely fall: bring engineers to batter them down.'} ${siege.walls < BREACH ? 'The walls are breached: an assault no longer faces them.' : `Below ${BREACH}% walls, an assault no longer faces them.`} ${esc(policy.why)}</p>
     ${terms}
     <div class="save-actions">
       <button data-action="siege-storm" data-town="${townId}" ${ready.length ? '' : 'disabled'} title="${ready.length ? 'Attack the town with the besieging army' : 'Your army can storm once it has movement again (next month)'}">Storm ${name}</button>

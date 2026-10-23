@@ -1009,3 +1009,36 @@ Validation: 536 tests pass, including:
 - the level drop.
 
 Checked in the browser: the popup and its toggles, Besiege at Fenwick, and the siege panel.
+
+## Engineers, stationed scouts and spies (owner request, October 22, 2026)
+
+**Engineers** (new unit, 10 men, 150 gold) march with the army but never attack. They take the field at the rear. In battle, instead of moving on, they spend their turn building (`build` in `src/game/battle.ts`):
+- a **field fort** on an empty hex next to them (+3 defense to whoever holds it);
+- a **bridge** over a stream or marsh hex next to them (crossed like open ground);
+- a **siege tower** when attacking a walled town (the walls stop counting).
+
+Choosing a build lights only the places they can build.
+
+**Sieges** depend on engineers. Without them the walls lose only 2–4% a month, so the town can still be starved but its walls hardly fall. With them the walls lose 8–20% a month, plus 6 for each extra engineer unit and 10 for each boulder-thrower.
+
+**Stationed scouts.** **Station scout here** leaves a scout on watch where it stands while its army marches on. Scouts on watch gain experience each month.
+
+**Spies** (new unit, 120 gold) never take the field. Each month each spy may unmask hidden enemy scouts within 3 hexes (`src/game/intel.ts`). The chance is 35% ± 10% per level between spy and scout, between 5% and 95%, and the spy gains experience with each scout it finds.
+
+**Hidden enemy scouts.**
+- **Orcs** post them from month 6, up to two at a time, two hexes from your least defended towns. Rival free towns post one each.
+- **On the map** they are not drawn and never block a march; an army walking through one catches it.
+- **While unseen**, the orcs' scouts draw orc war parties (not quest incursions) to the weakest town of yours they can see, if it is at most half as far again as their usual target.
+
+**Enemy spies** are not on the map. Each month they may find your stationed scouts within 6 hexes of orc or rival lands, and they grow more skilled each year. A veteran scout is harder to find.
+
+Validation: all tests pass, including 9 engineer and spy tests:
+- engineers on the field and spies off it;
+- forts, bridges and towers;
+- engineers batter siege walls;
+- stationing a scout;
+- detection odds;
+- enemy scouts posted, hidden, never blocking, caught on the march, and reloaded;
+- spies unmasking scouts, and enemy spies finding yours.
+
+The Westmere scenario test moved to seed 15, since scouted orc raids change which town falls. Checked in the browser: the engineer's build buttons, and raising a fort.
