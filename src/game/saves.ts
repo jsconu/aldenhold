@@ -1,3 +1,4 @@
+import {formationCapacity} from './formationCapacity';
 import { LAIRS as LAIRS_BY_ID, lairsOf, SPECIES } from '../content/lairs';
 import { FACTIONS } from '../content/factions';
 import { WESTERN_ADDED_ARMIES, WESTERN_ADDED_TOWNS } from '../content/campaigns/westernExpansion';
@@ -120,7 +121,7 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
       requireValue(text(t.type) && Object.hasOwn(UNIT_TYPES, t.type) && integer(t.xp) && integer(t.men, 1) && integer(t.mp, 0, maxMp(t.type)), 'troop');
       requireValue(t.name === undefined || text(t.name), 'troop name');
       requireValue(t.scoutPost === undefined || (t.type === 'scout' && oneOf(t.scoutPost, ['watch', 'city', 'road']) && a.owner === 'player'), 'scout post');
-      requireValue(t.men <= (isHero(t.type) ? heroMaxHp(t.type, t.xp) : UNIT_TYPES[t.type].men), 'troop strength');
+      requireValue(t.men <= (isHero(t.type) ? heroMaxHp(t.type, t.xp) : formationCapacity(t as unknown as GameState['armies'][number]['troops'][number])), 'troop strength');
       requireValue(isHero(t.type) ? integer(t.mana, 0, heroMaxMana(t.type, t.xp)) : t.mana === undefined || t.mana === 0, 'troop mana');
       const gear = object(t.gear);
       requireValue(Object.keys(gear).length === 2 && oneOf(gear.armor, ['leather', 'chain', 'plate']) &&
@@ -138,7 +139,7 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
         requireValue(text(refit.item) && Object.hasOwn(EQUIPMENT, refit.item), 'refit item');
         const defn = EQUIPMENT[refit.item as EquipmentId];
         requireValue(!isHero(t.type) && t.mp === 0 && refit.startedTurn === s.turn &&
-          integer(refit.orderedMen, Number(t.men), UNIT_TYPES[t.type].men) &&
+          integer(refit.orderedMen, Number(t.men), formationCapacity(t as unknown as GameState['armies'][number]['troops'][number])) &&
           refit.paidGold === equipmentQuoteGold(defn.id, refit.orderedMen as number) &&
           (defn.slot === 'bow' ? usesBow(t.type as string) : !(usesBow(t.type as string) && defn.id === 'plate')),
           'refit order');

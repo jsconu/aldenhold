@@ -71,7 +71,7 @@ export function renderBattle(state: GameState, ui: UIState): string {
       const t = TERRAIN[kind];
       ground += `<polygon points="${hexPoints(cx, cy, S + 1)}" class="hex ${kind}"/>`;
       if (kind === 'ruins') groundArt += richRuin(cx,cy,col*31+row*7);
-      else if (kind === 'spring' || kind === 'thorns') groundArt += terrainArt(kind,cx,cy,col*31+row*7);
+      else if (kind === 'spring') groundArt += terrainArt(kind,cx,cy,col*31+row*7);
       // A transparent hit area on top of the art carries the click, the tooltip and the move highlight.
       const reachable = (reach.has(hexKey({ col, row })) && !casting) || destinations.has(hexKey({ col, row }));
       const area = !!(chosen && ui.battleSpell && SPELLS[ui.battleSpell].radius && hexDistance(chosen, { col, row }) <= SPELLS[ui.battleSpell].radius);

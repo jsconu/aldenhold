@@ -3,6 +3,7 @@ import { townLocation } from './world';
 import { recordPurchase } from './economy';
 import { UNIT_TYPES } from './data';
 import { level, isHero } from './units';
+import { formationCapacity } from './formationCapacity';
 import type { EquipmentId, EquipmentSlot, GameState, GoodId, GoodsStock, Loadout, Troop } from './types';
 
 export interface EquipmentDefinition {
@@ -60,7 +61,7 @@ export function equipmentUpkeep(troop: Troop): number {
 }
 
 export function troopUpkeep(t: Troop, base: number): number {
-  return base + equipmentUpkeep(t);
+  return Math.ceil((base + equipmentUpkeep(t)) * Math.max(1, t.men / UNIT_TYPES[t.type].men));
 }
 
 export function equipmentQuoteGold(item: EquipmentId, men: number): number {
@@ -87,6 +88,7 @@ export function refitQuote(state: GameState, townId: string, troopId: number, it
   else if (state.battle || state.status !== 'playing') reason = 'Finish the current battle before refitting.';
   else if (town?.owner !== 'player' || town.kind === 'lair' || !city) reason = 'Refits require an owned town.';
   else if (isHero(troop.type)) reason = 'Hero equipment needs a separate system.';
+  else if (troop.men > formationCapacity({type:troop.type,gear:{...troop.gear,[item.slot]:itemId}})) reason = `This armor allows at most ${formationCapacity({type:troop.type,gear:{...troop.gear,[item.slot]:itemId}})} soldiers in this formation.`;
   else if (item.slot === 'bow' && !usesBow(troop.type)) reason = 'Only archer formations can use bows.';
   else if (item.slot === 'armor' && usesBow(troop.type) && itemId === 'plate') reason = 'Archers cannot wear plate.';
   else if (troop.refit) reason = 'This formation is already refitting.';

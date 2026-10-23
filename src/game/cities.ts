@@ -2,6 +2,8 @@ import type {
   BuildingId, BuildingLevels, CityEconomy, CityProduction, GameState, GoodId, GoodsStock, Town,
 } from './types';
 import { recordPurchase } from './economy';
+import { deed, nodeName } from './campaign';
+import { townLocation } from './world';
 
 /** One cargo unit is an abstract monthly shipment, never a gold coin. */
 export const GOODS: readonly GoodId[] = ['food', 'timber', 'ore', 'tools'];
@@ -118,6 +120,27 @@ export function constructionQuote(state: GameState, townId: string, kind: Buildi
   else if (state.gold < gold) reason = 'Not enough gold.';
   else if (Object.entries(materials).some(([good, qty]) => city.goods[good as GoodId] < qty)) reason = 'Not enough local construction materials.';
   return { gold, materials, targetLevel: next, reason };
+}
+
+/** Redevelopment frees a whole industrial site; it never sells stock or refunds construction. */
+export function dismantleQuote(state: GameState, townId: string, kind: BuildingId) {
+  const city = state.cityEconomies[townId], town = state.towns[townId];
+  let reason: string | null = null;
+  if (!Object.hasOwn(BUILDINGS, kind)) reason = 'Unknown building.';
+  else if (state.status !== 'playing' || state.battle) reason = 'Finish the battle before redeveloping.';
+  else if (!town || town.owner !== 'player' || town.kind === 'lair' || !city) reason = 'You can only redevelop towns you rule.';
+  else if (kind === 'farm') reason = 'Farms are protected from demolition.';
+  else if (city.project) reason = 'Finish the current construction project first.';
+  else if (!city.buildings[kind]) reason = 'There is no building to dismantle.';
+  return {reason, levels: city?.buildings[kind] ?? 0};
+}
+
+export function dismantleCity(state: GameState, townId: string, kind: BuildingId): string | null {
+  const quote = dismantleQuote(state, townId, kind);
+  if (quote.reason) return quote.reason;
+  state.cityEconomies[townId].buildings[kind] = 0;
+  deed(state, 'realm', `${nodeName(state, townId)} dismantles its ${BUILDINGS[kind].name} (level ${quote.levels}), freeing a development site. Stored materials remain; construction costs are not refunded.`, townLocation(state, townId));
+  return null;
 }
 
 /** Construction starts immediately, deducts gold/materials once, and finishes after this month's production. */

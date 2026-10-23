@@ -23,6 +23,10 @@ export function richBattleGround(b: Battle, polygon: (x:number,y:number)=>string
   for(let col=0;col<b.width;col++)for(let row=0;row<b.height;row++){
     const x=36+col*45,y=6+Math.sqrt(3)*30*(row+.5*(col&1)+.5);
     ground+='<polygon points="'+polygon(x,y)+'" fill="url(#battle-rich-'+b.terrain[col][row]+')"/>';
+    if(b.terrain[col][row]==='thorns'){
+      const variant=(col*31+row*7)%4,id='thorn-ground-'+col+'-'+row;
+      ground+='<clipPath id="'+id+'"><polygon points="'+polygon(x,y)+'"/></clipPath><g clip-path="url(#'+id+')"><svg x="'+(x-30)+'" y="'+(y-26)+'" width="60" height="52" viewBox="'+variant%2+' '+Math.floor(variant/2)+' 1 1" preserveAspectRatio="none"><image href="/assets/battle/thorns-v1.png" width="2" height="2" preserveAspectRatio="none"/></svg></g>';
+    }
   }
   return '<g class="rich-battle-ground" pointer-events="none"><defs>'+defs+'</defs>'+ground+'</g>';
 }
