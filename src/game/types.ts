@@ -134,6 +134,10 @@ export interface Troop {
   name?: string;
   mana?: number;
   xp: number;
+  /** Campaign readiness, 0-100; absent in older saves means 100. */
+  campaignMorale?: number;
+  /** Last month when a bad-weather march reduced morale. */
+  moraleMarchTurn?: number;
   /**
    * Movement points left this month. On the nine-location valley a march costs the whole month (1 point); on a
    * hex map each unit type has its own budget. Troops raised, hired or refitting this month have 0.
@@ -199,6 +203,8 @@ export interface Town {
   /** Percent, 0–50. */
   tax: number;
   kind: 'capital' | 'town' | 'lair';
+  /** Public unrest, 0-100; absent in older saves means 0. */
+  unrest?: number;
 }
 
 export interface BattleUnit {
@@ -400,6 +406,7 @@ export interface QuestEncounter {
   owner: FactionId;
   troops: StartTroop[];
   /** Only your heroes fight (not your lord, whom the council won't risk); the rest of the army waits. */
+  /** Only the ruler and hired heroes enter; ordinary units wait at the site. */
   heroesOnly?: boolean;
   win: QuestNext;
   lose: QuestNext;
@@ -659,6 +666,8 @@ export interface GameState {
   cityPolitics?:{lastTurn:number;rivals:Record<string,{nextRaidTurn:number;warning?:{target:string;launchTurn:number}}>};
   challenge?:CampaignChallenge;
   rulerAppearance?: RulerAppearance;
+  /** Two relevant side-quest highlights and longer failure deadlines; every quest remains available. */
+  questPacing?: { highlights: 2 };
   version: 18;
   /** What your spies last learned inside each town (game/intel.ts). */
   intel?: Record<string, { turn: number; lines: string[] }>;

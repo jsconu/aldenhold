@@ -70,12 +70,12 @@ describe('the battle screen', () => {
     const d: Army = { id: s.nextId++, owner: 'orcs', at: '6,14', from: null, troops: [makeTroop(s, 'warband')] };
     s.armies.push(a, d);
     s.battle = createBattle('6,14', a, d, false, 1);
-    const html = renderBattle(s, ui(null, { battleZoom: 2.6 }));
+    const html = renderBattle(s, ui(null, { battleZoom: 5 }));
     expect(html).toContain('class="pennant mine"');
     expect(html).toContain('class="pennant foe"');
     expect(html).toContain('class="side-ring"');
     expect(html).toContain('>Your army</text>');
-    expect(html).toContain('<output class="zoom-level">260%</output>');
+    expect(html).toContain('<output class="zoom-level">500%</output>');
     expect(html).toMatch(/data-dir="1" class="ghost" title="Zoom in" disabled/);
   });
 });

@@ -25,12 +25,12 @@ describe('quest monsters', () => {
 });
 
 describe('encounter odds (automated tactics, guard rails for tuning)', () => {
-  it('the cyclops is a hero-led fight: an expedition with a priest usually wins, a band without one usually loses', () => {
-    const expedition = encounterOdds('Q02', 'hunt', PARTIES.expedition, 80);
-    const band = encounterOdds('Q02', 'hunt', PARTIES.band, 80);
-    expect(expedition.winRate).toBeGreaterThanOrEqual(0.85);
-    expect(expedition.heroDeathRate).toBeLessThanOrEqual(0.1);
-    expect(band.winRate).toBeLessThanOrEqual(0.65); // measured 59% over 200 fights; 80 fights leave some noise
+  it('the cyclops admits leaders only, including in the odds diagnostic', () => {
+    const expedition = encounterOdds('Q02', 'hunt', PARTIES.expedition, 8);
+    const priest = encounterOdds('Q02', 'hunt', PARTIES.priest, 8);
+    expect(expedition.winRate).toBe(priest.winRate);
+    expect(expedition.rounds).toBe(priest.rounds);
+    expect(() => encounterOdds('Q02', 'hunt', PARTIES.band, 1)).toThrow('no eligible leader');
   }, 60_000);
 
   it('the minotaur is a gamble for one fighting hero, safe for a pair, and beyond a lone priest', () => {
@@ -47,7 +47,7 @@ describe('encounter odds (automated tactics, guard rails for tuning)', () => {
   it('reports every encounter against its plausible parties', () => {
     const rows = encounterReport(2);
     expect(rows.map((r) => `${r.quest}/${r.party}`)).toEqual([
-      'Q02/home', 'Q02/expedition', 'Q02/band',
+      'Q02/champion', 'Q02/priest', 'Q02/mage', 'Q02/pair',
       'Q03/champion', 'Q03/priest', 'Q03/mage', 'Q03/pair',
       'Q05/home', 'Q05/expedition', 'Q05/band',
     ]);

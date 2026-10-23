@@ -106,7 +106,7 @@ export const WOODLAND_ACCORD: QuestDefinition = {
         outcome: {
           status: 'failed',
           effects: [{ kind: 'flag', flag: 'greenveil-rejected' }],
-          journal: 'Greenveil\'s envoy waited four months for an answer and went home. The woodland court takes the silence as a refusal.',
+          journal: 'Greenveil\'s envoy waited until the response deadline for an answer and went home. The woodland court takes the silence as a refusal.',
         },
       },
     },
@@ -195,8 +195,8 @@ export const M03_CROSSING: QuestDefinition = {
 };
 
 export const M04_INCURSION: QuestDefinition = {
-  id: 'M04', campaignIds: WEST, kind: 'main', name: 'The First Incursion', giver: 'Your scouts', at: 'aldenhold',
-  summary: 'Two war bands have left the east together: one through Grey Pass for Millbrook, one from the goblin camp for Aldenhold.',
+  id: 'M04', campaignIds: WEST, kind: 'main', name: 'The First Incursion', giver: 'The war council', at: 'aldenhold',
+  summary: 'Secure Aldenhold and Millbrook while the west consolidates. Station scouts along the eastern approaches to learn when hostile armies are coming.',
   prerequisites: [{ kind: 'any', of: [
     { kind: 'quest', quest: 'M03', status: 'succeeded' },
     { kind: 'quest', quest: 'M03', status: 'failed' },
@@ -232,14 +232,14 @@ export const M04_INCURSION: QuestDefinition = {
  */
 export const Q02_ONE_EYE: QuestDefinition = {
   id: 'Q02', campaignIds: WEST, kind: 'side', name: 'One Eye at the Quarry', giver: 'Quarrymen at court', at: 'aldenhold',
-  summary: 'A cyclops has driven the quarrymen out of the Old Quarry. Ore from the hills has slowed to a trickle.',
+  summary: 'A cyclops has driven the quarrymen out of the Old Quarry. This is a leaders-only hunt: your ruler and hired heroes may enter; ordinary units wait outside.',
   prerequisites: [{ kind: 'month', atLeast: 4 }], needsEnvoy: false,
   stages: [{
     id: 'rumor',
-    text: 'Hunt the cyclops at the Old Quarry (it hurls boulders, but warns you a turn ahead), or divert the workers to safer ground: your ore mines produce a quarter less.',
+    text: 'Send your leaders to hunt the cyclops at the Old Quarry (it hurls boulders, but warns you a turn ahead; ordinary units stay outside), or divert the workers to safer ground: your ore mines produce a quarter less.',
     choices: [
       { id: 'hunt', label: 'Hunt the cyclops', then: { encounter: {
-        site: 'quarry', owner: 'orcs', troops: ['cyclops'],
+        site: 'quarry', owner: 'orcs', troops: ['cyclops'], heroesOnly: true,
         win: { status: 'succeeded', effects: [{ kind: 'flag', flag: 'quarry-cleared' }, { kind: 'gold', amount: 100 }],
           journal: 'The cyclops of the Old Quarry is dead. The quarrymen are back, and your ore mines produce a quarter more.' },
         lose: { stage: 'rumor' },
@@ -255,13 +255,13 @@ export const Q02_ONE_EYE: QuestDefinition = {
 
 export const Q03_OLD_TOWER: QuestDefinition = {
   id: 'Q03', campaignIds: WEST, kind: 'side', name: 'Beneath the Old Tower', giver: 'An old soldier at the watchtower', at: 'aldenhold',
-  summary: 'Below the Old Watchtower is a vault where a minotaur guards the tower\u2019s last pay chest. Only heroes fit through the passage.',
+  summary: 'Below the Old Watchtower is a vault where a minotaur guards the tower\u2019s last pay chest. Only leaders fit through the passage: your ruler and hired heroes may enter; ordinary units wait outside.',
   prerequisites: [{ kind: 'army-at', place: 'watchtower' }], needsEnvoy: false,
   stages: [{
     id: 'trial',
-    text: 'Send your heroes into the vault (your lord stays outside, and the rest of the army waits), or leave the tower be. Heroes may retreat from the fight.',
+    text: 'Send your leaders into the vault (your ruler and hired heroes enter; ordinary units wait outside), or leave the tower be. Heroes may retreat from the fight.',
     choices: [
-      { id: 'enter', label: 'Send in your heroes', then: { encounter: {
+      { id: 'enter', label: 'Send in your leaders', then: { encounter: {
         site: 'watchtower', owner: 'orcs', troops: ['minotaur'], heroesOnly: true,
         win: { status: 'succeeded', effects: [{ kind: 'gold', amount: 250 }, { kind: 'item', item: 'healing-draught' }, { kind: 'item', item: 'old-watch-shield' }],
           journal: 'Your heroes slew the minotaur beneath the Old Watchtower and carried out the pay chest (250 gold and a healing draught) and the Shield of the Old Watch.' },
@@ -284,7 +284,7 @@ export const Q05_MISSING_CARAVAN: QuestDefinition = {
   survivesConquest: true,
   stages: [
     {
-      id: 'plea', text: 'Track the goblins to the Abandoned Mine within three months, or pay their 200 gold ransom for the survivors.',
+      id: 'plea', text: 'Track the goblins to the Abandoned Mine before the quest deadline, or pay their 200 gold ransom for the survivors.',
       choices: [
         { id: 'track', label: 'Track the goblins', then: { stage: 'track' } },
         { id: 'ransom', label: 'Pay the ransom', gold: 200, then: {
@@ -305,7 +305,7 @@ export const Q05_MISSING_CARAVAN: QuestDefinition = {
       ],
       deadline: { months: 3, outcome: {
         status: 'failed', effects: [{ kind: 'flag', flag: 'caravan-lost' }],
-        journal: 'Three months passed. The goblins sold Merra\u2019s caravan off piece by piece, and her drivers were never seen again.',
+        journal: 'The rescue deadline passed. The goblins sold Merra\u2019s caravan off piece by piece, and her drivers were never seen again.',
       } },
     },
   ],

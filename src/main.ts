@@ -35,7 +35,7 @@ import { log } from './game/campaign';
 import type { BuildingId, EquipmentId } from './game/types';
 import { validateContent } from './content/validate';
 import { captureRecovery, clearRecovery, readManualSlot, readRecovery, writeManualSlot } from './game/saveSlots';
-import { questQuote } from './game/quests';
+import { enableQuestPacing, questQuote } from './game/quests';
 import { renderSaveManager } from './ui/saveManagerView';
 import { captureMove, restoreMove, undoBlocked, type MovementUndo } from './ui/movementUndo';
 import { cityAssault } from './ui/cityAssault';
@@ -56,6 +56,7 @@ const loaded = loadGame(storage);
 let saveWarning = loaded.warning;
 let autosaveBlocked = loaded.blocked;
 let state = loaded.state ?? newGame();
+if(loaded.state) enableQuestPacing(state);
 let hasGame = loaded.state !== null;
 let savesOpen = false;
 let recoveryWarning = '';
@@ -85,6 +86,7 @@ function activate(next: GameState) {
   undoMove = null;ui.marchMode=false;ui.townChoice=null;
   feedback=[];
   state = next;
+  enableQuestPacing(state);
   hasGame = true;
   autosaveBlocked = false;
   saveWarning = '';
@@ -562,8 +564,18 @@ function onAction(action: string, data: DOMStringMap, additive = false) {
       ui.battleUnits = new Set();
       ui.battleSpell = null;
       break;
+    case 'battle-select-all':
+    case 'battle-select-none': {
+      const b=state.battle;
+      if(!b || b.outcome || b.owners[b.active]!=='player') break;
+      const units=action==='battle-select-all' ? b.units.filter(u=>u.side===b.active && !u.reserve && !u.fled && !u.routing && !u.moved && !u.acted && u.men>0) : [];
+      ui.battleUnits=new Set(units.map(u=>u.id));
+      ui.battleUnit=units[0]?.id??null;
+      ui.battleSpell=null;ui.battleTarget=null;
+      break;
+    }
     case 'battle-zoom':
-      ui.battleZoom = Math.min(2.6, Math.max(0.5, Math.round(((ui.battleZoom ?? 1) + 0.2 * Number(data.dir)) * 10) / 10));
+      ui.battleZoom = Math.min(5, Math.max(0.5, Math.round(((ui.battleZoom ?? 1.8) + 0.4 * Number(data.dir)) * 10) / 10));
       break;
     case 'battle-auto':
       ui.battleUnits = new Set();

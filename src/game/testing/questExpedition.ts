@@ -196,12 +196,10 @@ export function playQuestExpedition(seed: number, options: {
     }
     for (const [quest, choice] of [['Q05', 'track'], ['Q05', 'raid'], ['Q02', 'hunt'], ['Q03', 'enter']]) {
       if (questQuote(state, quest, choice).reason) continue;
-      // Wait at the tower for the fighter rather than sending the priest in alone.
-      if (quest === 'Q03' && !partyArmy()?.troops.some((t) => t.id === fighterId)) continue;
+      // Both leader-only bosses need a fighter alongside the priest.
+      if ((quest === 'Q02' || quest === 'Q03') && !partyArmy()?.troops.some((t) => t.id === fighterId)) continue;
       // Don't take a monster or a goblin warren on without soldiers; wait for reinforcements.
-      if ((choice === 'hunt' || choice === 'raid') && partyFormations() < 2) continue;
-      // The cyclops is a hero-led fight (docs/encounter-odds.md): wait for a hero rather than feed it soldiers.
-      if (choice === 'hunt' && !partyArmy()?.troops.some((t) => partyIds.includes(t.id) && UNIT_TYPES[t.type].hero)) continue;
+      if (choice === 'raid' && partyFormations() < 2) continue;
       must(chooseQuest(state, quest, choice));
       note(`${quest}: ${choice}`);
       fight();

@@ -17,6 +17,12 @@ export function inSight(state: GameState, from: string, at: string): boolean {
   return at === from || state.edges.some(([a, b]) => (a === from && b === at) || (b === from && a === at));
 }
 
+/** Advance warnings require a living scout on watch near the observed force, not just any scout in the realm. */
+export function scoutSees(state: GameState, at: string): boolean {
+  return state.armies.some((army) => army.owner === 'player' && inSight(state, army.at, at)
+    && army.troops.some((troop) => troop.men > 0 && onWatch(troop)));
+}
+
 /** A scout keeps watch where it stands until it marches or is recalled. */
 export function assignScout(state: GameState, troopId: number, post: 'watch' | 'recall'): string | null {
   if (state.battle || state.status !== 'playing') return 'Not during a battle.';

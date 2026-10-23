@@ -1,3 +1,4 @@
+import { lairLocation } from './lairs';
 import { describe, expect, it } from 'vitest';
 import { LAIRS } from '../content/lairs';
 import { renderBattle } from '../ui/battleView';
@@ -33,6 +34,11 @@ function garrison(s: GameState, townId: string, troops: string[]) {
   const army = armyAt(s, at, 'player') ?? (() => { const a = { id: s.nextId++, owner: 'player' as const, at, from: null, troops: [] as GameState['armies'][number]['troops'] }; s.armies.push(a); return a; })();
   for (const t of troops) army.troops.push(makeTroop(s, t));
   return army;
+}
+
+function watchLair(s: GameState, id: string) {
+  const scout = makeTroop(s, 'scout'); scout.scoutPost = 'watch';
+  s.armies.push({id:s.nextId++,owner:'player',at:lairLocation(s, LAIRS[id]),from:null,troops:[scout]});
 }
 
 describe('raid threat and deterrence', () => {
@@ -151,6 +157,7 @@ describe('raids', () => {
   it('every raid is announced with what losing it would cost, and long warnings get a reminder', () => {
     const s = westmereYours();
     s.raids.push({ lair: 'eldersanctum', target: 'westmere', announced: s.turn, arrives: s.turn + 3 });
+    watchLair(s, 'eldersanctum');
     const html = renderCampaign(s, ui(townLocation(s, 'westmere')));
     expect(html).toContain('Raid expected in 3 months: titans from an unknown lair. This is a siege: if they win, they plunder, knock down a building and take the town.');
     s.turn += 1;
@@ -230,12 +237,13 @@ describe('raids', () => {
       const s = westmereYours();
       s.seed = seed;
       s.armies = s.armies.filter((a) => a.owner !== 'orcs');
+      for (const id of Object.keys(s.lairs)) watchLair(s, id);
       const report = advanceMonth(s)!;
       if (!s.raids.length) continue;
       const warning = s.raids[0].arrives - s.turn;
       expect(s.raids[0].arrives - s.raids[0].announced).toBe(LAIRS[s.raids[0].lair].species === 'giants' ? 2 : 1);
       expect(report.phases.find((p) => p.id === 'raids')!.notes.map((n) => n.text)).toContain(`Raid expected at Westmere ${warning === 1 ? 'next month' : `in ${warning} months`}.`);
-      expect(s.journal.at(-1)!.text).toMatch(/^Warning: (Giants|Goblins) from an unknown lair are gathering to raid Westmere (next month|in 2 months)\. /);
+      expect(s.journal.at(-1)!.text).toMatch(/^Warning: (Giants|Goblins) from (an unknown lair|Briarwood Warren|Stonejaw Caves) are gathering to raid Westmere (next month|in 2 months)\. /);
       const again = reload(s);
       expect(again.raids).toEqual(s.raids);
       expect(planRaids(again)).toEqual([]);
@@ -259,6 +267,7 @@ describe('raids', () => {
 
   it('the town panel shows the threat, the odds and what would deter raids, and a warning when one is due', () => {
     const s = announced();
+    watchLair(s, 'stonejaw');
     const html = renderCampaign(s, ui(townLocation(s, 'westmere')));
     expect(html).toContain('<h3>Raid threat</h3>');
     expect(html).toContain('Raid expected next month: giants from an unknown lair. This is a siege: if they win, they plunder and knock down a building; the town stays yours.');

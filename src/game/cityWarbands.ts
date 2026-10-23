@@ -1,4 +1,4 @@
-import {observeOrcRoutes} from './scouts';
+import {observeOrcRoutes,scoutSees} from './scouts';
 import {armyAt,deed,makeTroop,marchAlong,nodeName,sharedMp} from './campaign';
 import {relationWith} from './diplomacy';
 import {marchOptions,pathTo,stepCost,townLocation,worldOf} from './world';
@@ -40,7 +40,7 @@ export function cityWarbandTurn(state:GameState):void{
    const troops=ranks.slice(-cfg.size);garrison.troops=garrison.troops.filter(t=>!troops.includes(t));
    const party:Army={id:state.nextId++,owner:'neutral',at:garrison.at,from:null,troops,cityRaid:{origin,target:warning.target,launched:state.turn}};
    state.armies.push(party);delete rival.warning;rival.nextRaidTurn=state.turn+cfg.cadence;
-   deed(state,'realm',nodeName(state,origin)+' sends '+troops.length+' units toward '+nodeName(state,warning.target)+'. Its home garrison remains in place.',garrison.at);
+   if(scoutSees(state,garrison.at))deed(state,'realm',nodeName(state,origin)+' sends '+troops.length+' units toward '+nodeName(state,warning.target)+'. Its home garrison remains in place.',garrison.at);
   }
   const sources=Object.values(state.towns).filter(t=>t.owner==='neutral' && t.kind==='town').sort((a,b)=>a.id.localeCompare(b.id));
   for(const [index,town] of sources.entries()){
@@ -52,7 +52,7 @@ export function cityWarbandTurn(state:GameState):void{
    if(!garrison || garrison.cityRaid || garrison.troops.filter(t=>!isHero(t.type)).length<cfg.size+2)continue;
    const target=destination(state,garrison.at);if(!target)continue;
    politics.rivals[town.id]={nextRaidTurn:state.turn+cfg.cadence,warning:{target,launchTurn:state.turn+1}};
-   deed(state,'realm',nodeName(state,town.id)+' is mustering a hostile war party against '+nodeName(state,target)+'. It marches next month; reinforce the city or seek an alliance.',garrison.at);
+   if(scoutSees(state,garrison.at))deed(state,'realm',nodeName(state,town.id)+' is mustering a hostile war party against '+nodeName(state,target)+'. It marches next month; reinforce the city or seek an alliance.',garrison.at);
   }
  }
  for(const army of [...state.armies].filter(a=>a.cityRaid)){

@@ -91,3 +91,10 @@ The seeded expedition controller now:
 - **Hires priests and fighters independently,** so replacing one never waits on the other.
 
 With those fixes, the full buy/convict chapter tours win on all 20 documented seeds in 20–33 months, and the plain expedition finishes all three optional quests in 13–23 months.
+
+
+## Leader-only bosses (October 23)
+
+Q02 and Q03 now admit only the ruler and hired heroes. Ordinary soldiers wait outside. Older army-versus-Cyclops numbers above are historical and no longer describe a legal boss party. The diagnostic filters participants using the same hero restriction and refuses parties with no leader. An 80-seed check gives champion + priest 87.5% wins against the Cyclops, with 15% hero deaths; mage + priest 91.25% wins, with no hero deaths in that sample. These are automated tactics, not a promise of safety.
+
+The paid expedition now waits for a fighter at both boss sites and no longer requires soldiers for the Cyclops. Seed 15 demonstrates a real failure and recovery: the original pair dies, replacements eventually win, and the chapter completes at month 38 with the priest lost. The 36-month, all-heroes-survive expectation no longer applies to that scenario.

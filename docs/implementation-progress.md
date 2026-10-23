@@ -1075,3 +1075,24 @@ Validation: 553 tests pass. New tests cover:
 Checked in the browser: the action bar, quests screen and badges, the recruit popup, and the battle markers and key.
 
 Still queued: troop morale on the campaign (bad-weather marches, priests) and town unrest (high taxes, no garrison, food shortages).
+
+
+## Leader-only bosses, readiness and scout-gated news (October 23, 2026)
+
+- Cyclops (Q02) and Minotaur (Q03) admit the ruler of any class and hired heroes. Ordinary units wait outside and rejoin survivors after the fight. The quest choice and participant preview explain the restriction. The caravan rescue still permits ordinary troops. Existing in-progress battles are preserved on import.
+- Bad-weather marches reduce soldier morale once per month: rain 4, storm 6, snow 10. Leaders are exempt. Shelter recovers 10 morale/month, clear-weather field rest 2, and a priest (including a Priest ruler) adds 5. Campaign morale is bounded 0–100; half its deficit reduces starting tactical morale, to a minimum of 20.
+- Town unrest is bounded 0–100. Its monthly trend is -3, plus one per five tax percentage points above 25 (rounded up), +4 without a garrison, +8 for an actual food shortage. Tax receipts fall by up to 50% as unrest rises. The city shows the trend, causes and remedies. No revolts or forced ownership changes are included in this slice.
+- Optional validated fields preserve v18 saves: absent morale means 100; absent unrest means 0.
+- Incoming-army warnings require a living stationed scout in three-hex sight range. Rival-city musters, moving-party panels, journal notices and orc departure announcements all obey this rule. Monster gathering reports require a scout near the lair; final-approach reminders can also come from a scout near the threatened town. Actual attacks and outcomes remain visible. M04's quest no longer claims nonexistent scouts know the unseen invasion routes. Historical reports remain historical.
+- Battle zoom defaults to 180% and reaches 500%, with explicit field dimensions, a larger viewport and an enlarged selected-unit illustration. The movement list gains Select all / Deselect all. Routing labels say PANIC.
+- Leaders display HP and wounds rather than soldier casualties, with health bars and recovery guidance. Survivors recover a quarter of maximum HP each month, rounded up; priest Heal works in combat, Healing Draughts between battles. Death remains permanent.
+- Scouts and spies are explicitly labelled noncombatants outside the battle, rather than “field full.” Armies cap at 12 units; each side has 27 deployment positions. Noncombatants do not consume them.
+
+Validation notes: seeds 1, 42 and 2026 complete the side-quest tour with leader-only boss parties in 14–15 months. Seed 15 loses its first boss party, hires replacements and finishes Act I at month 38; its priest dies. Its regression now allows 48 months and checks continuation after casualties rather than claiming every hero survived. This is not full Normal-campaign balance acceptance.
+
+
+### Further playtest refinements
+
+Two relevant side quests are highlighted, with every other available quest retained in a collapsed list. Relevance considers the selected destination, nearby player troops, started work, deadlines and immediate granary shortages. Main objectives stay separate. Current and new UI campaigns adopt the highlighting policy without resetting any progress. Failure deadlines for side quests double (Greenveil 4→8, granary 2→4, caravan rescue 3→6 months); timed successes such as rationing keep their original duration. Deadlines and saved stage dates remain consistent across reloads.
+
+Leader combat logs, results, health bars and guidance now explicitly use HP. Select all excludes dead, routed, off-field and already-used units. Scouts and spies are labelled noncombatants, distinct from excess combat reserves. The battle field uses explicit pixel dimensions so zoom cannot shrink back to the container; default 180%, maximum 500%.

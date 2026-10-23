@@ -20,7 +20,7 @@ describe('rival city expeditions',()=>{
  const old=newGame(1,'western-realm'),before=JSON.stringify(old);old.turn=8;const at8=JSON.stringify(old);cityWarbandTurn(old);expect(JSON.stringify(old)).toBe(at8);expect(before).not.toBe(at8);
  const s=createRulerCampaign('western-realm',{name:'A',gender:'female',skin:'deep'},1);s.turn=6;
  for(const a of s.armies.filter(a=>a.owner==='neutral'))while(a.troops.length<6)a.troops.push(makeTroop(s,'spearmen'));
- cityWarbandTurn(s);expect(Object.values(s.cityPolitics!.rivals).some(r=>r.warning?.launchTurn===7)).toBe(true);expect(s.armies.some(a=>a.cityRaid)).toBe(false);expect(s.journal.at(-1)?.text).toContain('mustering');
+ cityWarbandTurn(s);expect(Object.values(s.cityPolitics!.rivals).some(r=>r.warning?.launchTurn===7)).toBe(true);expect(s.armies.some(a=>a.cityRaid)).toBe(false);expect(s.journal.some(j=>j.text.includes('mustering'))).toBe(false);
  });
  it('launches actual troops while retaining the home garrison and respecting cooldowns',()=>{
  const {s,g,party}=launch();expect(party).toBeDefined();expect(party.troops).toHaveLength(2);expect(g.troops).toHaveLength(4);expect(g.troops.some(t=>party.troops.includes(t))).toBe(false);expect(s.cityPolitics!.rivals.fenwick.warning).toBeUndefined();expect(s.cityPolitics!.rivals.fenwick.nextRaidTurn).toBe(15);

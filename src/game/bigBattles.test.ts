@@ -115,10 +115,10 @@ describe('bigger battlefields', () => {
     const ui: UIState = { selected: null, checked: new Set(), battleUnit: null, battleSpell: null, message: '', view: 'map' };
     const html = renderBattle(s, ui);
     expect(html).toContain('class="field-wrap battle-scroll"');
-    expect(html).toMatch(/<svg viewBox="0 0 (\d+) (\d+)" class="field" width="\1"/);
+    expect(html).toMatch(/<svg viewBox="0 0 (\d+) (\d+)" class="field" style="width:\d+px;height:\d+px" width="\d+"/);
     expect(html).toContain('data-action="minimap"');
     expect(html).toContain('24×16 field');
     expect(html).toContain('Round 1 of 22');
-    expect(renderBattle(s, { ...ui, battleZoom: 0.5 })).toMatch(/class="field" width="\d+"/);
+    expect(renderBattle(s, { ...ui, battleZoom: 0.5 })).toMatch(/class="field" style="width:\d+px;height:\d+px" width="\d+"/);
   });
 });

@@ -11,7 +11,8 @@ import type {
   Battle, FactionId, GameState, QuestChoice, QuestCondition, QuestDefinition, QuestEncounter, QuestNext, QuestProgress,
   QuestResolution, QuestStage,
 } from './types';
-import { townLocation } from './world';
+import { townLocation, worldOf, parseKey } from './world';
+import { hexDistance } from './hex';
 
 /**
  * The quest engine. Quests are data (content/quests.ts); this module unlocks them, quotes and applies choices,
@@ -54,8 +55,37 @@ export function monthsLeft(state: GameState, questId: string): number | null {
   const def = QUESTS[questId];
   const p = state.quests[questId];
   if (!def || !p || !isOpen(p)) return null;
-  const months = stageOf(def, p.stage)?.deadline?.months;
+  const months = deadlineMonths(state, def, p.stage);
   return months === undefined || p.stageTurn === null ? null : Math.max(0, p.stageTurn + months - state.turn);
+}
+
+/** Failure deadlines have twice the response window; timed successes keep their duration. */
+function deadlineMonths(state: GameState, def: QuestDefinition, stageId: string): number | undefined {
+  const deadline = stageOf(def, stageId)?.deadline;
+  return deadline ? deadline.months * (state.questPacing && def.kind === 'side' && deadline.outcome.status === 'failed' ? 2 : 1) : undefined;
+}
+
+/** Highlight pacing changes presentation and failure deadlines, never quest availability or existing progress. */
+export function enableQuestPacing(state: GameState): void {
+  if (state.campaignId === 'western-realm') state.questPacing = {highlights:2};
+}
+
+/** Two useful side quests: immediate opportunities, started work, urgent deadlines and nearby destinations. */
+export function sideQuestHighlights(state: GameState, selected?: string | null): QuestDefinition[] {
+  const places=state.armies.filter(a=>a.owner==='player').map(a=>a.at);
+  const score=(def: QuestDefinition) => {
+    const p=state.quests[def.id], stage=stageOf(def,p.stage);
+    const encounter=stage?.choices.find(c=>'encounter' in c.then)?.then;
+    const at=def.adventureSite ? startLocation(state,def.adventureSite) : encounter && 'encounter' in encounter ? startLocation(state,encounter.encounter.site) : townLocation(state,def.at);
+    const left=monthsLeft(state,def.id);
+    const distance=(from:string)=>worldOf(state).kind==='hex' ? hexDistance(parseKey(from),parseKey(at)) : from===at ? 0 : neighborsOf(state,from).includes(at) ? 1 : 10;
+    const nearest=Math.min(30,...places.map(distance));
+    const food=def.id==='Q01' && state.cityEconomies.aldenhold.goods.food < Math.ceil(state.towns.aldenhold.pop/100)*2;
+    return (selected===at ? 70 : 0)+(nearest===0 ? 80 : nearest<=3 ? 25 : 0)+(p.status==='active' ? 40 : 0)
+      +(left===null ? 0 : left<=2 ? 45 : left<=4 ? 25 : 5)+(food ? 40 : 0)-nearest;
+  };
+  return campaignQuests(state).filter(q=>q.kind==='side' && isOpen(state.quests[q.id]))
+    .sort((a,b)=>score(b)-score(a)||a.id.localeCompare(b.id)).slice(0,2);
 }
 
 /** The journal tracks at most this many quests; the header shows them as shortcuts to their towns. */
@@ -63,9 +93,10 @@ export const MAX_TRACKED = 3;
 
 /** Open quests to show first: main objectives, then whatever runs out soonest, then the longest-waiting. */
 export function trackedQuests(state: GameState): QuestDefinition[] {
+  if(state.questPacing) return [...campaignQuests(state).filter(q=>q.kind==='main' && isOpen(state.quests[q.id])),...sideQuestHighlights(state)].slice(0,MAX_TRACKED);
   const due = (def: QuestDefinition) => {
     const p = state.quests[def.id];
-    const months = stageOf(def, p.stage)?.deadline?.months;
+    const months = deadlineMonths(state, def, p.stage);
     return months === undefined || p.stageTurn === null ? Infinity : p.stageTurn + months;
   };
   return campaignQuests(state)
@@ -287,15 +318,15 @@ export function questQuote(state: GameState, questId: string, choiceId: string):
     if (progress.history.some((h) => h.choice === encounterMark(choice.id, false) && h.turn === state.turn)) return refuse('The expedition must regroup. Try again next campaign month.');
     const army = armyAt(state, startLocation(state, enc.site), 'player');
     if (!army) return refuse(`Bring an army to ${nodeName(state, startLocation(state, enc.site))} first.`);
-    if (enc.heroesOnly && !partyOf(army.troops).length) return refuse('Only heroes may enter, and the council will not risk your lord. Bring a hired hero.');
+    if (enc.heroesOnly && !partyOf(army.troops).length) return refuse('Leaders only: bring your ruler or a hired hero. Ordinary units stay outside.');
   }
   if (state.gold < gold) return refuse(`You need ${gold} gold.`);
   return refuse(null);
 }
 
-/** The heroes who may enter a heroes-only encounter: everyone but the lord. */
+/** Leaders-only encounters admit the ruler and hired heroes, never ordinary units. */
 function partyOf(troops: GameState['armies'][number]['troops']) {
-  return troops.filter((t) => isHero(t.type) && !isRulerType(t.type));
+  return troops.filter((t) => isHero(t.type) && t.men > 0);
 }
 
 /** Read only: matches the party split and first-in-army deployment used by the actual encounter. */
@@ -449,7 +480,7 @@ export function advanceQuests(state: GameState): string[] {
       continue;
     }
     const deadline = stageOf(def, progress.stage)?.deadline;
-    if (deadline && !deadline.afterBattles && progress.stageTurn !== null && state.turn - progress.stageTurn >= deadline.months) {
+    if (deadline && !deadline.afterBattles && progress.stageTurn !== null && state.turn - progress.stageTurn >= deadlineMonths(state, def, progress.stage)!) {
       progress.history.push({ stage: progress.stage, choice: DEADLINE, turn: state.turn });
       resolveQuest(state, def, deadline.outcome, 'deadline');
     }
@@ -466,7 +497,7 @@ export function settleHeldQuests(state: GameState) {
     const progress = state.quests[def.id];
     if (!isOpen(progress)) continue;
     const deadline = stageOf(def, progress.stage)?.deadline;
-    if (deadline?.afterBattles && progress.stageTurn !== null && state.turn - progress.stageTurn >= deadline.months) {
+    if (deadline?.afterBattles && progress.stageTurn !== null && state.turn - progress.stageTurn >= deadlineMonths(state, def, progress.stage)!) {
       progress.history.push({ stage: progress.stage, choice: DEADLINE, turn: state.turn });
       resolveQuest(state, def, deadline.outcome, 'deadline');
     }

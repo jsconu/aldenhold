@@ -1,3 +1,4 @@
+import { campaignMorale } from './readiness';
 import { EFFECTS } from '../content/spells';
 import { LAND, SPELLS, TERRAIN, UNIT_TYPES } from './data';
 import { hexDistance, hexKey, hexNeighbors, hexLine, type Hex } from './hex';
@@ -258,7 +259,7 @@ function deploy(b: Battle, army: Army, side: Side) {
       mana: t.mana ?? 0,
       gear: { ...t.gear },
       ...(t.kit ? { kit: { ...t.kit } } : {}),
-      morale: startingMorale(b, side, t.type, t.xp, leadership),
+      morale: Math.max(20, startingMorale(b, side, t.type, t.xp, leadership) - (type.hero || type.fearless ? 0 : Math.floor((100 - campaignMorale(t)) / 2))),
       routing: false,
       fled: false,
       deeds: 0,
@@ -437,7 +438,7 @@ export function moveGroup(b: Battle, unitIds: number[], destination: Hex): boole
   for (const u of members) {
     const ground = terrainAt(b, u);
     const lost = Math.min(ground.moveLoss, u.men - 1);
-    if (lost > 0) b.log.push(`${unitLabel(b, u)} push into the ${ground.name.toLowerCase()}: ${lost} ${isHero(u.type) ? 'wounds' : 'men hurt'}.${takeLosses(b, u, lost)}`);
+    if (lost > 0) b.log.push(`${unitLabel(b, u)} push into the ${ground.name.toLowerCase()}: ${lost} ${isHero(u.type) ? 'HP lost' : 'men hurt'}.${takeLosses(b, u, lost)}`);
   }
   return true;
 }
@@ -535,7 +536,7 @@ export function moveUnit(b: Battle, unitId: number, to: Hex): boolean {
 function applyMoveGround(b:Battle,u:BattleUnit){
   const ground = terrainAt(b, u);
   const lost = Math.min(ground.moveLoss, u.men - 1);
-  if (lost > 0) b.log.push(`${unitLabel(b, u)} push into the ${ground.name.toLowerCase()}: ${lost} ${isHero(u.type) ? 'wounds' : 'men hurt'}.${takeLosses(b, u, lost)}`);
+  if (lost > 0) b.log.push(`${unitLabel(b, u)} push into the ${ground.name.toLowerCase()}: ${lost} ${isHero(u.type) ? 'HP lost' : 'men hurt'}.${takeLosses(b, u, lost)}`);
 }
 
 export function unitLabel(b: Battle, u: BattleUnit): string {
@@ -583,11 +584,11 @@ export function attack(b: Battle, unitId: number, targetId: number): boolean {
   if (!attackTargets(b, u).includes(t)) return false;
   const melee = hexDistance(u, t) === 1;
   const killed = rollDamage(b, u, t, melee && hasEffect(u, 'slow') ? 0.75 : 1);
-  let line = `${unitLabel(b, u)} ${melee ? 'charge' : 'shoot at'} ${unitLabel(b, t)}: ${killed} ${isHero(t.type) ? 'wounds' : 'fall'}.`;
+  let line = `${unitLabel(b, u)} ${melee ? 'charge' : 'shoot at'} ${unitLabel(b, t)}: ${killed} ${isHero(t.type) ? 'HP lost' : 'fall'}.`;
   line += takeLosses(b, t, killed);
   if (t.men > 0 && melee && !t.routing) {
     const back = rollDamage(b, t, u, 0.5);
-    line += ` They strike back: ${back} ${isHero(u.type) ? 'wounds' : 'fall'}.`;
+    line += ` They strike back: ${back} ${isHero(u.type) ? 'HP lost' : 'fall'}.`;
     line += takeLosses(b, u, back);
   }
   b.log.push(line);
@@ -708,9 +709,9 @@ export function castSpell(b: Battle, unitId: number, spellId: SpellId, targetId:
   b.log.push(`${unitLabel(b, u)} ${spellId === 'fireball' ? 'hurls fire' : `casts ${SPELLS[spellId].name}`} at ${unitLabel(b, t)}.`);
   for (const hit of preview.impacts) {
     const target = hit.unit;
-    if (hit.damage) b.log.push(`${unitLabel(b, target)}: ${hit.damage} ${isHero(target.type) ? 'wounds' : 'fall'}.${takeLosses(b, target, hit.damage)}`);
+    if (hit.damage) b.log.push(`${unitLabel(b, target)}: ${hit.damage} ${isHero(target.type) ? 'HP lost' : 'fall'}.${takeLosses(b, target, hit.damage)}`);
     if (target.men <= 0) continue;
-    if (hit.healing) { target.men += hit.healing; b.log.push(`${unitLabel(b, target)} recovers ${hit.healing}.`); }
+    if (hit.healing) { target.men += hit.healing; b.log.push(`${unitLabel(b, target)} recovers ${hit.healing} ${isHero(target.type) ? 'HP' : 'soldiers'}.`); }
     target.effects = target.effects.filter((e) => !hit.remove.includes(e.id));
     if (hit.remove.length) b.log.push(`${unitLabel(b, target)}: ${hit.remove.map((id) => EFFECTS[id].name).join(', ')} removed.`);
     if (hit.add) {
@@ -962,7 +963,7 @@ function aiBoulder(b: Battle, u: BattleUnit, boulder: NonNullable<(typeof UNIT_T
   delete u.aim;
   if (aimed && aimed.men > 0 && !aimed.fled && hexDistance(u, aimed) <= boulder.range) {
     const killed = rollDamage(b, u, aimed, boulder.factor);
-    b.log.push(`${unitLabel(b, u)} hurls a boulder at ${unitLabel(b, aimed)}: ${killed} ${isHero(aimed.type) ? 'wounds' : 'fall'}.${takeLosses(b, aimed, killed)}`);
+    b.log.push(`${unitLabel(b, u)} hurls a boulder at ${unitLabel(b, aimed)}: ${killed} ${isHero(aimed.type) ? 'HP lost' : 'fall'}.${takeLosses(b, aimed, killed)}`);
     u.moved = true;
     u.acted = true;
     u.deeds++;

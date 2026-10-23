@@ -17,16 +17,16 @@ function tower() {
 }
 
 describe('encounter participation quotes', () => {
-  it('explains that a ruler and units cannot enter the heroes-only trial', () => {
+  it('explains that the ruler enters while ordinary units wait outside', () => {
     const { state, army } = tower();
     const quote = questQuote(state, 'Q03', 'enter');
-    expect(quote.reason).toContain('Bring a hired hero');
+    expect(quote.reason).toBeNull();
     expect(quote.encounter).toMatchObject({
-      heroesOnly: true, deployed: [], reserves: [], waiting: army.troops.map((t) => t.id),
+      heroesOnly: true, deployed: [army.troops[0].id], reserves: [], waiting: army.troops.slice(1).map((t) => t.id),
     });
     const html = renderCampaign(state, ui(army.at));
-    expect(html.includes('Expedition: 0 deployed · 5 stay outside')).toBe(true);
-    expect(html.includes('Only hired heroes enter; your lord and units stay outside.')).toBe(true);
+    expect(html.includes('Expedition: 1 deployed · 4 stay outside')).toBe(true);
+    expect(html.includes('Leaders only: your ruler and hired heroes enter; ordinary units stay outside.')).toBe(true);
   });
 
   it('quotes the exact hero party used after save/reload and safely displays its names and health', () => {
@@ -37,11 +37,11 @@ describe('encounter participation quotes', () => {
     const before = JSON.stringify(state);
     const quote = questQuote(state, 'Q03', 'enter');
     expect(JSON.stringify(state)).toBe(before);
-    expect(quote.encounter?.deployed).toEqual([priest.id, champion.id]);
-    expect(quote.encounter?.waiting).toContain(army.troops.find((t) => t.type === 'lord')!.id);
+    expect(quote.encounter?.deployed).toEqual([army.troops[0].id, priest.id, champion.id]);
+    expect(quote.encounter?.waiting).not.toContain(army.troops[0].id);
     const html = renderCampaign(state, ui(army.at));
     expect(html.includes('Osric &#60;the Wise&#62; (Lv 1, 18 HP)')).toBe(true);
-    expect(html.includes('Expedition: 2 deployed · 5 stay outside')).toBe(true);
+    expect(html.includes('Expedition: 3 deployed · 4 stay outside')).toBe(true);
     const loaded = parseSave(before);
     expect(questQuote(loaded, 'Q03', 'enter')).toEqual(quote);
     expect(chooseQuest(loaded, 'Q03', 'enter')).toBeNull();
@@ -54,14 +54,14 @@ describe('encounter participation quotes', () => {
     const state = newGame(1, 'western-realm');
     const army = armyAt(state, startLocation(state, 'aldenhold'), 'player')!;
     army.at = startLocation(state, 'quarry');
-    for (let i = 0; i < FIELD_LIMIT; i++) army.troops.push(makeTroop(state, 'militia'));
+    for (let i = 0; i < FIELD_LIMIT; i++) army.troops.push(makeTroop(state, 'champion', 'Hero '+i));
     state.turn = 4;
     advanceQuests(state);
     const quote = questQuote(state, 'Q02', 'hunt');
     expect(quote.reason).toBeNull();
     expect(quote.encounter!.deployed).toHaveLength(FIELD_LIMIT);
-    expect(quote.encounter!.reserves).toHaveLength(5);
-    expect(quote.encounter!.waiting).toEqual([]);
+    expect(quote.encounter!.reserves).toHaveLength(1);
+    expect(quote.encounter!.waiting).toHaveLength(4);
     expect(chooseQuest(state, 'Q02', 'hunt')).toBeNull();
     const units = state.battle!.units.filter((u) => u.side === 'attacker');
     expect(units.filter((u) => !u.reserve).map((u) => u.troopId)).toEqual(quote.encounter!.deployed);
