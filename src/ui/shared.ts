@@ -12,13 +12,15 @@ export interface UIState {
   selected: string | null;
   /** Troops ticked to march from the selected node. */
   checked: Set<number>;
+  /** A short popup to acknowledge something that just happened (a new unit, …); OK closes it. */
+  notice?: { title: string; lines: string[] } | null;
   /** A town with your troops was clicked: move troops (choosing which) or open the city screen. */
   townChoice?: { at: string; step: 'choose' | 'troops' } | null;
   /** Choice before committing a march into a defended hostile settlement. */
   assault?: { from: string; to: string; troopIds: number[] } | null;
   /** Selected unit in the current battle. */
   battleUnit: number | null;
-  /** Tactical formation IDs selected for a simultaneous move (the battleUnit is the lead). */
+  /** Tactical unit IDs selected for a simultaneous move (the battleUnit is the lead). */
   battleUnits?: Set<number>;
   /** An in-session movement snapshot is available; it is never part of the save. */
   undoMoveLabel?: string;
@@ -34,7 +36,7 @@ export interface UIState {
   battleDestination?: { col: number; row: number } | null;
   message: string;
   /** Campaign screen: the province map or the full journal. */
-  view: 'map' | 'journal' | 'treasury' | 'city';
+  view: 'map' | 'journal' | 'treasury' | 'city' | 'quests';
   cityTab?:'overview'|'development'|'recruitment'|'army'|'quests';
   marchMode?:boolean;
   /** Ephemeral map presentation; deliberately not part of the saved campaign. */

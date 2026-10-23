@@ -141,7 +141,7 @@ describe('additive Western map migration', () => {
     applyBattle(current, current.battle!);
     expect(migrate(current)).toEqual(current);
   });
-  it('migrates an active hero-only party without adding formations to that battle', () => {
+  it('migrates an active hero-only party without adding units to that battle', () => {
     const old = legacy(3); const home = armyAt(old, townLocation(old, 'aldenhold'), 'player')!;
     home.at = startLocation(old, 'watchtower'); home.troops.push(makeTroop(old, 'champion', 'Edith'));
     advanceQuests(old); expect(chooseQuest(old, 'Q03', 'enter')).toBeNull();

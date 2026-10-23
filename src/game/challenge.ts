@@ -23,7 +23,7 @@ export function campaignObjectives(state:GameState):{id:string;label:string;done
  return [
  {id:'chapter',label:'Secure the inheritance, feed the realm, settle Westmere and survive the incursion (M01–M04)',done:state.quests.M04?.status==='succeeded',at:'aldenhold'},
  {id:'forge',label:'Develop Aldenhold: Farms level 2 and a Tool Forge',done:city.buildings.farm>=2 && city.buildings.forge>=1,at:'aldenhold'},
- {id:'veterans',label:'Equip at least two formations with upgraded armor or bows',done:upgraded>=2,at:'aldenhold'},
+ {id:'veterans',label:'Equip at least two units with upgraded armor or bows',done:upgraded>=2,at:'aldenhold'},
  {id:'lance',label:'Claim the Oathlance from the Aldenhold council (M01)',done:owned('oathlance'),at:'aldenhold'},
  {id:'signet',label:'Earn the Keeper’s Signet at the Royal Barrow (H01)',done:owned('keepers-signet'),at:'barrow'},
  {id:'medallion',label:'Earn the Hillcrest Medallion at the monastery (H02)',done:owned('hillcrest-medallion'),at:'monastery'},

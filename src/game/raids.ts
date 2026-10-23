@@ -79,7 +79,7 @@ export function threatSources(state: GameState, townId: string): ThreatSource[] 
   return out;
 }
 
-/** A formation's worth in defending a town: attack and defence, scaled by the men it still has. */
+/** A unit's worth in defending a town: attack and defence, scaled by the men it still has. */
 function defenseOf(t: Army['troops'][number]): number {
   if (t.type === 'scout') return 0;
   const type = UNIT_TYPES[t.type];
@@ -87,7 +87,7 @@ function defenseOf(t: Army['troops'][number]): number {
   return ((attackFor(t.type, t.xp) + type.defense) / 5) * (t.men / type.men);
 }
 
-/** How well a town is defended: its garrison's formations and heroes, a quarter more behind walls. */
+/** How well a town is defended: its garrison's units and heroes, a quarter more behind walls. */
 export function garrisonDefense(state: GameState, townId: string): number {
   const at = townLocation(state, townId);
   const garrison = state.armies.find((a) => a.at === at && a.owner === 'player');

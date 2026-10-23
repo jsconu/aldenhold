@@ -41,7 +41,7 @@ export const EQUIPMENT: Record<EquipmentId, EquipmentDefinition> = {
     goodsPerFormation: (men) => ({ tools: Math.ceil(men / 3), ore: Math.ceil(men / 4) }), requiresForge: true },
 };
 
-/** Missile formations (archers of every kind) carry bows and cannot wear plate; heroes have no formation gear. */
+/** Missile units (archers of every kind) carry bows and cannot wear plate; heroes have no unit gear. */
 export function usesBow(type: string): boolean {
   const t = UNIT_TYPES[type];
   return !!t && !t.hero && t.range > 1;
@@ -84,15 +84,15 @@ export function refitQuote(state: GameState, townId: string, troopId: number, it
   const gold = item ? equipmentQuoteGold(itemId, men) : 0;
   const materials = item ? item.goodsPerFormation(men) : {};
   let reason: string | null = null;
-  if (!item || !troop) reason = 'Unknown refit or formation.';
+  if (!item || !troop) reason = 'Unknown refit or unit.';
   else if (state.battle || state.status !== 'playing') reason = 'Finish the current battle before refitting.';
   else if (town?.owner !== 'player' || town.kind === 'lair' || !city) reason = 'Refits require an owned town.';
   else if (isHero(troop.type)) reason = 'Hero equipment needs a separate system.';
-  else if (troop.men > formationCapacity({type:troop.type,gear:{...troop.gear,[item.slot]:itemId}})) reason = `This armor allows at most ${formationCapacity({type:troop.type,gear:{...troop.gear,[item.slot]:itemId}})} soldiers in this formation.`;
-  else if (item.slot === 'bow' && !usesBow(troop.type)) reason = 'Only archer formations can use bows.';
+  else if (troop.men > formationCapacity({type:troop.type,gear:{...troop.gear,[item.slot]:itemId}})) reason = `This armor allows at most ${formationCapacity({type:troop.type,gear:{...troop.gear,[item.slot]:itemId}})} soldiers in this unit.`;
+  else if (item.slot === 'bow' && !usesBow(troop.type)) reason = 'Only archer units can use bows.';
   else if (item.slot === 'armor' && usesBow(troop.type) && itemId === 'plate') reason = 'Archers cannot wear plate.';
-  else if (troop.refit) reason = 'This formation is already refitting.';
-  else if (troop.mp <= 0) reason = 'This formation has already acted this month.';
+  else if (troop.refit) reason = 'This unit is already refitting.';
+  else if (troop.mp <= 0) reason = 'This unit has already acted this month.';
   else if (level(troop.xp) < item.level) reason = `Requires level ${item.level}.`;
   else if (ranks[item.slot].indexOf(itemId) <= ranks[item.slot].indexOf(troop.gear[item.slot]!)) reason = 'Already equipped or an inferior tier.';
   else if (item.requiresForge && city.buildings.forge < 1) reason = `Requires a ${BUILDINGS.forge.name} in this town.`;
@@ -101,11 +101,11 @@ export function refitQuote(state: GameState, townId: string, troopId: number, it
   return { item, troop, gold, materials, reason };
 }
 
-/** Charge the quoted living formation size once; cannot refit/march again before month-end. */
+/** Charge the quoted living unit size once; cannot refit/march again before month-end. */
 export function beginRefit(state: GameState, townId: string, troopId: number, item: EquipmentId): string | null {
   if (!Object.hasOwn(EQUIPMENT, item)) return 'Unknown equipment.';
   const quote = refitQuote(state, townId, troopId, item);
-  if (quote.reason || !quote.troop) return quote.reason ?? 'Formation is missing.';
+  if (quote.reason || !quote.troop) return quote.reason ?? 'Unit is missing.';
   const city = state.cityEconomies[townId];
   state.gold -= quote.gold;
   for (const [good, count] of Object.entries(quote.materials))

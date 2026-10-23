@@ -63,14 +63,14 @@ describe('Act I: M01 The Inheritance', () => {
     const s = newGame(1, 'western-realm');
     expect(s.quests.M01).toMatchObject({ status: 'available', stage: 'muster' });
     expect(newGame(1).quests.M01.status).toBe('unavailable');
-    expect(conditionText(s, { kind: 'formations', atLeast: 7 })).toBe('Field 7 formations (now 5)');
+    expect(conditionText(s, { kind: 'units', atLeast: 7 })).toBe('Field 7 units (now 5)');
     const html = renderCampaign(s, {...ui(townLocation(s,'aldenhold')),view:'city',cityTab:'quests'});
     expect(html).toContain('Objective: The Inheritance');
-    expect(html).toContain('○ Field 7 formations (now 5)');
+    expect(html).toContain('○ Field 7 units (now 5)');
     expect(html).toContain('Goals are checked at the end of each month.');
   });
 
-  it('completes at month end once two more formations are raised, paying its reward exactly once', () => {
+  it('completes at month end once two more units are raised, paying its reward exactly once', () => {
     let s = newGame(1, 'western-realm');
     raise(s, 1);
     month(s);

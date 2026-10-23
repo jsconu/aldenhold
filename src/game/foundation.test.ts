@@ -71,7 +71,7 @@ describe('ending precedence', () => {
 });
 
 describe('explicit reserves', () => {
-  it.each([27, 28, 60])('accounts for every formation in %i-unit armies on both sides', (count) => {
+  it.each([27, 28, 60])('accounts for every unit in %i-unit armies on both sides', (count) => {
     const { s, b, a, d } = largeBattle(count);
     expect(b.units).toHaveLength(count * 2);
     expect(new Set(b.units.map((u) => u.troopId))).toEqual(new Set([...a.troops, ...d.troops].map((t) => t.id)));
@@ -80,7 +80,7 @@ describe('explicit reserves', () => {
       expect(reserves(b, side)).toHaveLength(count - 27);
     }
     expect(parseSave(JSON.stringify(s))).toEqual(s);
-    if (count > 27) expect(renderBattle(s, ui)).toContain(`Reserves (${2 * (count - 27)} formations)`);
+    if (count > 27) expect(renderBattle(s, ui)).toContain(`Reserves (${2 * (count - 27)} units)`);
   });
   it('cannot select, move, attack with, target, or cast from a reserve', () => {
     const { s, a, d } = largeBattle(27);
@@ -143,7 +143,7 @@ describe('save migration and recovery', () => {
     expect(data.get(LEGACY_SAVE_KEY)).toBe(raw);
     expect(data.has(SAVE_KEY)).toBe(true);
   });
-  it('restores formations omitted by the old deployment code without rerolling the battle', () => {
+  it('restores units omitted by the old deployment code without rerolling the battle', () => {
     const { s, b } = largeBattle(30);
     const migrated = parseSave(legacy(s));
     expect(migrated.battle!.units).toHaveLength(60);
@@ -207,7 +207,7 @@ describe('save migration and recovery', () => {
     const s = newGame(1); corrupt(s);
     expect(() => parseSave(JSON.stringify(s))).toThrow();
   });
-  it('rejects invalid battle terrain, overlap, omitted formations and off-map positions', () => {
+  it('rejects invalid battle terrain, overlap, omitted units and off-map positions', () => {
     for (const corrupt of [
       (s: GameState) => { s.battle!.terrain[0][0] = 'lava' as never; },
       (s: GameState) => { Object.assign(s.battle!.units[1], { col: s.battle!.units[0].col, row: s.battle!.units[0].row }); },

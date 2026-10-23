@@ -99,7 +99,7 @@ describe('marching', () => {
     expect(s.battle).toBeNull();
     expect(s.towns.fenwick.owner).toBe('player');
     expect(armyAt(s, 'fenwick', 'neutral')).toBeUndefined();
-    // Every formation gains 1 XP; heroes gain more for their deeds.
+    // Every unit gains 1 XP; heroes gain more for their deeds.
     expect(armyAt(s, 'fenwick', 'player')!.troops.every((t) => (isHero(t.type) ? t.xp >= 1 : t.xp === 1))).toBe(true);
   });
 

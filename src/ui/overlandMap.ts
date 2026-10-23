@@ -202,11 +202,11 @@ function mapSite(state: GameState, node: MapNode, selected: string | null, targe
   const labelY = Math.min(ATLAS_HEIGHT - 26, node.y + 18);
   return `<g class="atlas-site atlas-owner-${owner}${selectedSite ? ' is-selected' : ''}${canMarch ? ' can-march' : ''}"
       data-action="node" data-node="${esc(node.id)}" tabindex="0" role="button"
-      aria-label="${esc(node.name)}: ${town ? esc(owner) : 'landmark'}, ${armyCount} formations"
+      aria-label="${esc(node.name)}: ${town ? esc(owner) : 'landmark'}, ${armyCount} units"
       aria-pressed="${selectedSite ? 'true' : 'false'}">
       <title>${esc(node.name)} — ${town ? esc(owner) : 'landmark'}.
       ${canMarch ? 'Selected troops can march here this month.' : 'Select this location.'}
-      ${armyCount ? `${armyCount} formations present.` : ''}</title>
+      ${armyCount ? `${armyCount} units present.` : ''}</title>
       <circle cx="${node.x}" cy="${node.y}" r="29" class="atlas-site-hit"/>
       <circle cx="${node.x}" cy="${node.y}" r="24" class="atlas-site-aura"/>
       ${canMarch ? `<circle cx="${node.x}" cy="${node.y}" r="28" class="atlas-march-ring"/>` : ''}

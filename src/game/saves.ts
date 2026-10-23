@@ -55,6 +55,10 @@ const ledgerCategories: LedgerCategory[] = ['tax', 'wages', 'recruitment', 'hero
 function validate(value: unknown, allowMissingBattleTroops = false): asserts value is GameState {
   const s = object(value);
   requireValue(s.version === 18, 'unsupported schema version');
+  if (s.intel !== undefined) for (const [town, entry] of Object.entries(object(s.intel))) {
+    const e = object(entry);
+    requireValue(Object.hasOwn(object(s.towns), town) && integer(e.turn, 1, Number(s.turn)) && array(e.lines).every(text), 'intelligence report');
+  }
   const weather = object(s.weather);
   requireValue(oneOf(weather.kind, ['clear', 'rain', 'storm', 'snow', 'blizzard']) && integer(weather.turn, 1, Number(s.turn)) && integer(weather.seed, -2147483648, 2147483647), 'weather');
   if(s.rulerAppearance!==undefined){const look=object(s.rulerAppearance);requireValue(oneOf(look.gender,['male','female']) && oneOf(look.skin,['fair','olive','brown','deep']) && (look.rulerClass===undefined || oneOf(look.rulerClass,['knight','priest','mage'])),'ruler appearance');}
@@ -137,6 +141,7 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
       useId(t.id);
       requireValue(text(t.type) && Object.hasOwn(UNIT_TYPES, t.type) && integer(t.xp) && integer(t.men, 1) && integer(t.mp, 0, maxMp(t.type)), 'troop');
       requireValue(t.name === undefined || text(t.name), 'troop name');
+      requireValue(t.infiltrating === undefined || (t.type === 'spy' && a.owner === 'player' && text(t.infiltrating) && Object.hasOwn(object(s.towns), t.infiltrating)), 'infiltrating spy');
       requireValue(t.scoutPost === undefined || (t.type === 'scout' && oneOf(t.scoutPost, ['watch', 'city', 'road']) &&
         (a.owner === 'player' || (a.troops as unknown[]).every((x) => object(x).type === 'scout'))), 'scout post');
       requireValue(t.men <= (isHero(t.type) ? heroMaxHp(t.type, t.xp) : formationCapacity(t as unknown as GameState['armies'][number]['troops'][number])), 'troop strength');
@@ -428,7 +433,7 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
     const deployed = { attacker: 0, defender: 0 };
     for (const item of array(b.units)) {
       const u = object(item);
-      requireValue(integer(u.id, 1) && !unitIds.has(u.id) && integer(u.troopId, 1) && !troopIds.has(u.troopId), 'duplicate battle formation');
+      requireValue(integer(u.id, 1) && !unitIds.has(u.id) && integer(u.troopId, 1) && !troopIds.has(u.troopId), 'duplicate battle unit');
       unitIds.add(u.id); troopIds.add(u.troopId);
       requireValue(oneOf(u.side, sides), 'battle side');
       const army = u.side === 'attacker' ? a : d;
@@ -456,7 +461,7 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
         deployed[u.side as 'attacker' | 'defender']++;
         if (Number(u.men) > 0 && !u.fled) {
           const key = `${u.col},${u.row}`;
-          requireValue(!cells.has(key), 'overlapping formations');
+          requireValue(!cells.has(key), 'overlapping units');
           cells.add(key);
         }
       }
@@ -475,7 +480,7 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
         e.guardian === b.defenderId && (e.party === undefined ? e.army === b.attackerId : e.party === b.attackerId) &&
         state.armies.some((x) => x.id === e.army && x.owner === 'player'), 'quest encounter');
     }
-    if (!allowMissingBattleTroops) requireValue([...a.troops, ...d.troops].every((t) => troopIds.has(t.id)), 'missing battle formations');
+    if (!allowMissingBattleTroops) requireValue([...a.troops, ...d.troops].every((t) => troopIds.has(t.id)), 'missing battle units');
   }
   const state = value as GameState;
   const reason = endingReason(state);

@@ -15,13 +15,13 @@ export function replacementQuote(state:GameState,troopId:number,requested?:numbe
  const gold=type?Math.ceil(men*(type.cost/type.men+gear)):0;
  let reason:string|null=null;
  if(requested!==undefined && (!Number.isSafeInteger(requested)||requested<=0))reason='Choose a positive whole number of recruits.';
- else if(!troop||!type||!men)reason='This formation is already at full strength.';
+ else if(!troop||!type||!men)reason='This unit is already at full strength.';
  else if(type.recruit===null||troop.type==='scout')reason='This unit cannot recruit additional soldiers.';
  else if(state.battle||state.status!=='playing')reason='Finish the battle before recruiting replacements.';
- else if(isHero(troop.type))reason='Heroes recover health each month; recruit replacements for formations.';
+ else if(isHero(troop.type))reason='Heroes recover health each month; recruit replacements for units.';
  else if(!town||town.owner!=='player'||town.kind==='lair')reason='Return to a town you rule to recruit replacements.';
  else if(recruitBan(state,town.id))reason='This town is rationing grain and cannot spare recruits.';
- else if(troop.refit||troop.mp<=0)reason='This formation has already acted or is refitting; wait until next month.';
+ else if(troop.refit||troop.mp<=0)reason='This unit has already acted or is refitting; wait until next month.';
  else if(town.pop-men<500)reason='This town cannot spare enough recruits.';
  else if(state.gold<gold)reason='You need '+gold+' gold.';
  return {men,gold,capacity,reason,town,troop};

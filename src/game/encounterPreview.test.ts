@@ -17,7 +17,7 @@ function tower() {
 }
 
 describe('encounter participation quotes', () => {
-  it('explains that a ruler and formations cannot enter the heroes-only trial', () => {
+  it('explains that a ruler and units cannot enter the heroes-only trial', () => {
     const { state, army } = tower();
     const quote = questQuote(state, 'Q03', 'enter');
     expect(quote.reason).toContain('Bring a hired hero');
@@ -26,7 +26,7 @@ describe('encounter participation quotes', () => {
     });
     const html = renderCampaign(state, ui(army.at));
     expect(html.includes('Expedition: 0 deployed · 5 stay outside')).toBe(true);
-    expect(html.includes('Only hired heroes enter; your lord and formations stay outside.')).toBe(true);
+    expect(html.includes('Only hired heroes enter; your lord and units stay outside.')).toBe(true);
   });
 
   it('quotes the exact hero party used after save/reload and safely displays its names and health', () => {

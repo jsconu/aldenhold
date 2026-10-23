@@ -64,7 +64,7 @@ export function blockade(state: GameState, siege: Siege): number {
 
 /**
  * What next month will do to the town under this siege, for the player to see before ending the month. Without
- * engineers the walls barely fall (a siege can still starve the town); each engineer formation batters them down,
+ * engineers the walls barely fall (a siege can still starve the town); each engineer unit batters them down,
  * and boulder-throwers add their own blows.
  */
 export function siegeOutlook(state: GameState, siege: Siege) {
@@ -169,7 +169,7 @@ export function advanceSieges(state: GameState): string[] {
     siege.walls = Math.max(0, siege.walls - outlook.walls);
     siege.supplies = Math.max(0, Math.round((siege.supplies - outlook.supplies) * 10) / 10);
     if (siege.supplies === 0) {
-      // Starvation: every defending formation loses a tenth of its men (at least one); heroes weaken but live.
+      // Starvation: every defending unit loses a tenth of its men (at least one); heroes weaken but live.
       for (const a of defenders(state, siege.town)) {
         for (const t of a.troops) t.men = isHero(t.type) ? Math.max(1, t.men - 2) : t.men - Math.max(1, Math.round(t.men * 0.1));
         a.troops = a.troops.filter((t) => t.men > 0);

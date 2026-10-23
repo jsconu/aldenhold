@@ -91,10 +91,10 @@ export interface UnitType {
   resistances?: Partial<Record<DamageKind, number>>;
   /** Overland movement points per month on hex campaigns. */
   march: number;
-  /** Bow carried by a newly raised formation, if better than the short bow every missile troop starts with. */
+  /** Bow carried by a newly raised unit, if better than the short bow every missile troop starts with. */
   startingBow?: 'long-bow';
   /**
-   * A thrown-boulder attack (the cyclops): the unit takes aim at a formation one turn, announcing it, and throws the
+   * A thrown-boulder attack (the cyclops): the unit takes aim at a unit one turn, announcing it, and throws the
    * next if the target is still within `range`. Damage is multiplied by `factor` and can't be struck back.
    */
   boulder?: { range: number; factor: number };
@@ -142,6 +142,8 @@ export interface Troop {
   gear: Loadout;
   refit: PendingRefit | null;
   /** A stationary watch assignment; moving the scout clears it. */
+  /** A spy inside this town in secret, reporting on it each month (game/intel.ts). */
+  infiltrating?: string;
   /** A scout keeping watch where it stands ('city' and 'road' are the same watch, from older saves). */
   scoutPost?: 'watch' | 'city' | 'road';
   /** Heroes only: campaign equipment they carry, by slot (item ids). */
@@ -179,7 +181,7 @@ export interface DeployCell { depth: number; row: number }
 
 export interface Tactics {
   stance: Stance;
-  /** Custom only: where each formation starts, by troop id. Formations without a place are set up as Offensive. */
+  /** Custom only: where each unit starts, by troop id. Units without a place are set up as Offensive. */
   layout?: Record<string, DeployCell>;
 }
 
@@ -200,9 +202,9 @@ export interface Town {
 }
 
 export interface BattleUnit {
-  /** Turns remaining expire at the end of this formation's side turn. */
+  /** Turns remaining expire at the end of this unit's side turn. */
   effects: SpellEffect[];
-  /** Overflow formations remain off-field for this battle; no combat or XP. */
+  /** Overflow units remain off-field for this battle; no combat or XP. */
   reserve: boolean;
   id: number;
   side: Side;
@@ -226,7 +228,7 @@ export interface BattleUnit {
   row: number;
   moved: boolean;
   acted: boolean;
-  /** Boulder throwers: the enemy formation they have taken aim at, thrown at on their next turn. */
+  /** Boulder throwers: the enemy unit they have taken aim at, thrown at on their next turn. */
   aim?: number;
   /** Heroes: their equipment as the battle began. */
   kit?: HeroKit;
@@ -376,8 +378,8 @@ export type QuestCondition =
   | { kind: 'towns-ruled'; atLeast: number }
   /** Towns you rule plus free towns allied with you or your vassals: your standing in the realm. */
   | { kind: 'standing'; atLeast: number }
-  /** Your formations in the field and in garrison, heroes not counted. */
-  | { kind: 'formations'; atLeast: number }
+  /** Your units in the field and in garrison, heroes not counted. */
+  | { kind: 'units'; atLeast: number }
   /** One of your armies stands at this town or landmark (a discovery). */
   | { kind: 'army-at'; place: string }
   /** Food stored in one of your cities. */
@@ -658,6 +660,8 @@ export interface GameState {
   challenge?:CampaignChallenge;
   rulerAppearance?: RulerAppearance;
   version: 18;
+  /** What your spies last learned inside each town (game/intel.ts). */
+  intel?: Record<string, { turn: number; lines: string[] }>;
   /** Your sieges in progress (game/sieges.ts). */
   sieges: Siege[];
   /** How each siege ended, once. */

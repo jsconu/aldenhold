@@ -36,7 +36,7 @@ export function richRuin(cx:number,cy:number,seed:number):string{
  return '<svg x="'+(cx-23)+'" y="'+(cy-29)+'" width="46" height="46" viewBox="'+index%2+' '+Math.floor(index/2)+' 1 1" class="rich-ruin" pointer-events="none"><image href="/assets/battle/ruins-v1.png" width="2" height="2" preserveAspectRatio="none"/></svg>';
 }
 
-/** A formation is a group of people; heroes and individual giant creatures keep a single silhouette. */
+/** A unit is a group of people; heroes and individual giant creatures keep a single silhouette. */
 const SKIN_ORDER = ['fair', 'olive', 'brown', 'deep'] as const;
 
 /** A scout's look, fixed for that scout: one of two figures and four skin tones, picked from its id. */
@@ -52,7 +52,7 @@ export function scoutUnit(cx: number, cy: number, mirror: boolean, troopId: numb
   return '<g class="rich-battle-unit" pointer-events="none"' + (mirror ? ' transform="translate(' + cx * 2 + ' 0) scale(-1 1)"' : '') + '><svg x="' + (cx - 25) + '" y="' + (cy - 40) + '" width="50" height="50" viewBox="' + col + ' ' + row + ' 1 1"><image href="/assets/battle/scouts-v1.png" width="4" height="2" preserveAspectRatio="none"/></svg></g>';
 }
 
-/** A scout in battle: a single figure at the scale of a formation's soldiers. */
+/** A scout in battle: a single figure at the scale of a unit's soldiers. */
 export function scoutFigure(cx: number, cy: number, mirror: boolean, troopId: number): string {
   return '<g class="battle-formation" pointer-events="none" role="img" aria-label="Scout"><g transform="translate(' + cx + ' ' + (cy + 3) + ') scale(.64)">' + scoutUnit(0, 0, mirror, troopId) + '</g></g>';
 }
@@ -67,5 +67,5 @@ export function battleFigure(type:string,cx:number,cy:number,mirror:boolean,men:
  }
  if(['giant','titan','cyclops','minotaur'].includes(type))return '<g class="battle-creature-figure" transform="translate('+cx+' '+(cy+4)+') scale(.72)">'+richUnit(type,0,0,mirror,undefined,gender)+'</g>';
  const figures=Math.min(3,Math.max(1,men)),positions=figures===3?[[-12,-5],[12,-5],[0,7]]:figures===2?[[-10,1],[10,1]]:[[0,3]];
- return '<g class="battle-formation" pointer-events="none" role="img" aria-label="'+men+' soldiers in formation">'+positions.map(([x,y],i)=>'<g transform="translate('+(cx+x)+' '+(cy+y)+') scale(.64)">'+richUnit(type,0,0,mirror,undefined,i===1?(gender==='female'?'male':'female'):gender)+'</g>').join('')+'</g>';
+ return '<g class="battle-formation" pointer-events="none" role="img" aria-label="'+men+' soldiers in unit">'+positions.map(([x,y],i)=>'<g transform="translate('+(cx+x)+' '+(cy+y)+') scale(.64)">'+richUnit(type,0,0,mirror,undefined,i===1?(gender==='female'?'male':'female'):gender)+'</g>').join('')+'</g>';
 }

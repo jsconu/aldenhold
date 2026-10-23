@@ -70,10 +70,10 @@ describe('campaign challenge and exploration',()=>{
  }
  },120000);
 });
-describe('replacement recruits and female formations',()=>{
- it('reinforces an existing formation up to its capacity, charges once, preserves gear and dilutes experience',()=>{
+describe('replacement recruits and female units',()=>{
+ it('reinforces an existing unit up to its capacity, charges once, preserves gear and dilutes experience',()=>{
  const s=newGame(1),t=armyAt(s,'aldenhold','player')!.troops.find(t=>t.type==='spearmen')!;t.men=12;t.xp=8;t.gear.armor='chain';
- // Infantry formations hold up to 100 soldiers: filling this one would take 88 recruits.
+ // Infantry units hold up to 100 soldiers: filling this one would take 88 recruits.
  expect(replacementQuote(s,t.id)).toMatchObject({men:88,capacity:100});
  const q=replacementQuote(s,t.id,8),gold=s.gold,pop=s.towns.aldenhold.pop;expect(q.men).toBe(8);expect(q.reason).toBeNull();
  expect(recruitReplacements(s,t.id,8)).toBeNull();expect(t.men).toBe(20);expect(t.xp).toBe(4);expect(t.mp).toBe(0);expect(t.gear.armor).toBe('chain');

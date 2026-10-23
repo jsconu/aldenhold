@@ -17,15 +17,15 @@ export function cityAssault(state: GameState, from: string, to: string, troopIds
 export function renderCityAssault(state: GameState, decision: NonNullable<UIState['assault']>): string {
   const town = townAt(state, decision.to);
   const defenders = state.armies.filter((a) => a.at === decision.to && a.owner === town?.owner);
-  const formations = defenders.flatMap((a) => a.troops).filter((t) => t.men > 0);
-  const men = formations.reduce((n, t) => n + t.men, 0);
+  const units = defenders.flatMap((a) => a.troops).filter((t) => t.men > 0);
+  const men = units.reduce((n, t) => n + t.men, 0);
   const name = esc(nodeName(state, decision.to));
   const quote = marchQuote(state, decision.from, decision.troopIds, decision.to);
   const siege = siegeQuote(state, decision.from, decision.to);
   return `<div class="assault-shade"><section class="assault-prompt" role="dialog" aria-modal="true" aria-labelledby="assault-title">
     <h2 id="assault-title">${name} is defended</h2>
-    <p>${name} has <b>${formations.length} defending formation${formations.length === 1 ? '' : 's'}</b> (${men} soldiers and hero HP combined). Its defenders fight behind town walls.</p>
-    <p class="sub">Attack marches ${decision.troopIds.length} selected formation${decision.troopIds.length === 1 ? '' : 's'} from ${esc(nodeName(state, decision.from))}, spending ${quote.cost} movement, and starts a battle. Retreat keeps your army where it is without spending movement.</p>
+    <p>${name} has <b>${units.length} defending unit${units.length === 1 ? '' : 's'}</b> (${men} soldiers and hero HP combined). Its defenders fight behind town walls.</p>
+    <p class="sub">Attack marches ${decision.troopIds.length} selected unit${decision.troopIds.length === 1 ? '' : 's'} from ${esc(nodeName(state, decision.from))}, spending ${quote.cost} movement, and starts a battle. Retreat keeps your army where it is without spending movement.</p>
     <div class="assault-actions">
       <button data-action="assault-attack" class="primary" ${quote.reason ? 'disabled' : ''}>Attack</button>
       <button data-action="assault-retreat">Retreat</button>

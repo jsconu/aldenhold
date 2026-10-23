@@ -26,7 +26,7 @@ export const BATTLE_SIZES = {
 } as const;
 export type BattleSize = keyof typeof BATTLE_SIZES;
 
-/** Skirmish for up to 6 formations in all, field up to 14, major beyond that or against walls. */
+/** Skirmish for up to 6 units in all, field up to 14, major beyond that or against walls. */
 export function battleSize(attacker: Army, defender: Army, walls: boolean): Exclude<BattleSize, 'legacy'> {
   const n = [...attacker.troops, ...defender.troops].filter(t => t.type !== 'scout').length;
   return walls || n > 14 ? 'major' : n > 6 ? 'field' : 'skirmish';
@@ -300,17 +300,17 @@ export function unitAt(b: Battle, h: Hex): BattleUnit | undefined {
   return b.units.find((u) => u.men > 0 && !u.fled && !u.reserve && u.col === h.col && u.row === h.row);
 }
 
-/** Attack value; with the battle given, a regular formation includes the command bonus of a hero nearby. */
+/** Attack value; with the battle given, a regular unit includes the command bonus of a hero nearby. */
 export function attackOf(u: BattleUnit, b?: Battle): number {
   const base = (attackFor(u.type, u.xp) + kitBonus(u.kit).attack) * (u.gear.bow ? EQUIPMENT[u.gear.bow].attackFactor : 1);
   return b ? base * (1 + commandOf(b, u)) : base;
 }
 
-/** How far a hero's command reaches: regular formations within this many hexes fight better. */
+/** How far a hero's command reaches: regular units within this many hexes fight better. */
 export const COMMAND_RANGE = 2;
 
 /**
- * Command: a regular formation within reach of a hero of its side gains attack equal to that hero's leadership
+ * Command: a regular unit within reach of a hero of its side gains attack equal to that hero's leadership
  * (equipment included) plus 2 per hero level, in percent. Only the best hero nearby counts. Heroes themselves
  * don't gain it.
  */
@@ -331,7 +331,7 @@ export function defenseOf(b: Battle, u: BattleUnit): number {
 }
 
 /** Fighting weight: men for a troop, a fixed value for a hero (wounds don't weaken their blows). */
-/** Fighting weight: men for a formation; for a hero, the class's power, growing with level at the class's rate. */
+/** Fighting weight: men for a unit; for a hero, the class's power, growing with level at the class's rate. */
 export function powerOf(u: Pick<BattleUnit, 'type' | 'xp' | 'men'>): number {
   const hero = UNIT_TYPES[u.type].hero;
   return hero ? hero.power * (1 + hero.growth * (heroLevel(u.xp) - 1)) : u.men;
@@ -420,7 +420,7 @@ export function groupReachable(b: Battle, unitIds: number[]): Map<string, number
     }
   }
   // An occupied lead hex may be useful while searching a route, but clicking it
-  // selects that formation in the UI instead of issuing a group move.
+  // selects that unit in the UI instead of issuing a group move.
   for (const key of result.keys()) {
     const [col, row] = key.split(',').map(Number);
     if (unitAt(b, { col, row })) result.delete(key);
@@ -428,7 +428,7 @@ export function groupReachable(b: Battle, unitIds: number[]): Map<string, number
   return result;
 }
 
-/** Move every selected formation together, or none. Terrain harm is applied after all positions change. */
+/** Move every selected unit together, or none. Terrain harm is applied after all positions change. */
 export function moveGroup(b: Battle, unitIds: number[], destination: Hex): boolean {
   if (!groupReachable(b, unitIds).has(hexKey(destination))) return false;
   const members = unitIds.map((id) => b.units.find((u) => u.id === id)!);
@@ -500,7 +500,7 @@ export function attackOrderQuote(b: Battle, unitId: number, targetId: number): {
   const u=b.units.find(x=>x.id===unitId),t=b.units.find(x=>x.id===targetId);
   const no=(reason:string)=>({reason,destination:null,cost:0});
   if(!u || !t || b.outcome || u.side!==b.active || t.side===u.side || t.reserve || t.fled || t.men<=0) return no('Choose a living enemy on the field.');
-  if(u.reserve || u.acted || u.fled || u.men<=0 || u.routing) return no('This formation cannot attack now.');
+  if(u.reserve || u.acted || u.fled || u.men<=0 || u.routing) return no('This unit cannot attack now.');
   if(attackTargets(b,u).includes(t))return {reason:null,destination:null,cost:0};
   const reach=reachable(b,u);
   const options=[...reach.keys()].map(key=>{const [col,row]=key.split(',').map(Number);return {col,row};}).filter(h=>attackTargets(b,{...u,...h}).includes(t)).sort((a,c)=>(reach.get(hexKey(a))!-reach.get(hexKey(c))!) || terrainAt(b,a).moveLoss-terrainAt(b,c).moveLoss || a.col-c.col || a.row-c.row);
@@ -765,7 +765,7 @@ export interface EscapeQuote {
   reason: string | null;
 }
 
-/** Whether `side` may try to run away now, and its chance: 75%, less 10% per enemy formation in contact, 20–90%. */
+/** Whether `side` may try to run away now, and its chance: 75%, less 10% per enemy unit in contact, 20–90%. */
 export function escapeQuote(b: Battle, side: Side): EscapeQuote {
   const after = escapeTurn(b, side);
   const engaged = alive(b, other(side)).filter((e) => fighting(b, side).some((u) => hexDistance(u, e) === 1)).length;
@@ -972,9 +972,9 @@ function aiBoulder(b: Battle, u: BattleUnit, boulder: NonNullable<(typeof UNIT_T
   if (aimed) return false;
   const inReach = alive(b, other(u.side)).filter((e) => hexDistance(u, e) <= boulder.range);
   if (!inReach.length) return false;
-  // The biggest formation in reach; heroes only when no formation is (a boulder shouldn't quietly end a reign).
-  const formations = inReach.filter((e) => !isHero(e.type));
-  const target = (formations.length ? formations : inReach).reduce((a, c) => (c.men > a.men ? c : a));
+  // The biggest unit in reach; heroes only when no unit is (a boulder shouldn't quietly end a reign).
+  const units = inReach.filter((e) => !isHero(e.type));
+  const target = (units.length ? units : inReach).reduce((a, c) => (c.men > a.men ? c : a));
   u.aim = target.id;
   u.moved = true;
   u.acted = true;
@@ -982,11 +982,11 @@ function aiBoulder(b: Battle, u: BattleUnit, boulder: NonNullable<(typeof UNIT_T
   return true;
 }
 
-/** How close the enemy must come before a holding formation moves. */
+/** How close the enemy must come before a holding unit moves. */
 export const HOLD_RANGE = 3;
 
 /**
- * Whether this formation holds its ground this turn under its side's stance: Defensive armies hold until the
+ * Whether this unit holds its ground this turn under its side's stance: Defensive armies hold until the
  * enemy is within HOLD_RANGE; Skirmish melee hold the same way to guard the archers, whose own fire keeps them
  * at a distance. Offensive and Custom armies advance.
  */

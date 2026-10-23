@@ -6,7 +6,7 @@ import {heroMaxHp,heroMaxMana} from './units';
 export type RulerChoice=RulerAppearance & {name:string;difficulty?:Difficulty};
 export const SKIN_TONES=['fair','olive','brown','deep'] as const;
 export const RULER_CLASSES:Record<RulerClass,{name:string;type:string;art:string;summary:string;equipment:string}>={
- knight:{name:'Knight',type:'lord',art:'rulers-v1.png',equipment:'Sword, shield and command',summary:'A durable frontline ruler: 30 HP, attack 4, defense 5 and leadership +15. No spells. Lead melee attacks and steady your formations.'},
+ knight:{name:'Knight',type:'lord',art:'rulers-v1.png',equipment:'Sword, shield and command',summary:'A durable frontline ruler: 30 HP, attack 4, defense 5 and leadership +15. No spells. Lead melee attacks and steady your units.'},
  priest:{name:'Priest',type:'rulerPriest',art:'ruler-priests-v1.png',equipment:'Staff, prayer book and healing',summary:'A support ruler: 22 HP, attack 2, defense 3, leadership +10 and 12 mana. Heal restores losses and Rally steadies morale. Keep behind your frontline.'},
  mage:{name:'Mage',type:'rulerMage',art:'ruler-mages-v1.png',equipment:'Crystal staff, spellbook and arcane magic',summary:'A fragile spellcaster: 18 HP, attack 1, defense 2, leadership +5 and 12 mana. Begin with Fireball and Ward; unlock more spells as you gain levels. Protect your ruler behind the army.'}
 };

@@ -237,7 +237,7 @@ export function renderHexMap(
   let armies = '';
   const byHex = new Map<string, Army[]>();
   // Monsters in a lair nobody has found stay hidden.
-  for (const a of state.armies) if (explored(state,a.at) && !hiddenLairAt(state, a.at) && !isCovert(a)) byHex.set(a.at, [...(byHex.get(a.at) ?? []), a]);
+  for (const a of state.armies) if (explored(state,a.at) && !hiddenLairAt(state, a.at) && !(isCovert(a) && a.owner !== 'player')) byHex.set(a.at, [...(byHex.get(a.at) ?? []), a]);
   // Armies sit on their own hex: centred, or nudged down-right of a settlement they share it with, so clicking
   // the banner always picks the hex it stands on.
   const placed = new Set(world.places.map((p) => `${p.col},${p.row}`));

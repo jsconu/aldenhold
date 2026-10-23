@@ -1,4 +1,4 @@
-import { advanceIntel, catchScouts } from './intel';
+import { advanceIntel, catchScouts, spyOnTheMove } from './intel';
 import { advanceSieges, siegeStormed, wallsBreached } from './sieges';
 import { rollWeather, weatherMarch, weatherToll } from './weather';
 import {cityWarbandTurn} from './cityWarbands';
@@ -111,7 +111,7 @@ export function lordOf(state: GameState): Troop | undefined {
 }
 
 /**
- * The most formations (heroes included) one army can hold. Each side's deployment zone fits 27, so an army of 12
+ * The most units (heroes included) one army can hold. Each side's deployment zone fits 27, so an army of 12
  * always deploys whole with room to manoeuvre. Recruiting, hiring and marching into a full army are refused.
  */
 export const ARMY_CAP = 12;
@@ -122,7 +122,7 @@ export function armyRoom(state: GameState, at: string): number {
 }
 
 function fullReason(state: GameState, at: string): string {
-  return `The army at ${nodeName(state, at)} is full: ${ARMY_CAP} formations is the most one army can hold.`;
+  return `The army at ${nodeName(state, at)} is full: ${ARMY_CAP} units is the most one army can hold.`;
 }
 
 /** What hiring this hero would cost, and why it can't happen now (`reason` null means it can). */
@@ -318,12 +318,14 @@ export function moveTroops(state: GameState, from: string, troopIds: number[], t
   const left = sharedMp(moving) - quote.cost;
   for (const t of moving) t.mp = left;
   for (const t of moving) if (t.type === 'scout') delete t.scoutPost;
-  // The marching troops keep their army's battle plan; formations without a custom place set up automatically.
+  // The marching troops keep their army's battle plan; units without a custom place set up automatically.
   const army: Army = { id: state.nextId++, owner: 'player', at: from, from: null, troops: moving, ...(src.tactics ? { tactics: structuredClone(src.tactics) } : {}) };
   state.armies.push(army);
   marchAlong(state, army, quote.path);
-  // Hidden enemy scouts on the way are caught.
-  catchScouts(state, quote.path);
+  // A covert party slips along unseen, watching; an army marching through hidden enemy scouts catches them.
+  const moved = state.armies.find((a) => a.troops.some((t) => quote.troopIds.includes(t.id)));
+  if (moved && isCovert(moved)) spyOnTheMove(state, moved, quote.path);
+  else catchScouts(state, quote.path);
   refreshScoutContacts(state);
   discoverLairs(state);
   return null;
@@ -355,10 +357,12 @@ export function marchQuote(state: GameState, from: string, troopIds: number[], t
   if (!step) return refuse(worldOf(state).kind === 'graph' ? 'That place is not next to this one.' : 'Those troops can’t reach there this month.');
   if (to !== from && moving.length > armyRoom(state, to)) {
     const room = Math.max(0, armyRoom(state, to));
-    return refuse(`${room ? `Only ${room} more formation${room === 1 ? ' fits' : 's fit'}` : 'No more formations fit'} in the army at ${nodeName(state, to)} (${ARMY_CAP} at most).`);
+    return refuse(`${room ? `Only ${room} more unit${room === 1 ? ' fits' : 's fit'}` : 'No more units fit'} in the army at ${nodeName(state, to)} (${ARMY_CAP} at most).`);
   }
   if (moving.every(t => t.type === 'scout') && pathTo(options, to).some(at => arrivalOutcome(state, at))) return refuse('Scouts cannot attack armies or capture towns. Send fighting troops with them.');
-  return { cost: step.cost, path: pathTo(options, to), troopIds: moving.map((t) => t.id), ends: arrivalOutcome(state, to), reason: null };
+  // Scouts and spies on their own slip in unseen: no battle, no capture.
+  const covert = moving.every((t) => t.type === 'scout' || t.type === 'spy');
+  return { cost: step.cost, path: pathTo(options, to), troopIds: moving.map((t) => t.id), ends: covert ? null : arrivalOutcome(state, to), reason: null };
 }
 
 /**
@@ -380,7 +384,7 @@ export function enterNode(state: GameState, army: Army, to: string) {
 
 /** A neutral army an ally lets through doesn't fight; anyone else of another faction does. */
 function blocks(state: GameState, mover: Army, other: Army, at: string): boolean {
-  if (other === mover || other.at !== at || other.owner === mover.owner || isCovert(other)) return false;
+  if (other === mover || other.at !== at || other.owner === mover.owner || isCovert(other) || isCovert(mover)) return false;
   const townId = townAt(state, at)?.id;
   return !(other.owner === 'neutral' && townId !== undefined && hasPassage(state, mover.owner, townId));
 }
@@ -415,7 +419,8 @@ function settle(state: GameState, army: Army) {
   army.from = null;
   const town = townAt(state, army.at);
   if(town?.owner==='player' && army.cityRaid && state.cityPolitics)state.cityPolitics.rivals[town.id]??={nextRaidTurn:state.turn+8};
-  if (town && town.owner !== army.owner && !hasPassage(state, army.owner, town.id)) captureTown(state, town, army.owner);
+  // Scouts and spies never take a town; a spy in a hostile town is there in secret.
+  if (town && town.owner !== army.owner && !hasPassage(state, army.owner, town.id) && !isCovert(army)) captureTown(state, town, army.owner);
 }
 
 export function captureTown(state: GameState, town: Town, owner: FactionId) {
