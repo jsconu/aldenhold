@@ -27,3 +27,7 @@ Owner request, October 22, 2026. Scouts are distinct from ordinary fighting form
 The current UI uses one Keep watch here assignment with a shaded three-hex radius. A scout reports only a currently visible orc or rival-city army, and identifies its destination as an estimate. Unseen future route crossings do not reveal an enemy. Reports are dated journal history and deduplicated through saves; automatic updates/retirement of changed estimates and monster-raid intelligence remain future work.
 
 Scouts stay in noncombat reserve during battles without consuming a deployment slot. Scouts alone cannot order an attack or capture. When intercepted they lose their watch; an undefended post resolves immediately, with ordinary withdrawal/cut-off and town/raid consequences. Scouts accompanying soldiers follow the army’s battle result. Existing saved battles retain their saved deployment.
+
+## Current intelligence lifecycle
+
+Latest contacts are now saved separately from journal history. Observed destination and arrival changes generate a fresh report; unchanged observations do not. Zero movement gives arrival unknown. Losing sight, recalling/moving a watcher, interception or a missing force retires the estimate without revealing hidden enemy outcomes. Reacquisition creates a new estimate. The map sidebar and city overview label current versus withdrawn estimates. Legacy report-only saves load without migration or duplicate historical messages.

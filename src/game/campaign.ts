@@ -2,7 +2,7 @@ import { rollWeather, weatherMarch, weatherToll } from './weather';
 import {cityWarbandTurn} from './cityWarbands';
 import {explore,remainingObjectives,challengeVictoryReady} from './challenge';
 import { SPECIES } from '../content/lairs';
-import { observeOrcRoutes } from './scouts';
+import { observeOrcRoutes, refreshScoutContacts } from './scouts';
 import { endRaid, planRaids, resolveRaids } from './raids';
 import { discoverLairs, newLairState, settleLairs } from './lairs';
 import { recoverFallenKit } from './items';
@@ -319,6 +319,7 @@ export function moveTroops(state: GameState, from: string, troopIds: number[], t
   const army: Army = { id: state.nextId++, owner: 'player', at: from, from: null, troops: moving, ...(src.tactics ? { tactics: structuredClone(src.tactics) } : {}) };
   state.armies.push(army);
   marchAlong(state, army, quote.path);
+  refreshScoutContacts(state);
   discoverLairs(state);
   return null;
 }
@@ -543,6 +544,7 @@ export function applyBattle(state: GameState, b: Battle) {
 }
 
 function finishBattles(state: GameState) {
+  refreshScoutContacts(state);
   checkStatus(state);
   startNextPending(state);
   if (!runningMonths.has(state) && !state.battle && !state.pending.length) {
@@ -763,7 +765,7 @@ const MONTH_PHASES: MonthPhase[] = [
   // Lairs found by armies that marched near them, and any whose garrison is gone.
   { id: 'lairs', run(state) { return [...discoverLairs(state), ...settleLairs(state)].map(news); } },
   // The orcs' own battles, captures and raids are recorded by the rules they trigger.
-  { id: 'ai', run(state) { orcTurn(state, observeOrcRoutes); cityWarbandTurn(state); return []; } },
+  { id: 'ai', run(state) { orcTurn(state, observeOrcRoutes); cityWarbandTurn(state); refreshScoutContacts(state); return []; } },
   // Monster raids: last month's arrive (fighting or plundering), then next month's are planned and announced.
   // Like the AI, this can start battles, so it runs after every economic phase.
   { id: 'raids', run(state) { return [...resolveRaids(state), ...planRaids(state)].map(news); } },

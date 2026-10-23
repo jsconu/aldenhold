@@ -1,3 +1,5 @@
+import {hexDistance} from '../hex';
+import {parseKey} from '../world';
 import { UNIT_TYPES } from '../../content/rules';
 import { autoResolve } from '../battle';
 import { applyBattle, marchQuote, moveTroops, sharedMp, startLocation } from '../campaign';
@@ -16,8 +18,11 @@ export function marchParty(state: GameState, ids: number[], place: string, adjac
   // Like a sensible player, wait out snow and blizzards in a friendly town rather than march into the cold.
   if (currentWeather(state).rule.exposure >= 0.1 && sheltered(state, army.at)) return null;
   const routes = marchOptions(state, army.at, 'player', Infinity);
-  const destination = targets.filter((at) => !stopsMarch(state, at, 'player') && routes.has(at))
+  let destination = targets.filter((at) => !stopsMarch(state, at, 'player') && routes.has(at))
     .sort((a, b) => routes.get(a)!.cost - routes.get(b)!.cost)[0];
+  if (!destination && state.challenge?.fog) destination = [...routes.keys()]
+    .filter(at=>!state.challenge!.explored.includes(at) && !stopsMarch(state,at,'player'))
+    .sort((a,b)=>hexDistance(parseKey(a),parseKey(target))-hexDistance(parseKey(b),parseKey(target)) || routes.get(a)!.cost-routes.get(b)!.cost)[0];
   if (!destination) return null;
   const troops = army.troops.filter((t) => ids.includes(t.id));
   const next = pathTo(routes, destination).filter((at) => routes.get(at)!.cost <= sharedMp(troops)).at(-1);

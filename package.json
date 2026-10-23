@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
+    "simulate:campaign": "node scripts/run-full-campaign.mjs",
     "simulate:chapter": "node scripts/run-chapter-playthroughs.mjs",
     "simulate:quests": "node scripts/run-quest-expeditions.mjs",
     "simulate:encounters": "node scripts/run-encounter-odds.mjs",
