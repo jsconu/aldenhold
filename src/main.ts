@@ -1,4 +1,5 @@
 import {explored} from './game/challenge';
+import { mapClickIntent } from './ui/mapClick';
 import { makeCamp } from './game/weather';
 import {recruitReplacements} from './game/replacements';
 import { createRulerCampaign, SKIN_TONES } from './game/rulerCreation';
@@ -431,14 +432,14 @@ function onAction(action: string, data: DOMStringMap, additive = false) {
       break;
     case 'node': {
       const id = data.node!;
-      // In march mode (Move selected army) a click always marches; otherwise a known town opens its city screen.
-      const marching = !!ui.marchMode && !!ui.selected;
-      if (ui.routeOrigin && !ui.routeDestination) {
+      // A lit location (or any, in march mode) is a march or an attack; a known town otherwise opens its city screen.
+      const intent = mapClickIntent(state, ui, id);
+      if (intent === 'route') {
         if (id !== ui.routeOrigin) ui.routeDestination = id;
         break;
       }
-      if(!marching && explored(state,id) && townAt(state,id) && !ui.routeOrigin){selectNode(id);ui.view='city';ui.cityTab='overview';break;}
-      if (ui.selected && (marching || moveTargets(state, ui).has(id))) {
+      if (intent === 'city') { selectNode(id); ui.view = 'city'; ui.cityTab = 'overview'; break; }
+      if (intent === 'march' && ui.selected) {
         const decision = cityAssault(state, ui.selected, id, [...ui.checked]);
         if (decision) { ui.assault = decision; ui.marchMode = false; break; }
         const before = captureMove(state, ui, 'Undo march');
