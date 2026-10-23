@@ -214,7 +214,7 @@ function renderNodePanel(state: GameState, ui: UIState, at: string): string {
   const town = townAt(state, at);
   if(town && ui.view==='map'){
     const troops=state.armies.filter(a=>a.at===at && a.owner==='player');
-    return '<h2>'+esc(nodeName(state,at))+'</h2><p>'+(town.kind==='capital'?'Your capital':'Town')+' · '+OWNER_LABEL(town.owner)+(relationWith(state,town.id)&&relationWith(state,town.id)!=='self'?' · '+RELATION_LABEL[relationWith(state,town.id) as keyof typeof RELATION_LABEL]:'')+' · '+town.pop.toLocaleString()+' people</p><button data-action="open-city" data-node="'+esc(at)+'" class="primary">Open city</button><p class="sub">Development, recruitment, equipment and city quests are in the city screen. To march here, use Move selected army.</p>'+(town.owner==='player'?renderRaidThreat(state,town.id):'')+troops.map(a=>renderArmy(state,ui,a)).join('');
+    return '<h2>'+esc(nodeName(state,at))+'</h2><p>'+(town.kind==='capital'?'Your capital':'Town')+' · '+OWNER_LABEL(town.owner)+(relationWith(state,town.id)&&relationWith(state,town.id)!=='self'?' · '+RELATION_LABEL[relationWith(state,town.id) as keyof typeof RELATION_LABEL]:'')+' · '+town.pop.toLocaleString()+' people</p><button data-action="open-city" data-node="'+esc(at)+'" class="primary">Open city</button><p class="sub">Development, recruitment, equipment and city quests are in the city screen. To march on it or attack it, select your army, tick its troops and click the town when it is lit (or use Move selected army).</p>'+(town.owner==='player'?renderRaidThreat(state,town.id):'')+troops.map(a=>renderArmy(state,ui,a)).join('');
   }
   const id = town?.id ?? at;
   const armies = state.armies.filter((a) => a.at === at);
