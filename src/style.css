@@ -628,3 +628,16 @@ button.travel-destination b { color: var(--gold); font-size: 11px; }
 /* Scouts on watch: the hexes they can see. */
 .overland .watch-range { fill: rgba(150, 200, 255, 0.12); stroke: rgba(170, 215, 255, 0.35); stroke-width: 0.5; pointer-events: none; }
 .overland .watch-range.watched-here { fill: rgba(150, 200, 255, 0.24); stroke: rgba(200, 230, 255, 0.7); }
+
+/* Town popup: move troops or open the city; troop toggles with select all / deselect all. */
+.troop-toggles { list-style: none; padding: 0; margin: 10px 0; display: grid; gap: 6px; }
+.troop-toggles label { display: flex; gap: 8px; align-items: baseline; cursor: pointer; }
+.troop-toggles small { color: #bcb39a; }
+.troop-quick { display: flex; gap: 6px; margin: 4px 0; }
+
+/* Sieges. */
+.siege-panel { border-left: 3px solid #c8783a; padding-left: 10px; margin: 10px 0; }
+.siege-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 6px 0; }
+.siege-stats dt { font-size: 11px; color: #bcb39a; }
+.siege-stats dd { margin: 0; font-weight: 600; }
+.siege-note { border-left: 3px solid #c8783a; padding-left: 8px; }

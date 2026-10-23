@@ -612,6 +612,29 @@ export type RulerClass='knight'|'priest'|'mage';
 export type Season = 'winter' | 'spring' | 'summer' | 'autumn';
 export type WeatherKind = 'clear' | 'rain' | 'storm' | 'snow' | 'blizzard';
 
+/** A siege: an army camped beside a hostile town, wearing down its walls, supplies and morale month by month. */
+export interface Siege {
+  town: string;
+  /** The besieging army, and the hex beside the town it camps on. */
+  army: number;
+  camp: string;
+  startedTurn: number;
+  /** 0–100; below 50 an assault no longer faces the walls. */
+  walls: number;
+  /** Months of food left in the town (tenths of a month). */
+  supplies: number;
+  /** 0–100; a town that can surrender offers terms at 40 or below. */
+  morale: number;
+  /** The town has offered to become your vassal. */
+  offer: boolean;
+}
+
+export interface SiegeRecord {
+  town: string;
+  turn: number;
+  result: 'vassal' | 'lifted' | 'stormed' | 'broken';
+}
+
 export interface RulerAppearance { rulerClass?:RulerClass; gender:'male'|'female'; skin:'fair'|'olive'|'brown'|'deep' }
 
 export interface ScoutContact {
@@ -629,7 +652,11 @@ export interface GameState {
   cityPolitics?:{lastTurn:number;rivals:Record<string,{nextRaidTurn:number;warning?:{target:string;launchTurn:number}}>};
   challenge?:CampaignChallenge;
   rulerAppearance?: RulerAppearance;
-  version: 17;
+  version: 18;
+  /** Your sieges in progress (game/sieges.ts). */
+  sieges: Siege[];
+  /** How each siege ended, once. */
+  siegeLog: SiegeRecord[];
   /** This month's weather (game/weather.ts), rolled when the month began. */
   /**
    * This month's weather (game/weather.ts), rolled when the month began, and the weather's own random stream, so

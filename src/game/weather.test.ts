@@ -179,7 +179,7 @@ describe('seasons and weather', () => {
     old.version = 16;
     delete old.weather;
     const migrated = parseSave(JSON.stringify(old));
-    expect(migrated.version).toBe(17);
+    expect(migrated.version).toBe(18);
     expect(migrated.weather).toMatchObject({ kind: 'clear', turn: s.turn });
   });
 });
