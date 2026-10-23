@@ -1,4 +1,5 @@
 import {explored} from './game/challenge';
+import { acceptTerms, beginSiege, liftSiege, refuseTerms, siegeOf } from './game/sieges';
 import { mapClickIntent } from './ui/mapClick';
 import { makeCamp } from './game/weather';
 import {recruitReplacements} from './game/replacements';
@@ -76,7 +77,7 @@ function checkpoint(reason: Parameters<typeof captureRecovery>[2]): boolean {
 }
 
 function activate(next: GameState) {
-  undoMove = null;ui.marchMode=false;
+  undoMove = null;ui.marchMode=false;ui.townChoice=null;
   feedback=[];
   state = next;
   hasGame = true;
@@ -210,16 +211,64 @@ function onAction(action: string, data: DOMStringMap, additive = false) {
   const nameInput=app.querySelector<HTMLInputElement>('#ruler-name');
   if(ui.rulerDraft && nameInput)ui.rulerDraft.name=nameInput.value;
   ui.message = '';
-  if (ui.assault && action !== 'assault-attack' && action !== 'assault-retreat') return;
+  if (ui.assault && !['assault-attack', 'assault-retreat', 'assault-besiege'].includes(action)) return;
+  if (ui.townChoice && !['town-choice-move', 'town-choice-city', 'town-choice-close', 'town-choice-cancel', 'troops-all', 'troops-none'].includes(action)) return;
   // A later consequential command closes the one-step undo window. Browsing the map does not.
   if (!['node', 'hex', 'undo-move', 'assault-retreat', 'route-first-leg', 'locate-army', 'plan-route', 'route-clear',
     'route-preference', 'map-layer', 'map-zoom', 'hex-zoom', 'battle-zoom', 'view-quest', 'goto', 'journal', 'treasury', 'spell'].includes(action)) undoMove = null;
   switch (action) {
+    case 'town-choice-move':
+      if (ui.townChoice) ui.townChoice = { ...ui.townChoice, step: 'troops' };
+      break;
+    case 'town-choice-city':
+      if (ui.townChoice) { selectNode(ui.townChoice.at); ui.view = 'city'; ui.cityTab = 'overview'; }
+      ui.townChoice = null;
+      break;
+    case 'town-choice-close':
+      // Troops stay ticked: the lit hexes on the map show where they can go.
+      ui.townChoice = null;
+      break;
+    case 'town-choice-cancel':
+      ui.townChoice = null;
+      ui.checked = new Set();
+      break;
+    case 'troops-all': {
+      const army = ui.selected ? armyAt(state, ui.selected, 'player') : undefined;
+      ui.checked = new Set(army?.troops.filter((t) => t.mp > 0 && !t.refit).map((t) => t.id) ?? []);
+      break;
+    }
+    case 'troops-none':
+      ui.checked = new Set();
+      break;
     case 'make-camp':
       ui.message = makeCamp(state, Number(data.army)) ?? 'Camp is set: the army stays put this month, and the weather costs it half as many men.';
       break;
     case 'scout-post':
       ui.message = assignScout(state, Number(data.troop), data.post === 'recall' ? 'recall' : 'watch') ?? '';
+      break;
+    case 'assault-besiege': {
+      const decision = ui.assault;
+      ui.assault = null;
+      if (!decision) break;
+      ui.message = beginSiege(state, decision.from, decision.to) ?? 'The siege has begun. Each month the town weakens; storm, hold or lift it from the town panel.';
+      break;
+    }
+    case 'siege-storm': {
+      const siege = siegeOf(state, data.town ?? '');
+      const army = siege && state.armies.find((a) => a.id === siege.army);
+      if (!siege || !army) break;
+      const ids = army.troops.filter((t) => t.mp > 0 && !t.refit).map((t) => t.id);
+      ui.message = moveTroops(state, siege.camp, ids, townLocation(state, siege.town)) ?? '';
+      break;
+    }
+    case 'siege-lift':
+      ui.message = liftSiege(state, data.town ?? '') ?? 'The siege is lifted.';
+      break;
+    case 'siege-accept':
+      ui.message = acceptTerms(state, data.town ?? '') ?? 'Terms accepted: the town is your vassal.';
+      break;
+    case 'siege-refuse':
+      ui.message = refuseTerms(state, data.town ?? '') ?? 'Terms refused. The siege goes on.';
       break;
     case 'assault-retreat':
       ui.assault = null;
@@ -443,6 +492,7 @@ function onAction(action: string, data: DOMStringMap, additive = false) {
         break;
       }
       if (intent === 'city') { selectNode(id); ui.view = 'city'; ui.cityTab = 'overview'; break; }
+      if (intent === 'choose') { selectNode(id); ui.townChoice = { at: id, step: 'choose' }; break; }
       if (intent === 'march' && ui.selected) {
         const decision = cityAssault(state, ui.selected, id, [...ui.checked]);
         if (decision) { ui.assault = decision; ui.marchMode = false; break; }

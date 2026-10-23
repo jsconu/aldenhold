@@ -86,9 +86,9 @@ describe('replacement recruits and female formations',()=>{
  t.mp=12;s.gold=0;before=JSON.stringify(s);expect(recruitReplacements(s,t.id)).toContain('gold');expect(JSON.stringify(s)).toBe(before);
  s.gold=300;a.at='bridge';expect(replacementQuote(s,t.id).reason).toContain('town');
  });
- it('shows replacements when a depleted formation is selected and has female artwork for all human classes',()=>{
+ it('offers reinforcements in the Recruitment tab and has female artwork for all human classes',()=>{
  const s=newGame(1);armyAt(s,'aldenhold','player')!.troops[1].men=10;
- const html=renderCampaign(s,{selected:'aldenhold',checked:new Set(),battleUnit:null,battleSpell:null,message:'',view:'city',cityTab:'army'});expect(html.includes('data-action="replacements"')).toBe(true);
+ const html=renderCampaign(s,{selected:'aldenhold',checked:new Set(),battleUnit:null,battleSpell:null,message:'',view:'city',cityTab:'recruitment'});expect(html.includes('data-action="replacements"')).toBe(true);
  for(const type of ['militia','spearmen','archers','woodlandArchers','knights','lord','champion','priest','mage'])expect(richUnit(type,0,0,false,undefined,'female')).toContain('humans-female-v1.png');
  });
 });

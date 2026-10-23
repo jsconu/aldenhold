@@ -18,10 +18,11 @@ describe('clicking the map', () => {
     expect(mapClickIntent(s, ui(army.at, ids), fenwick)).toBe('march');
   });
 
-  it('a town you are not marching on opens its city screen; open ground is just selected', () => {
+  it('a town with your troops asks whether to move them or open the city; other towns open; open ground is selected', () => {
     const s = newGame(1, 'western-realm');
     const home = townLocation(s, 'aldenhold');
-    expect(mapClickIntent(s, ui(null), home)).toBe('city');
+    expect(mapClickIntent(s, ui(null), home)).toBe('choose');
+    expect(mapClickIntent(s, ui(home, armyAt(s, home, 'player')!.troops.map((t) => t.id)), home)).toBe('choose');
     expect(mapClickIntent(s, ui(null), townLocation(s, 'fenwick'))).toBe('city');
     // Troops at the capital but none ticked: nothing is lit, so a far town opens rather than marches.
     expect(mapClickIntent(s, ui(home), townLocation(s, 'westmere'))).toBe('city');

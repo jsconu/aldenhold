@@ -982,3 +982,30 @@ Added optional validated scout contacts to v17 saves, retaining legacy report ke
 Added `npm run simulate:campaign` for a real Normal campaign with fog, quoted commands, paid development/refits/replacements, relic adventures and Hold travel. This diagnostic is intentionally separate from legacy chapter acceptance. Default mode exits unsuccessfully if victory, ruler survival or economy requirements fail; `--report-only` prints failures for investigation. See full-campaign-baselines.md and issue #76 for current failures and the production dependency blocker.
 
 Validation: isolated full suite passes all 524 tests with two workers, and production build passes. Earlier shared-checkout timing failures passed in a focused 31-test rerun. The three full-campaign diagnostic failures are recorded separately and remain unresolved in #76.
+
+## Sieges, the town popup and reinforcing in the Recruitment tab (owner request, October 22, 2026)
+
+**Sieges** (first playable slice of [City assaults and sieges](city-assaults-and-sieges.md), `src/game/sieges.ts`).
+- **Starting one.** The assault decision's **Besiege** button works when your army stands next to a hostile, defended town. The whole army there camps beside the walls, which spends its month's movement.
+- **Each month** (a new `sieges` phase after raids):
+  - the blockade wears down walls and supplies, then morale;
+  - the blockade is your strength against 1.5× the garrison's, from 25% to 100%, so a small force cannot starve a city it cannot surround;
+  - boulder-throwers batter the walls faster;
+  - once supplies run out, every defending formation loses a tenth of its men each month.
+- **Walls** below 50% take the walls out of an assault.
+- **Surrender.** Independent towns whose morale falls to 40 offer to become your vassal (passage; they keep their own garrison). You can accept, or refuse and keep the siege going. Capitals, Gharzak Hold and orc-held towns never surrender.
+- **The siege panel** sits on the town's screen: walls, supplies, morale, blockade, next month's toll, the town's surrender policy, and **Storm**, **Lift**, **Accept** and **Refuse**. Marching the besieging army away lifts the siege; storming the town ends it.
+- **Records.** Every siege's end goes into `siegeLog` once. A vassal treaty is valid in saves when a siege granted it.
+- **Saves: version 18.**
+- **Later:** AI sieges of your towns, defender sorties, and city battlefields with pillage.
+
+**Town popup.** Clicking a town where your troops stand asks **Select and move troops** or **Open city screen**. Moving lists every formation with a toggle, plus **Select all** and **Deselect all**; then you click a lit hex. The army panel has Select all / Deselect all too.
+
+**Reinforcing in the Recruitment tab.** The tab now separates **Raise a new formation** (full strength, level 1) from **Reinforce an existing formation** (recruit 10, or fill to capacity). Recruits arrive untrained: experience is shared across the bigger formation, so its level drops. Each button shows the drop, such as "Lv 5 → 1" when filling a 12-man veteran formation to 100.
+
+Validation: 536 tests pass, including:
+- 9 siege tests: placement, monthly wear and blockade size, starvation, breached walls in battle, terms accepted, refused and never offered, every way a siege ends, the month pipeline, the Besiege button, saves and migration;
+- the popup;
+- the level drop.
+
+Checked in the browser: the popup and its toggles, Besiege at Fenwick, and the siege panel.

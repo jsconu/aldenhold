@@ -1,3 +1,4 @@
+import { advanceSieges, siegeStormed, wallsBreached } from './sieges';
 import { rollWeather, weatherMarch, weatherToll } from './weather';
 import {cityWarbandTurn} from './cityWarbands';
 import {explore,remainingObjectives,challengeVictoryReady} from './challenge';
@@ -35,7 +36,9 @@ const OFFER_MONTHS = 3;
 export function newGame(seed = Math.floor(Math.random() * 2 ** 31), campaignId: CampaignId = 'valley-quickplay'): GameState {
   const def = getCampaign(campaignId);
   const state: GameState = {
-    version: 17,
+    version: 18,
+    sieges: [],
+    siegeLog: [],
     weather: { kind: 'clear', turn: 1, seed: (seed ^ 0x5eed5) | 0 },
     campaignId: def.id,
     campaignRevision: def.revision,
@@ -419,6 +422,7 @@ export function captureTown(state: GameState, town: Town, owner: FactionId) {
   town.owner = owner;
   if (owner !== 'player') for (const a of state.armies.filter((a) => a.at === townLocation(state, town.id)))
     for (const t of a.troops) if (t.type === 'scout') delete t.scoutPost;
+  siegeStormed(state, town.id);
   onTownOwnershipChange(state, town.id, owner);
   town.pop = Math.floor(town.pop * 0.9);
   if (owner === 'player') {
@@ -453,7 +457,8 @@ export function startBattle(state: GameState, attackerId: number, defenderId: nu
   for (const army of [attacker, defender]) for (const troop of army.troops) if (troop.type === 'scout') delete troop.scoutPost;
   const town = townAt(state, attacker.at);
   const seed = Math.floor(random(state) * 2 ** 31);
-  const b = createBattle(attacker.at, attacker, defender, !!town && town.owner === defender.owner, seed, landAt(state, attacker.at));
+  // A siege that has breached the walls takes them out of the battle.
+  const b = createBattle(attacker.at, attacker, defender, !!town && town.owner === defender.owner && !wallsBreached(state, town.id), seed, landAt(state, attacker.at));
   // A watch post cannot hold off an army: resolve interception without an empty tactical screen.
   if (!involvesPlayer || [attacker, defender].some(a => a.troops.every(t => t.type === 'scout'))) {
     if (attacker.raid && town) b.raid = { lair: attacker.raid.lair, town: town.id };
@@ -627,7 +632,7 @@ export function checkStatus(state: GameState) {
 /** The phases of a month, in the order they run. */
 export type MonthPhaseId =
   | 'snapshot' | 'cities' | 'population' | 'heroes' | 'treasury' | 'construction' | 'refits' | 'shortages'
-  | 'desertion' | 'exposure' | 'calendar' | 'weather' | 'offers' | 'quests' | 'lairs' | 'ai' | 'raids' | 'ending';
+  | 'desertion' | 'exposure' | 'calendar' | 'weather' | 'offers' | 'quests' | 'lairs' | 'ai' | 'raids' | 'sieges' | 'ending';
 
 /** One line the month produced: news for the chronicle, or a deed that also goes in the journal. */
 export interface MonthNote {
@@ -769,6 +774,8 @@ const MONTH_PHASES: MonthPhase[] = [
   // Monster raids: last month's arrive (fighting or plundering), then next month's are planned and announced.
   // Like the AI, this can start battles, so it runs after every economic phase.
   { id: 'raids', run(state) { return [...resolveRaids(state), ...planRaids(state)].map(news); } },
+  // Your sieges wear the towns down after everyone has moved, so a relief army or an assault this month counts first.
+  { id: 'sieges', run(state) { return advanceSieges(state).map(news); } },
   { id: 'ending', run(state) { checkStatus(state); return []; } },
 ];
 

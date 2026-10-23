@@ -180,7 +180,7 @@ describe('save migration v9 → v10', () => {
     v9.armies.forEach((a: { troops: { mp?: number; moved?: boolean }[] }) =>
       a.troops.forEach((t, i) => { delete t.mp; t.moved = a === v9.armies[0] && i === 0; }));
     const restored = parseSave(JSON.stringify(v9));
-    expect(restored.version).toBe(17);
+    expect(restored.version).toBe(18);
     expect(restored.armies[0].troops.map((t) => t.mp)).toEqual([0, ...home.troops.slice(1).map(() => 1)]);
     expect(restored.armies.flatMap((a) => a.troops).every((t) => !('moved' in t))).toBe(true);
   });

@@ -1,4 +1,5 @@
 import {campaignObjectives,explored,DIFFICULTIES} from '../game/challenge';
+import { BREACH, siegeOf, siegeOutlook, surrenderPolicy } from '../game/sieges';
 import { currentWeather, exposureLoss, SEASON_NAME } from '../game/weather';
 import { onWatch, SCOUT_RANGE, scoutContactStatus } from '../game/scouts';
 import {replacementQuote} from '../game/replacements';
@@ -52,7 +53,7 @@ export function renderCampaign(state: GameState, ui: UIState): string {
   const operating = totalCityMaintenance(state);
   const net = income - upkeep - operating;
   return `
-  <header class="bar" ${ui.assault ? 'inert' : ''}>
+  <header class="bar" ${ui.assault || ui.townChoice ? 'inert' : ''}>
     <h1>Aragon <small>${esc(campaignOf(state).name)}</small></h1>
     <span class="date">${dateLabel(state.turn)}</span>
     <span class="gold" title="Taxes ${income}, troop wages ${upkeep}, city maintenance ${operating}">Gold <b>${state.gold}</b>
@@ -69,7 +70,7 @@ export function renderCampaign(state: GameState, ui: UIState): string {
   ${renderWeatherTicker(state)}
   ${ui.choosing ? renderChooser(state) : ''}
   ${state.status !== 'playing' ? `<div class="banner ${state.status}">${state.status === 'won' && state.endingReason === 'chapter-complete' ? `${esc(campaignOf(state).chapter!.title)} is complete. ${esc(campaignOf(state).chapter!.ending)}` : state.status === 'won' ? `You have won. ${isHexCampaign(state) ? 'The realm' : 'The valley'} is united.` : state.endingReason === 'lord-dead' ? 'You have lost. Your lord is dead.' : `You have lost. ${esc(nodeName(state, campaignOf(state).capital))} has fallen.`} <button data-action="new-game">Play again</button></div>` : ''}
-  ${ui.view === 'city' ? renderCityScreen(state,ui) : ui.view === 'treasury' ? renderTreasury(state) : ui.view === 'journal' ? renderJournal(state) : `<main class="campaign" ${ui.assault ? 'inert' : ''}>
+  ${ui.view === 'city' ? renderCityScreen(state,ui) : ui.view === 'treasury' ? renderTreasury(state) : ui.view === 'journal' ? renderJournal(state) : `<main class="campaign" ${ui.assault || ui.townChoice ? 'inert' : ''}>
     ${isHexCampaign(state) ? renderHexSection(state, ui) : `<section class="map-wrap">
       ${renderMapToolbar(state, ui)}
       ${renderOverland(state, ui, [...moveTargets(state, ui).keys()], plannedRoute(state, ui)?.stops.map((s) => s.id) ?? [])}
@@ -95,7 +96,8 @@ export function renderCampaign(state: GameState, ui: UIState): string {
       <details class="log" open><summary>Chronicle</summary><ul>${state.log.slice(0, 14).map((l) => `<li>${esc(l)}</li>`).join('')}</ul></details>
     </aside>
   </main>`}
-  ${ui.assault ? renderCityAssault(state, ui.assault) : ''}`;
+  ${ui.assault ? renderCityAssault(state, ui.assault) : ''}
+  ${ui.townChoice ? renderTownChoice(state, ui, ui.townChoice) : ''}`;
 }
 
 /** Keep the immediate march action visible even when the troop list is farther down the sidebar. */
@@ -216,7 +218,7 @@ function renderNodePanel(state: GameState, ui: UIState, at: string): string {
   const town = townAt(state, at);
   if(town && ui.view==='map'){
     const troops=state.armies.filter(a=>a.at===at && a.owner==='player');
-    return '<h2>'+esc(nodeName(state,at))+'</h2><p>'+(town.kind==='capital'?'Your capital':'Town')+' · '+OWNER_LABEL(town.owner)+(relationWith(state,town.id)&&relationWith(state,town.id)!=='self'?' · '+RELATION_LABEL[relationWith(state,town.id) as keyof typeof RELATION_LABEL]:'')+' · '+town.pop.toLocaleString()+' people</p><button data-action="open-city" data-node="'+esc(at)+'" class="primary">Open city</button><p class="sub">Development, recruitment, equipment and city quests are in the city screen. To march on it or attack it, select your army, tick its troops and click the town when it is lit (or use Move selected army).</p>'+(town.owner==='player'?renderRaidThreat(state,town.id):'')+troops.map(a=>renderArmy(state,ui,a)).join('');
+    return '<h2>'+esc(nodeName(state,at))+'</h2><p>'+(town.kind==='capital'?'Your capital':'Town')+' · '+OWNER_LABEL(town.owner)+(relationWith(state,town.id)&&relationWith(state,town.id)!=='self'?' · '+RELATION_LABEL[relationWith(state,town.id) as keyof typeof RELATION_LABEL]:'')+' · '+town.pop.toLocaleString()+' people</p><button data-action="open-city" data-node="'+esc(at)+'" class="primary">Open city</button><p class="sub">Development, recruitment, equipment and city quests are in the city screen. To march on it or attack it, select your army, tick its troops and click the town when it is lit (or use Move selected army).</p>'+renderSiege(state,town.id)+(town.owner==='player'?renderRaidThreat(state,town.id):'')+troops.map(a=>renderArmy(state,ui,a)).join('');
   }
   const id = town?.id ?? at;
   const armies = state.armies.filter((a) => a.at === at);
@@ -463,8 +465,7 @@ function renderArmy(state: GameState, ui: UIState, a: Army): string {
     : `<p class="msg exposure-warning">${esc(`In the open: this ${weather.rule.name.toLowerCase()} will cost the army ${pct(loss)} of its men at month end unless it reaches one of your towns or an allied one.`)}
       <br><button data-action="make-camp" data-army="${a.id}" title="Ends this army's marching for the month">Set up camp</button> <small>Halves the loss to ${pct(loss / 2)}, but the army can't march again this month.</small></p>`;
   return `<div class="army-card own-${a.owner}"><h3>${mine ? 'Your troops' : a.owner === 'orcs' ? 'Orc host' : 'Town militia'}</h3>
-    ${cold}<ul class="troops">${rows}</ul>
-    ${mine && ui.view==='city' ? renderReplacements(state,a) : ''}
+    ${mine ? renderBesieging(state, a) : ''}${cold}${mine && a.troops.length > 1 && a.at === ui.selected ? `<div class="troop-quick"><button data-action="troops-all" class="ghost">Select all</button><button data-action="troops-none" class="ghost">Deselect all</button></div>` : ''}<ul class="troops">${rows}</ul>
     ${mine ? a.troops.filter((t) => t.type === 'scout').map((t) => `<div class="scout-post"><b>Scout #${t.id}</b> · ${onWatch(t) ? `On watch over ${esc(nodeName(state, a.at))}` : 'Not on watch'}
       <div class="save-actions">
         ${onWatch(t) ? `<button data-action="scout-post" data-troop="${t.id}" data-post="recall">Stop watching</button>` : `<button data-action="scout-post" data-troop="${t.id}" data-post="watch">Keep watch here</button>`}
@@ -571,11 +572,19 @@ function renderChooser(state: GameState): string {
     <button class="ghost" data-action="cancel-choose">Cancel</button></div></div>`;
 }
 
-function renderReplacements(state:GameState,army:Army):string{
- const formations=army.troops.filter(t=>!UNIT_TYPES[t.type].hero && UNIT_TYPES[t.type].recruit!==null && t.type!=='scout');if(!formations.length)return '';
- return '<section class="refit-panel"><h3>Reinforce existing formations</h3><p>Infantry: up to 100 soldiers. Mounted: 50 in leather, 33 in chain, 25 in plate (200 space points per formation). New recruits cost gold and population, dilute experience, and use remaining movement. Existing equipment is retained and outfitting is included. Larger formations cost more upkeep.</p>'+formations.map(t=>{
+/**
+ * Reinforce formations stationed in this town, in its Recruitment tab: recruit 10 or fill to capacity. Recruits
+ * arrive untrained, so the formation's experience is shared out and its level drops; the buttons show by how much.
+ */
+function renderReinforce(state:GameState,townId:string):string{
+ const at=townLocation(state,townId),army=armyAt(state,at,'player');
+ const formations=army?.troops.filter(t=>!UNIT_TYPES[t.type].hero && UNIT_TYPES[t.type].recruit!==null && t.type!=='scout')??[];
+ if(!formations.length)return '';
+ const after=(t:Troop,men:number)=>level(Math.floor(t.xp*t.men/(t.men+men)));
+ const lv=(t:Troop,men:number)=>men&&after(t,men)<level(t.xp)?' · Lv '+level(t.xp)+' → '+after(t,men):' · Lv '+level(t.xp);
+ return '<section class="refit-panel"><h3>Reinforce an existing formation</h3><p class="sub">Adds soldiers to a formation stationed here. Infantry hold up to 100; mounted 50 in leather, 33 in chain, 25 in plate. Recruits arrive untrained: the formation’s experience is shared across everyone, so its level drops, and filling a small veteran formation to full strength erases most of what it learned. Equipment is kept and outfitting is included; bigger formations cost more upkeep.</p>'+formations.map(t=>{
  const q=replacementQuote(state,t.id,10),full=replacementQuote(state,t.id);
- return '<p><b>'+esc(UNIT_TYPES[t.type].name)+' #'+t.id+'</b> · '+t.men+'/'+formationCapacity(t)+'<br><button data-action="replacements" data-troop="'+t.id+'" data-count="10" '+(q.reason?'disabled':'')+'>Recruit '+q.men+' · '+q.gold+'g</button> <button data-action="replacements" data-troop="'+t.id+'" '+(full.reason?'disabled':'')+' title="'+esc(full.reason??'Recruit to this formation’s capacity')+'">Fill to '+full.capacity+' · '+full.gold+'g</button>'+(q.reason?'<small>'+esc(q.reason)+'</small>':'')+'</p>';
+ return '<p><b>'+esc(UNIT_TYPES[t.type].name)+' #'+t.id+'</b> · '+t.men+'/'+formationCapacity(t)+' men · Lv '+level(t.xp)+'<br><button data-action="replacements" data-troop="'+t.id+'" data-count="10" '+(q.reason?'disabled':'')+'>Recruit '+q.men+' · '+q.gold+'g'+lv(t,q.men)+'</button> <button data-action="replacements" data-troop="'+t.id+'" '+(full.reason?'disabled':'')+' title="'+esc(full.reason??'Recruit to this formation’s capacity')+'">Fill to '+full.capacity+' · '+full.gold+'g'+lv(t,full.men)+'</button>'+(q.reason?'<small>'+esc(q.reason)+'</small>':'')+'</p>';
  }).join('')+'</section>';
 }
 function renderCampaignObjectives(state:GameState):string{
@@ -591,13 +600,13 @@ function renderCityScreen(state:GameState,ui:UIState):string{
  const tab=tabs.some(t=>t.id===ui.cityTab)?ui.cityTab!:'overview';
  let content='';
  if(tab==='overview'){
-  content=renderScoutContacts(state,ui.selected!)+placeScene(state,town.id)+'<p>'+OWNER_LABEL(town.owner)+' · '+(RELATION_LABEL[relationWith(state,town.id) as keyof typeof RELATION_LABEL]??'Your city')+' · Population '+town.pop.toLocaleString()+'</p>';
+  content=renderScoutContacts(state,ui.selected!)+renderSiege(state,town.id)+placeScene(state,town.id)+'<p>'+OWNER_LABEL(town.owner)+' · '+(RELATION_LABEL[relationWith(state,town.id) as keyof typeof RELATION_LABEL]??'Your city')+' · Population '+town.pop.toLocaleString()+'</p>';
   if(owned)content+='<label class="tax">Tax rate<select data-change="tax" data-node="'+town.id+'">'+Array.from({length:11},(_,i)=>i*5).map(v=>'<option value="'+v+'" '+(town.tax===v?'selected':'')+'>'+v+'%</option>').join('')+'</select></label><p>Income: '+townIncome(town)+' gold/month. Population change: '+townGrowth(town)+'/month.</p>'+renderRaidThreat(state,town.id);
   const profile=campaignOf(state).settlementProfiles?.[town.id];if(profile)content+='<p>'+esc(profile.role)+'</p>';
   content+=renderMerchants(state,town.id);
  }
  if(tab==='development')content=renderCityDevelopment(state,town.id);
- if(tab==='recruitment')content=renderRecruit(state,town,owned?'Raise troops':'Allied troops')+renderOffers(state,town.id);
+ if(tab==='recruitment')content=renderRecruit(state,town,owned?'Raise a new formation':'Allied troops')+(owned?'<p class="sub">A new formation starts at full strength and level 1.</p>'+renderReinforce(state,town.id):'')+renderOffers(state,town.id);
  if(tab==='army'){
   const armies=state.armies.filter(a=>a.at===ui.selected);content=armies.map(a=>renderArmy(state,ui,a)).join('')||'<p>No formations are stationed here.</p>';
  }
@@ -619,4 +628,75 @@ function renderScoutContacts(state:GameState, destination?:string):string {
    const detail=status==='watch-ended'?'Watch ended — previous estimate withdrawn':status==='lost'?'Contact lost — previous estimate withdrawn':c.arrivalTurn===null?'Movement halted — arrival unknown':'Estimated arrival: month '+c.arrivalTurn;
    return '<li><b>'+esc(nodeName(state,c.destination))+'</b>: '+detail+'<small class="sub">Scout #'+c.scoutId+' · last observed month '+c.seenTurn+'</small></li>';
  }).join('')+'</ul></section>';
+}
+
+/** Clicking a town where your troops stand: move troops (and choose which), or open the city screen. */
+function renderTownChoice(state: GameState, ui: UIState, choice: NonNullable<UIState['townChoice']>): string {
+  const name = esc(nodeName(state, choice.at));
+  const army = armyAt(state, choice.at, 'player');
+  if (choice.step === 'choose' || !army) {
+    return `<div class="assault-shade"><section class="assault-prompt town-choice" role="dialog" aria-modal="true" aria-labelledby="town-choice-title">
+      <h2 id="town-choice-title">${name}</h2>
+      <p>Your troops are here. What would you like to do?</p>
+      <div class="assault-actions">
+        <button data-action="town-choice-move" class="primary">Select and move troops</button>
+        <button data-action="town-choice-city">Open city screen</button>
+        <button data-action="town-choice-close" class="ghost">Cancel</button>
+      </div></section></div>`;
+  }
+  const ready = army.troops.filter((t) => t.mp > 0 && !t.refit);
+  const rows = army.troops.map((t) => {
+    const type = UNIT_TYPES[t.type];
+    const can = t.mp > 0 && !t.refit;
+    const why = t.refit ? 'refitting' : t.mp <= 0 ? 'no movement left this month' : `${t.mp} movement`;
+    return `<li><label><input type="checkbox" data-change="check" data-troop="${t.id}" ${ui.checked.has(t.id) ? 'checked' : ''} ${can ? '' : 'disabled'}/>
+      ${esc(t.name ?? type.name)} <small>${type.hero ? `${t.men} HP` : `${t.men} men`} · ${why}</small></label></li>`;
+  }).join('');
+  return `<div class="assault-shade"><section class="assault-prompt town-choice" role="dialog" aria-modal="true" aria-labelledby="town-choice-title">
+    <h2 id="town-choice-title">Move troops from ${name}</h2>
+    <p class="sub">Tick the troops to send. The slowest sets the pace. Then click a lit hex on the map.</p>
+    <div class="assault-actions">
+      <button data-action="troops-all" ${ready.length ? '' : 'disabled'}>Select all</button>
+      <button data-action="troops-none">Deselect all</button>
+    </div>
+    <ul class="troop-toggles">${rows}</ul>
+    <div class="assault-actions">
+      <button data-action="town-choice-close" class="primary" ${ui.checked.size ? '' : 'disabled'}>Choose destination</button>
+      <button data-action="town-choice-cancel" class="ghost">Cancel</button>
+    </div></section></div>`;
+}
+
+/** A siege you are laying: walls, supplies, morale and blockade, next month's toll, and what you can do now. */
+function renderSiege(state: GameState, townId: string): string {
+  const siege = siegeOf(state, townId);
+  if (!siege) return '';
+  const name = esc(nodeName(state, townId));
+  const army = state.armies.find((a) => a.id === siege.army);
+  const ready = army?.troops.filter((t) => t.mp > 0 && !t.refit) ?? [];
+  const next = siegeOutlook(state, siege);
+  const policy = surrenderPolicy(state, townId);
+  const terms = siege.offer
+    ? `<p class="msg">${name} offers to become your vassal: it would grant your armies passage and keep its own garrison.</p>
+      <div class="save-actions"><button data-action="siege-accept" data-town="${townId}" class="primary">Accept vassal terms</button>
+      <button data-action="siege-refuse" data-town="${townId}">Refuse and keep the siege</button></div>` : '';
+  return `<section class="siege-panel"><h3>Under your siege since ${esc(dateLabel(siege.startedTurn))}</h3>
+    <dl class="siege-stats">
+      <div><dt>Walls</dt><dd>${siege.walls}%${siege.walls < BREACH ? ' · breached' : ''}</dd></div>
+      <div><dt>Supplies</dt><dd>${siege.supplies ? `${siege.supplies} months` : 'none · starving'}</dd></div>
+      <div><dt>Morale</dt><dd>${siege.morale}</dd></div>
+      <div><dt>Blockade</dt><dd>${Math.round(next.blockade * 100)}%</dd></div>
+    </dl>
+    <p class="sub">Next month: walls −${next.walls}, supplies −${next.supplies}${next.starving ? ', and the garrison starts to starve' : ''}. ${siege.walls < BREACH ? 'The walls are breached: an assault no longer faces them.' : `Below ${BREACH}% walls, an assault no longer faces them.`} ${esc(policy.why)}</p>
+    ${terms}
+    <div class="save-actions">
+      <button data-action="siege-storm" data-town="${townId}" ${ready.length ? '' : 'disabled'} title="${ready.length ? 'Attack the town with the besieging army' : 'Your army can storm once it has movement again (next month)'}">Storm ${name}</button>
+      <button data-action="siege-lift" data-town="${townId}" class="ghost">Lift the siege</button>
+    </div></section>`;
+}
+
+/** On the besieging army's panel: what it is doing, and that marching away ends the siege. */
+function renderBesieging(state: GameState, army: Army): string {
+  const siege = state.sieges.find((s) => s.army === army.id);
+  if (!siege) return '';
+  return `<p class="msg siege-note">Besieging ${esc(nodeName(state, siege.town))}. Marching this army away lifts the siege. Open the town to storm, hold or lift it.</p>`;
 }

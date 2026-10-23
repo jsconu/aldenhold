@@ -54,7 +54,7 @@ const ledgerCategories: LedgerCategory[] = ['tax', 'wages', 'recruitment', 'hero
 /** Validate both shape and references before exposing a save to rules or rendering. */
 function validate(value: unknown, allowMissingBattleTroops = false): asserts value is GameState {
   const s = object(value);
-  requireValue(s.version === 17, 'unsupported schema version');
+  requireValue(s.version === 18, 'unsupported schema version');
   const weather = object(s.weather);
   requireValue(oneOf(weather.kind, ['clear', 'rain', 'storm', 'snow', 'blizzard']) && integer(weather.turn, 1, Number(s.turn)) && integer(weather.seed, -2147483648, 2147483647), 'weather');
   if(s.rulerAppearance!==undefined){const look=object(s.rulerAppearance);requireValue(oneOf(look.gender,['male','female']) && oneOf(look.skin,['fair','olive','brown','deep']) && (look.rulerClass===undefined || oneOf(look.rulerClass,['knight','priest','mage'])),'ruler appearance');}
@@ -74,6 +74,23 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
   requireValue(nodes.size === def.nodes.length && def.nodes.every((n) => nodes.has(n.id)), 'campaign map locations');
   /** A location: a node id on the valley, an in-bounds hex key on a hex map. */
   const loc = (at: unknown): at is string => text(at) && (def.hex ? isLocation(value as GameState, at) : nodes.has(at));
+  // Sieges: one per town, by one of your armies, with walls, supplies and morale in range.
+  const besieged = new Set<string>();
+  for (const raw of array(s.sieges)) {
+    const g = object(raw);
+    requireValue(text(g.town) && Object.hasOwn(object(s.towns), g.town) && !besieged.has(g.town) && integer(g.army, 1) && loc(g.camp) &&
+      array(s.armies).some((x) => object(x).id === g.army && object(x).owner === 'player') &&
+      integer(g.startedTurn, 1, Number(s.turn)) && integer(g.walls, 0, 100) && integer(g.morale, 0, 100) && bool(g.offer) &&
+      typeof g.supplies === 'number' && Number.isFinite(g.supplies) && g.supplies >= 0 && g.supplies <= 8, 'siege');
+    besieged.add(g.town as string);
+  }
+  let lastSiege = 1;
+  for (const raw of array(s.siegeLog)) {
+    const r = object(raw);
+    requireValue(text(r.town) && Object.hasOwn(object(s.towns), r.town) && integer(r.turn, lastSiege, Number(s.turn)) &&
+      oneOf(r.result, ['vassal', 'lifted', 'stormed', 'broken']), 'siege record');
+    lastSiege = Number(r.turn);
+  }
   /** Ledger cities are towns on a hex map; on the valley any named node can carry army wages. */
   const ledgerCity = (city: unknown) => text(city) && (def.hex ? def.towns.some((t) => t.id === city) : nodes.has(city));
   const maxMp = (type: string) => (def.hex ? UNIT_TYPES[type].march : 1);
@@ -377,6 +394,8 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
     requireValue((entry as { archived: boolean }).archived === granted.archived.has(item), 'archived evidence');
     requireValue(ITEMS[item].policy.sell || ITEMS[item].policy.discard || ITEMS[item].use || (entry as { spent: number }).spent === 0, 'spent an object that cannot be spent');
   }
+  // A vassal treaty can also come from a siege that ended in terms.
+  for (const r of array(s.siegeLog)) if (object(r).result === 'vassal') granted.treaties.add(object(r).town as string);
   requireValue(Object.keys(treaties).every((town) => granted.treaties.has(town)), 'treaty with no quest that granted it');
   requireValue(flags.every((flag) => granted.flags.has(flag as string)), 'flag with no quest that set it');
   array(s.journal).forEach((entry, i) => {
@@ -667,6 +686,13 @@ function upgradeToV15(value: Record<string, unknown>) {
 
 /** v15 → v16: raid outcomes. No raid has a record yet. */
 /** v16 → v17: seasons and weather. The month a save was made in is clear. */
+/** v17 → v18: sieges. None in progress, none ended. */
+function upgradeToV18(value: Record<string, unknown>) {
+  value.sieges = [];
+  value.siegeLog = [];
+  value.version = 18;
+}
+
 function upgradeToV17(value: Record<string, unknown>) {
   value.weather = { kind: 'clear', turn: value.turn, seed: (Number(value.seed) ^ 0x5eed5) | 0 };
   value.version = 17;
@@ -683,7 +709,7 @@ function upgradeToV16(value: Record<string, unknown>) {
  * quest ids in the save are still rejected by validation.
  */
 function addNewQuests(value: Record<string, unknown>) {
-  if (value.version !== 17 || typeof value.quests !== 'object' || value.quests === null) return;
+  if (value.version !== 18 || typeof value.quests !== 'object' || value.quests === null) return;
   const quests = value.quests as Record<string, unknown>;
   for (const id of Object.keys(QUESTS)) if (!Object.hasOwn(quests, id)) quests[id] = lockedProgress();
 }
@@ -758,6 +784,7 @@ export function parseSave(raw: string): GameState {
     upgradeToV15(value);
     upgradeToV16(value);
     upgradeToV17(value);
+    upgradeToV18(value);
     validate(value, true);
     if (value.battle) {
       const b = value.battle;
@@ -784,6 +811,7 @@ export function parseSave(raw: string): GameState {
   if (value.version === 14) upgradeToV15(value);
   if (value.version === 15) upgradeToV16(value);
   if (value.version === 16) upgradeToV17(value);
+  if (value.version === 17) upgradeToV18(value);
   addNewQuests(value);
   upgradeWesternMap(value);
   addLairGarrisons(value);

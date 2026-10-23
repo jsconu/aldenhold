@@ -1,4 +1,5 @@
 import { marchQuote, nodeName } from '../game/campaign';
+import { siegeQuote } from '../game/sieges';
 import { townAt } from '../game/world';
 import type { GameState } from '../game/types';
 import type { UIState } from './shared';
@@ -20,6 +21,7 @@ export function renderCityAssault(state: GameState, decision: NonNullable<UIStat
   const men = formations.reduce((n, t) => n + t.men, 0);
   const name = esc(nodeName(state, decision.to));
   const quote = marchQuote(state, decision.from, decision.troopIds, decision.to);
+  const siege = siegeQuote(state, decision.from, decision.to);
   return `<div class="assault-shade"><section class="assault-prompt" role="dialog" aria-modal="true" aria-labelledby="assault-title">
     <h2 id="assault-title">${name} is defended</h2>
     <p>${name} has <b>${formations.length} defending formation${formations.length === 1 ? '' : 's'}</b> (${men} soldiers and hero HP combined). Its defenders fight behind town walls.</p>
@@ -27,8 +29,9 @@ export function renderCityAssault(state: GameState, decision: NonNullable<UIStat
     <div class="assault-actions">
       <button data-action="assault-attack" class="primary" ${quote.reason ? 'disabled' : ''}>Attack</button>
       <button data-action="assault-retreat">Retreat</button>
-      <button disabled title="Blockade and surrender rules are still in development">Besiege · in development</button>
+      <button data-action="assault-besiege" ${siege.reason ? `disabled title="${esc(siege.reason)}"` : ''}>Besiege</button>
     </div>
+    <p class="sub">${siege.reason ? `Besiege: ${esc(siege.reason)}` : `Besiege: your whole army at ${esc(nodeName(state, decision.from))} camps beside the walls. Each month it wears down the walls, supplies and morale; you can storm, hold or lift the siege at any time.`}</p>
     ${quote.reason ? `<p class="msg">${esc(quote.reason)} Retreat and choose another approach.</p>` : ''}
   </section></div>`;
 }
