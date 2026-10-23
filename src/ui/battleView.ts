@@ -1,3 +1,5 @@
+import { cityBattleArt } from './cityBattleArt';
+import { cityBuildingAt, cityBuildingDefense, cityBuildingName, cityDeploymentCells, pillageReason } from '../game/cityBattle';
 import { battleSpoils } from '../game/battleRewards';
 import { cellHash, coverOf, seasonDefs, seasonLayer } from './seasonArt';
 import { currentWeather } from '../game/weather';
@@ -6,7 +8,7 @@ import { BUILDS, buildTargets, type Build } from '../game/battle';
 import { EFFECTS } from '../content/spells';
 import {
   attackOf, attackOrderQuote, alive, commandOf, maxRounds, COMMAND_RANGE, defenseOf, escapeQuote, groupReachable, isAI, powerOf, knownSpells, playerSide, RALLY_AT, rangeOf, reachable, ROUT_AT, spellTargets,
-  terrainAt, unitLabel, reserves, FIELD_LIMIT, movementOf, previewSpell, spellAffected, spellCost, teleportDestinations,
+  terrainAt, unitLabel, reserves, movementOf, previewSpell, spellAffected, spellCost, teleportDestinations,
 } from '../game/battle';
 import { nodeName } from '../game/campaign';
 import { raidAftermath } from '../game/raids';
@@ -35,7 +37,7 @@ function hexPoints(cx: number, cy: number, r = S): string {
 }
 
 export function selectedUnit(b: Battle, ui: UIState): BattleUnit | undefined {
-  return b.units.find((u) => u.id === ui.battleUnit && !u.reserve && !u.fled && u.men > 0 && u.side === b.active);
+  return b.units.find((u) => u.id === ui.battleUnit && !u.reserve && !u.fled && u.men > 0 && u.side === (b.city?.deploying ? 'defender' : b.active));
 }
 
 /** The lead is first so a clicked destination anchors the same group on every re-render. */
@@ -50,11 +52,11 @@ export function renderBattle(state: GameState, ui: UIState): string {
   const weather = currentWeather(state);
   const b = state.battle!;
   const me = playerSide(b);
-  const myTurn = !b.outcome && !isAI(b, b.active);
+  const myTurn = !b.outcome && (!!b.city?.deploying || !isAI(b, b.active));
   const sel = myTurn ? selectedUnit(b, ui) : undefined;
   const group = myTurn ? selectedGroup(b, ui) : [];
   // While engineers pick a place to build, only the build sites are lit.
-  const reach = group.length > 1 ? groupReachable(b, group.map((u) => u.id)) : sel && !ui.battleBuild ? reachable(b, sel) : new Map<string, number>();
+  const reach = b.city?.deploying && sel ? new Map(cityDeploymentCells(b).filter(h => !b.units.some(u => !u.reserve && u.men > 0 && !u.fled && u.col === h.col && u.row === h.row)).map(h => [hexKey(h), 0])) : group.length > 1 ? groupReachable(b, group.map((u) => u.id)) : sel && !ui.battleBuild ? reachable(b, sel) : new Map<string, number>();
   const casting = sel && ui.battleSpell ? spellTargets(b, sel, ui.battleSpell) : null;
   // A single unit can attack any enemy it can reach and strike this turn (one click moves it into range).
   const targets = new Set((group.length > 1 ? [] : casting ?? (sel ? b.units.filter((t) => !attackOrderQuote(b, sel.id, t.id).reason) : [])).map((u) => u.id));
@@ -82,7 +84,7 @@ export function renderBattle(state: GameState, ui: UIState): string {
       // Hex outlines communicate move/spell ranges without drawing the underlying hex lattice.
       if (reachable || area) highlights += `<polygon points="${hexPoints(cx,cy,S-2)}" class="move-border"/><polygon points="${hexPoints(cx,cy,S-2)}" class="battle-spot${reachable ? ' battle-spot-reach' : ''}${area ? ' battle-spot-spell' : ''}"/>`;
       overlay += `<polygon points="${hexPoints(cx, cy)}" class="hit" data-action="hex" data-col="${col}" data-row="${row}">
-        <title>${t.name}: ${t.text}</title></polygon>`;
+        <title>${b.city && kind === 'rocks' ? 'City wall: impassable. Use the gates or breach the walls.' : t.name + ': ' + t.text}${(() => { const site=cityBuildingAt(b,{col,row}); return site ? ` · ${esc(cityBuildingName(site))} level ${site.level}${site.pillaged ? ' (pillaged)' : ''}` : ''; })()}</title></polygon>`;
     }
   }
   const units = alive(b)
@@ -122,7 +124,7 @@ export function renderBattle(state: GameState, ui: UIState): string {
   const w = PAD * 2 + S * 2 + (b.width - 1) * 1.5 * S;
   const zoom = Math.max(0.5, Math.min(5, ui.battleZoom ?? 1.8));
   const h = PAD * 2 + H * (b.height + 0.5);
-  const turnText = b.outcome
+  const turnText = b.city?.deploying ? 'Place your defenders' : b.outcome
     ? b.owners[b.outcome] === 'player' ? 'Victory!' : 'Defeat.'
     : myTurn ? 'Your move' : 'Enemy move';
 
@@ -132,7 +134,7 @@ export function renderBattle(state: GameState, ui: UIState): string {
     <span class="date">Round ${Math.min(b.round, maxRounds(b))} of ${maxRounds(b)}</span>
     <span class="turn ${myTurn ? 'mine' : ''}">${turnText}</span>
     <span class="side-key" title="Your units carry blue swallowtail pennants with a crown and a blue ring; the enemy's carry red triangles and a red ring."><svg viewBox="-4 -33 16 19" width="16" height="19" aria-hidden="true">${sidePennant(true, 0, 0)}</svg> You <svg viewBox="-4 -33 16 19" width="16" height="19" aria-hidden="true">${sidePennant(false, 0, 0)}</svg> Enemy</span>
-    ${sel && group.length<2 ? renderCastBar(b, sel, ui) : ''}
+    ${sel && group.length<2 && !b.city?.deploying ? renderCastBar(b, sel, ui) : ''}
     <span class="spacer"></span>
     ${b.outcome
       ? `<button data-action="battle-continue" class="primary">Back to the map</button>`
@@ -148,7 +150,7 @@ export function renderBattle(state: GameState, ui: UIState): string {
            ${sel ? '<button data-action="battle-center" class="ghost" title="Scroll to the selected unit">Centre</button>' : ''}
          </span>
          <button data-action="battle-auto" class="ghost">Auto-resolve</button>
-         <button data-action="battle-end" class="primary" title="End your turn (Enter)">End turn</button>`}
+         <button data-action="battle-end" class="primary" title="End your turn (Enter)">${b.city?.deploying ? 'Begin city assault' : 'End turn'}</button>`}
   </header>
   <main class="battle">
     <section class="field-wrap battle-scroll" tabindex="0" aria-label="Battlefield: drag or use the arrow keys to look around">
@@ -170,7 +172,7 @@ export function renderBattle(state: GameState, ui: UIState): string {
       </defs>
       <rect x="0" y="0" width="${w}" height="${h}" class="battle-earth"/>
       <g class="battle-terrain-wash" filter="url(#battle-terrain-blend)">${ground}</g>
-      ${richBattleGround(b, (x,y)=>hexPoints(x,y,S+.3))}<defs>${seasonDefs()}</defs>${seasonLayer(weather.season, b.terrain.flatMap((column, col) => column.map((t, row) => ({ points: hexPoints(...center(col, row), S + .3), cover: coverOf(t), hash: cellHash(col, row) }))))}${battleScenery(b)}
+      ${richBattleGround(b, (x,y)=>hexPoints(x,y,S+.3))}<defs>${seasonDefs()}</defs>${seasonLayer(weather.season, b.terrain.flatMap((column, col) => column.map((t, row) => ({ points: hexPoints(...center(col, row), S + .3), cover: coverOf(t), hash: cellHash(col, row) }))))}${battleScenery(b)}${cityBattleArt(b, center)}
       <g class="battle-surface-details" pointer-events="none">${groundArt}</g>
       <g class="battle-move-highlights" pointer-events="none">${highlights}</g>
       ${overlay}${units}${b.round <= 1 && !b.outcome ? yourArmyLabel(b, me) : ''}
@@ -178,8 +180,9 @@ export function renderBattle(state: GameState, ui: UIState): string {
     <aside class="side">
       ${renderMinimap(b, w, h)}
       ${ui.message ? `<p class="msg" role="status">${esc(ui.message)}</p>` : ''}
-      ${myTurn ? renderGroupSelector(b, group) : ''}
-      ${b.outcome ? '' : group.length > 1 ? `<p class="hint">${group.length} units selected. The slowest has ${Math.min(...group.map(movementOf))} movement. Click a glowing location to move together while keeping their spacing. Select one unit to attack or cast.</p>` : sel ? renderUnit(state, b, sel, ui) : '<p class="hint">Gold-bordered hexes show where you can move this turn. Click one of your units, then a marked enemy to move into range and attack in one click, or a glowing location to move. Each unit may move, then attack, once a turn. Heroes (★) can cast spells instead of attacking.</p>'}
+      ${b.city ? renderCityBattleGuide(b, sel) : ''}
+      ${myTurn && !b.city?.deploying ? renderGroupSelector(b, group) : ''}
+      ${b.outcome || b.city?.deploying ? '' : group.length > 1 ? `<p class="hint">${group.length} units selected. The slowest has ${Math.min(...group.map(movementOf))} movement. Click a glowing location to move together while keeping their spacing. Select one unit to attack or cast.</p>` : sel ? renderUnit(state, b, sel, ui) : '<p class="hint">Gold-bordered hexes show where you can move this turn. Click one of your units, then a marked enemy to move into range and attack in one click, or a glowing location to move. Each unit may move, then attack, once a turn. Heroes (★) can cast spells instead of attacking.</p>'}
       <p class="sub">Groups of soldiers are units; single figures marked ★ are heroes. People share the same scale; groups represent units. Unit numbers count soldiers; hero numbers show HP. The green bar shows health; the thin gold bar under regular units shows morale. PANIC means a unit is routing toward its own edge. Below ${ROUT_AT} it breaks and runs for its own edge of the field; at ${RALLY_AT} it may rally.</p>
       ${b.walls ? `<p class="sub">${me === 'defender' ? 'You fight behind town walls: +1 defense.' : 'The enemy is behind walls: +1 defense.'}</p>` : ''}
       ${renderReserves(b)}
@@ -214,9 +217,9 @@ function renderMinimap(b: Battle, w: number, h: number): string {
     return `<circle cx="${cx.toFixed(0)}" cy="${cy.toFixed(0)}" r="${S * 0.8}" class="${u.side === me ? 'mine' : 'foe'}"/>`;
   }).join('');
   return `<figure class="minimap"><svg viewBox="0 0 ${w.toFixed(0)} ${h.toFixed(0)}" data-action="minimap" data-width="${w.toFixed(0)}" data-height="${h.toFixed(0)}" role="img" aria-label="Minimap of the whole field">
-    <rect x="0" y="0" width="${w.toFixed(0)}" height="${h.toFixed(0)}" fill="#55704a"/>${ground}${dots}
+    <rect x="0" y="0" width="${w.toFixed(0)}" height="${h.toFixed(0)}" fill="#55704a"/>${ground}${b.city ? `<rect x="${center(17,0)[0]}" y="0" width="${w-center(17,0)[0]}" height="${h}" fill="#988767"/>${b.city.buildings.map(s => {const [x,y]=center(s.col,s.row);return `<rect x="${x-16}" y="${y-16}" width="32" height="32" fill="${s.pillaged?'#493d36':'#dcc28d'}"/>`;}).join('')}` : ''}${dots}
     <rect class="minimap-view" x="0" y="0" width="0" height="0"/></svg>
-    <figcaption>${b.width}×${b.height} field · click to look there</figcaption></figure>`;
+    <figcaption>${b.width}×${b.height} ${b.city ? 'city assault' : 'field'} · click to look there</figcaption></figure>`;
 }
 
 function renderGroupSelector(b: Battle, group: BattleUnit[]): string {
@@ -234,9 +237,9 @@ function renderLegend(b: Battle): string {
   const present = new Set(b.terrain.flat());
   const kinds = (Object.keys(TERRAIN) as Terrain[]).filter((k) => k !== 'plain' && present.has(k));
   if (!kinds.length) return '';
-  return `<details class="legend" open><summary>Ground on this field</summary><ul>${kinds
+  return `<details class="legend" open><summary>${b.city ? 'City defenses' : 'Ground on this field'}</summary><ul>${kinds
     .map((k) => `<li><svg viewBox="-31 -27 62 54" class="swatch"><polygon points="${hexPoints(0, 0)}" class="hex ${k}"/>${k === 'ruins' ? richRuin(0,0,3) : terrainArt(k,0,0,3)}</svg>
-      <span><b>${TERRAIN[k].name}.</b> ${TERRAIN[k].text}</span></li>`)
+      <span><b>${b.city && k === 'rocks' ? 'City walls' : TERRAIN[k].name}.</b> ${b.city && k === 'rocks' ? 'Enter through the gates. Engineers or Quake can breach the walls.' : TERRAIN[k].text}</span></li>`)
     .join('')}</ul></details>`;
 }
 
@@ -302,7 +305,7 @@ function renderReserves(b: Battle): string {
   const held = reserves(b);
   if (!held.length) return '';
   return `<details class="log reserves" open><summary>${held.every(u=>u.type==='scout'||UNIT_TYPES[u.type].noncombat==='spy') ? 'Outside combat' : 'Reserves'} (${held.length} units)</summary>
-    <p class="sub">Armies hold up to 12 units. Each side has ${FIELD_LIMIT} deployment positions (3 columns × 9 rows), with one combat unit per hex. Scouts and spies stay outside battle and do not use these positions. Extra combat units are reserves; Reserves stay off-field for the entire battle: no attacks, spells, combat losses or experience. They retreat with the army and share pursuit losses; if cut off, they scatter with it.</p>
+    <p class="sub">City garrisons use realm army support and have no unit-slot cap; marching armies are limited to 24. Each side fields up to ${b.deploymentLimit ?? 27} combat units, with one unit per hex. The first eligible units in the army deploy. Scouts and spies stay outside battle and do not use these positions. Extra combat units are reserves; Reserves stay off-field for the entire battle: no attacks, spells, combat losses or experience. They retreat with the army and share pursuit losses; if cut off, they scatter with it.</p>
     <ul>${held.map((u) => `<li>${esc(unitLabel(b, u))}: ${u.men} ${UNIT_TYPES[u.type].hero ? 'HP' : u.men===1 ? 'soldier' : 'soldiers'} — ${u.type==='scout' || UNIT_TYPES[u.type].noncombat==='spy' ? 'noncombatant: stays outside battle' : 'reserve: no deployment position available'}</li>`).join('')}</ul></details>`;
 }
 
@@ -386,4 +389,13 @@ function yourArmyLabel(b: Battle, me: Side | null | undefined): string {
   const x = xs.reduce((n, [cx]) => n + cx, 0) / xs.length;
   const y = Math.min(...xs.map(([, cy]) => cy)) - 46;
   return `<g class="your-army-label" pointer-events="none"><rect x="${x - 46}" y="${y - 13}" width="92" height="20" rx="10"/><text x="${x}" y="${y + 2}">Your army</text></g>`;
+}
+
+function renderCityBattleGuide(b: Battle, selected?: BattleUnit): string {
+  const site = selected ? cityBuildingAt(b, selected) : undefined;
+  return `<section class="city-battle-guide"><h3>${b.city!.deploying ? 'Arrange your city defense' : 'City assault'}</h3>
+    <p>${b.city!.deploying ? 'Click a blue unit, then a glowing empty position inside the city to place it. Repeat as often as you like, then choose Begin city assault. Placement spends no actions.' : 'Gated walls funnel attackers into the streets. City buildings provide +2 to +4 defense to the unit occupying them; more development adds positions and improves their cover.'}</p>
+    ${selected && site ? `<p>${esc(cityBuildingName(site))} · level ${site.level} · ${site.pillaged ? 'pillaged, no cover' : `+${cityBuildingDefense(b, selected)} defense`}</p>` : ''}
+    ${!b.city!.deploying && selected?.side === 'attacker' ? `<button data-action="battle-pillage" ${pillageReason(b, selected) ? 'disabled' : ''}>${site?.kind === 'treasury' ? `Take ${b.city!.money} gold` : 'Pillage building'}</button><p class="sub">${esc(pillageReason(b, selected) ?? 'Uses this unit’s action. An improvement loses one level permanently, including after a retreat; its cover is destroyed and any unfinished upgrade of that industry is lost. Treasury gold is carried away if attackers survive.')}</p>` : ''}
+    <details><summary>City buildings (${b.city!.buildings.length} positions)</summary><ul>${b.city!.buildings.map(s => `<li>${esc(cityBuildingName(s))} · level ${s.level}${s.pillaged ? ' · pillaged' : ''}</li>`).join('')}</ul></details></section>`;
 }

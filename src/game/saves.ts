@@ -1,3 +1,4 @@
+import { cityTreasuryMoney } from './cityBattle';
 import {formationCapacity} from './formationCapacity';
 import { LAIRS as LAIRS_BY_ID, lairsOf, SPECIES } from '../content/lairs';
 import { FACTIONS } from '../content/factions';
@@ -11,12 +12,12 @@ import { MERCHANTS } from '../content/merchants';
 import { QUESTS } from '../content/quests';
 import { DEADLINE, encounterMark, enteredStages, isOpen, isResolved, LOCATION_LOST, lockedProgress, resolutionOf, stageOf } from './quests';
 import { newTreasury } from './economy';
-import { BUILDING_IDS, BUILDINGS, developmentSites, GOODS, MAX_BUILDING_LEVEL, MAX_DEVELOPMENT_SITES, startingCities, initialCityEconomy } from './cities';
+import { BUILDING_IDS, BUILDINGS, GOODS, startingCities, initialCityEconomy } from './cities';
 import { basicLoadout, EQUIPMENT, equipmentQuoteGold, usesBow } from './equipment';
 import { endingReason, makeTroop, startLocation } from './campaign';
 import { TERRAIN, UNIT_TYPES } from './data';
 import { heroMaxHp, heroMaxMana, isHero, heroCanUse } from './units';
-import { isLocation } from './world';
+import { isLocation, townLocation } from './world';
 import type { CampaignId, DeedKind, GameState, JournalEntry, LedgerCategory, Town, EquipmentId } from './types';
 
 /** Storage slot names are stable; the schema version lives inside the save itself. */
@@ -242,19 +243,17 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
     Object.keys(towns).every((id) => Object.hasOwn(cities, id)), 'city economy registry');
   for (const [id, value] of Object.entries(cities)) {
     const city = object(value);
+    requireValue(city.lastTreasuryPillage === undefined || integer(city.lastTreasuryPillage, 1, Number(s.turn)), 'city treasury pillage');
     const buildings = object(city.buildings);
     const goods = object(city.goods);
     requireValue(Object.keys(buildings).length === BUILDING_IDS.length &&
-      BUILDING_IDS.every((kind) => integer(buildings[kind], 0, MAX_BUILDING_LEVEL)), 'city buildings');
+      BUILDING_IDS.every((kind) => integer(buildings[kind])), 'city buildings');
     requireValue(Object.keys(goods).length === GOODS.length &&
       GOODS.every((good) => integer(goods[good], 0, 1000000)), 'city goods');
-    const levels = buildings as unknown as GameState['cityEconomies'][string]['buildings'];
-    requireValue(developmentSites({ buildings: levels } as GameState['cityEconomies'][string]) <= MAX_DEVELOPMENT_SITES,
-      'city development sites');
     if (object(towns[id]).kind === 'lair') requireValue(BUILDING_IDS.every((kind) => buildings[kind] === 0), 'lair industry');
     if (city.project !== null) {
       const p = object(city.project);
-      requireValue(oneOf(p.kind, BUILDING_IDS) && integer(p.targetLevel, 1, MAX_BUILDING_LEVEL) &&
+      requireValue(oneOf(p.kind, BUILDING_IDS) && integer(p.targetLevel, 1) &&
         p.targetLevel === Number(buildings[p.kind as string]) + 1 &&
         p.startedTurn === s.turn && p.finishTurn === s.turn, 'city project');
       const defn = BUILDINGS[p.kind as keyof typeof BUILDINGS];
@@ -422,6 +421,26 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
     requireValue(oneOf(b.active, sides) && oneOf(b.outcome, [null, ...sides]) && oneOf(b.retreated, [null, ...sides]), 'battle status');
     const owners = object(b.owners);
     requireValue(oneOf(owners.attacker, factions) && oneOf(owners.defender, factions), 'battle owners');
+    if (b.city !== undefined) {
+      const cityState = value as GameState;
+      const city = object(b.city), town = cityState.towns[String(city.town)];
+      requireValue(town && town.kind !== 'lair' && town.owner === owners.defender && townLocation(cityState, town.id) === b.at &&
+        integer(city.money, 0, 500) && city.money === cityTreasuryMoney(cityState, town) &&
+        bool(city.deploying) && (!city.deploying || (owners.defender === 'player' && b.round === 1 && b.active === 'attacker' && b.outcome === null)) &&
+        width === BATTLE_SIZES.major.width && height === BATTLE_SIZES.major.height, 'city battlefield');
+      const occupied = new Set<string>(), counts: Record<string, number> = {};
+      for (const raw of array(city.buildings)) {
+        const site = object(raw), kind = String(site.kind);
+        requireValue(oneOf(kind, [...BUILDING_IDS, 'homes', 'treasury']) && integer(site.level, 1) &&
+          integer(site.col, 18, 20) && integer(site.row, 5, 13) && bool(site.pillaged), 'city battle building');
+        const key = `${site.col},${site.row}`;
+        requireValue(!occupied.has(key), 'overlapping city buildings'); occupied.add(key);
+        counts[kind] = (counts[kind] ?? 0) + 1;
+        if (kind === 'homes' || kind === 'treasury') requireValue(site.level === 1 + Math.floor(town.pop / 2000) && (kind !== 'homes' || !site.pillaged), 'city homes');
+        else requireValue(site.level === cityState.cityEconomies[town.id].buildings[kind as keyof typeof BUILDINGS] && counts[kind] <= Math.min(4, Math.ceil(Math.sqrt(Number(site.level)))), 'city development snapshot');
+      }
+      requireValue(counts.treasury === 1 && (counts.homes ?? 0) <= 12 && occupied.size <= 27, 'city building count');
+    }
     const terrain = array(b.terrain);
     requireValue(terrain.length === width && terrain.every((col) => array(col).length === height && array(col).every((k) => text(k) && Object.hasOwn(TERRAIN, k))), 'battle terrain');
     requireValue(array(b.log).every(text), 'battle log');
@@ -470,7 +489,9 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
         }
       }
     }
-    requireValue(deployed.attacker <= FIELD_LIMIT && deployed.defender <= FIELD_LIMIT, 'field capacity');
+    requireValue(b.deploymentLimit === undefined || oneOf(b.deploymentLimit, [FIELD_LIMIT, 27]), 'battle deployment limit');
+    const deploymentLimit = Number(b.deploymentLimit ?? 27);
+    requireValue(deployed.attacker <= deploymentLimit && deployed.defender <= deploymentLimit, 'field capacity');
     if (b.stances !== undefined) {
       requireValue(Object.entries(object(b.stances)).every(([side, st]) => oneOf(side, sides) && oneOf(st, ['defensive', 'skirmish', 'custom'])), 'battle stances');
     }

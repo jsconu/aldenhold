@@ -13,7 +13,7 @@ export function newFeedback(state:GameState,before:ReturnType<typeof feedbackSna
  return [...quests,...state.armies.filter(a=>a.owner==='player').flatMap(a=>a.troops.filter(t=>isHero(t.type) && !isRulerType(t.type) && !before.heroes.has(t.id)).map(t=>({kind:'hero' as const,id:t.id})))];
 }
 const FLAGS:Record<string,string>={
- 'logging-cap':'Lumber camps are capped at level 1 throughout your realm.', 'greenveil-rejected':'Greenveil remains independent; ordinary archer recruitment stays available.',
+ 'logging-cap':'Sustainable harvesting reduces lumber output by 25% throughout your realm; camps may still be expanded.', 'greenveil-rejected':'Greenveil remains independent; ordinary archer recruitment stays available.',
  'quarry-cleared':'Your ore mines produce 25% more ore.', 'quarry-diverted':'Your ore mines produce 25% less ore.',
  'caravan-rescued':'Merra’s stall in Fenwick opens with her rescued stock.', 'caravan-ransomed':'Merra’s stall opens, but ransom raises her prices.', 'caravan-lost':'The caravan stock is lost; Merra’s stall is empty.',
  'miller-convicted':'The verdict against the miller is recorded.', 'miller-pardoned':'The miller has been pardoned.', 'miller-dismissed':'The charges against the miller have been dismissed.', 'miller-judged-unheard':'The trial ended without hearing the evidence.'};

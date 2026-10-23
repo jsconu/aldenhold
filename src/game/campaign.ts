@@ -1,4 +1,6 @@
+import { cityTreasuryMoney, prepareCityBattle, settleCityPillage } from './cityBattle';
 import { advanceReadiness, marchMorale, townUnrest } from './readiness';
+import { armySupportReason } from './armySupport';
 import { advanceIntel, catchScouts, spyOnTheMove } from './intel';
 import { advanceSieges, siegeStormed, wallsBreached } from './sieges';
 import { rollWeather, weatherMarch, weatherToll } from './weather';
@@ -111,14 +113,13 @@ export function lordOf(state: GameState): Troop | undefined {
   return state.armies.filter((a) => a.owner === 'player').flatMap((a) => a.troops).find((t) => isRulerType(t.type));
 }
 
-/**
- * The most units (heroes included) one army can hold. Each side's deployment zone fits 27, so an army of 12
- * always deploys whole with room to manoeuvre. Recruiting, hiring and marching into a full army are refused.
- */
-export const ARMY_CAP = 12;
+/** Maximum marching units (leaders included); cities use personnel support instead of a unit-slot cap. */
+export const ARMY_CAP = 24;
 
-/** Room left in the player's army at a location (the full cap if none is there). */
+/** Cities can assemble any number of units; field locations can hold one marching army. */
 export function armyRoom(state: GameState, at: string): number {
+  const town = townAt(state, at);
+  if (town && town.kind !== 'lair' && (town.owner === 'player' || hasPassage(state, 'player', town.id))) return Infinity;
   return ARMY_CAP - (armyAt(state, at, 'player')?.troops.length ?? 0);
 }
 
@@ -134,6 +135,7 @@ export function hireQuote(state: GameState, offer: HeroOffer): { gold: number; r
   else if (!state.offers.includes(offer) || state.towns[offer.town]?.owner !== 'player') reason = 'That offer is gone.';
   else if (armyRoom(state, townLocation(state, offer.town)) < 1) reason = fullReason(state, townLocation(state, offer.town));
   else if (state.gold < gold) reason = `You need ${gold} gold.`;
+  else reason = armySupportReason(state, 1);
   return { gold, reason };
 }
 
@@ -253,6 +255,7 @@ export function recruitQuote(state: GameState, townId: string, typeId: string): 
   else if (armyRoom(state, townLocation(state, townId)) < 1) reason = fullReason(state, townLocation(state, townId));
   else if (state.gold < gold) reason = `You need ${gold} gold.`;
   else if (town.pop - men < MIN_POP_AFTER_RECRUIT) reason = `${nodeName(state, townId)} has no more men to spare.`;
+  else reason = armySupportReason(state, men, townId);
   return { gold, men, reason };
 }
 
@@ -354,6 +357,7 @@ export function marchQuote(state: GameState, from: string, troopIds: number[], t
   if (!src) return refuse('You have no troops there.');
   const moving = src.troops.filter((t) => troopIds.includes(t.id) && t.mp > 0 && !t.refit);
   if (!moving.length) return refuse('None of the chosen troops can march this month.');
+  if (moving.length > ARMY_CAP) return refuse(`Select at most ${ARMY_CAP} units to march. Cities have no unit-slot cap; army support still applies.`);
   const options = marchOptions(state, from, 'player', sharedMp(moving));
   const step = options.get(to);
   if (!step) return refuse(worldOf(state).kind === 'graph' ? 'That place is not next to this one.' : 'Those troops can’t reach there this month.');
@@ -468,6 +472,7 @@ export function startBattle(state: GameState, attackerId: number, defenderId: nu
   const seed = Math.floor(random(state) * 2 ** 31);
   // A siege that has breached the walls takes them out of the battle.
   const b = createBattle(attacker.at, attacker, defender, !!town && town.owner === defender.owner && !wallsBreached(state, town.id), seed, landAt(state, attacker.at));
+  if (town && town.kind !== 'lair' && town.owner === defender.owner) prepareCityBattle(b, town, state.cityEconomies[town.id].buildings, cityTreasuryMoney(state, town));
   // A watch post cannot hold off an army: resolve interception without an empty tactical screen.
   if (!involvesPlayer || [attacker, defender].some(a => a.troops.every(t => t.type === 'scout'))) {
     if (attacker.raid && town) b.raid = { lair: attacker.raid.lair, town: town.id };
@@ -489,7 +494,9 @@ export function applyBattle(state: GameState, b: Battle) {
   if (b.encounter && state.battle !== b) return;
   const settlementId='battle:'+b.at+':'+b.attackerId+':'+b.defenderId+':'+b.seed;
   if([...state.treasury.pending,...state.treasury.history.flatMap(month=>month.entries)].some(e=>e.actionId===settlementId))return;
+  if (b.city && [b.attackerId,b.defenderId].some(id => findArmy(state,id)?.at !== b.at)) return;
   b.settled=true;
+  settleCityPillage(state, b, settlementId);
   const spoils=battleSpoils(b);
   if(spoils){
     state.gold+=spoils;
@@ -578,7 +585,7 @@ export function fallBack(state: GameState, army: Army) {
   const ownTown = (at: string) => Number(townAt(state, at)?.owner === army.owner);
   const options = army.from ? [army.from] : neighborsOf(state, army.at).sort((x, y) => ownTown(y) - ownTown(x));
   // Prefer somewhere the survivors fit without going over the army cap; overflowing beats being cut off.
-  const fits = (at: string) => (armyAt(state, at, army.owner)?.troops.length ?? 0) + army.troops.length <= ARMY_CAP;
+  const fits = (at: string) => (townAt(state, at)?.owner === army.owner && townAt(state, at)?.kind !== 'lair') || (armyAt(state, at, army.owner)?.troops.length ?? 0) + army.troops.length <= ARMY_CAP;
   const back = options.find((at) => safe(at) && fits(at)) ?? options.find(safe);
   if (back) {
     army.at = back;

@@ -241,6 +241,15 @@ export interface BattleUnit {
 }
 
 export interface Battle {
+  /** An actual settlement battlefield; absent on field battles and older saves. */
+  city?: {
+    town: string;
+    deploying: boolean;
+    money: number;
+    buildings: { kind: BuildingId | 'homes' | 'treasury'; level: number; col: number; row: number; pillaged: boolean }[];
+  };
+  /** New battles field 24 per side; absent on legacy saves that allowed 27. */
+  deploymentLimit?: 24 | 27;
   /** Set only when writing a completed result back; active saved battles must remain unsettled. */
   settled?: boolean;
   at: string;
@@ -614,6 +623,8 @@ export interface CityProduction {
   employed: number;
 }
 export interface CityEconomy {
+  /** Local tax money already taken this month; prevents repeated treasury loot on re-entry. */
+  lastTreasuryPillage?: number;
   buildings: BuildingLevels;
   goods: GoodsStock;
   project: Construction | null;

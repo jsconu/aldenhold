@@ -70,15 +70,15 @@ export const WOODLAND_ACCORD: QuestDefinition = {
   stages: [
     {
       id: 'envoy',
-      text: 'Cap logging (no lumber camp may grow past its first tier), pay 200 gold for the felled groves, or send the envoy away.',
+      text: 'Harvest timber sustainably (25% less timber output; camps may still be expanded), pay 200 gold for the felled groves, or send the envoy away.',
       choices: [
         {
           id: 'cap',
-          label: 'Cap logging',
+          label: 'Harvest timber sustainably',
           then: {
             status: 'succeeded',
             effects: [...ACCORD_EFFECTS, { kind: 'flag', flag: 'logging-cap' }],
-            journal: 'Signed the Woodland Accord: no lumber camp will grow past its first tier. Greenveil is now your ally and its archers will march for you.',
+            journal: 'Signed the Woodland Accord: timber output is reduced by a quarter, while camps may still be expanded. Greenveil is now your ally and its archers will march for you.',
           },
         },
         {

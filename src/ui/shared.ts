@@ -36,7 +36,7 @@ export interface UIState {
   battleDestination?: { col: number; row: number } | null;
   message: string;
   /** Campaign screen: the province map or the full journal. */
-  view: 'map' | 'journal' | 'treasury' | 'city' | 'quests';
+  view: 'map' | 'journal' | 'treasury' | 'city' | 'cities' | 'quests';
   cityTab?:'overview'|'development'|'recruitment'|'army'|'quests';
   marchMode?:boolean;
   /** Ephemeral map presentation; deliberately not part of the saved campaign. */

@@ -14,29 +14,25 @@ function home(s: GameState): Army {
 }
 
 describe('army cap', () => {
-  it('a full army takes no recruits or hired heroes', () => {
-    const s = newGame(1, 'western-realm');
-    s.gold = 5000;
-    const army = home(s);
-    while (army.troops.length < ARMY_CAP) army.troops.push(makeTroop(s, 'militia'));
-    expect(recruitQuote(s, 'aldenhold', 'militia').reason).toBe('The army at Aldenhold is full: 12 units is the most one army can hold.');
-    expect(hireQuote(s, s.offers[0]).reason).toMatch(/is full: 12 units/);
-    army.troops.pop();
-    expect(recruitQuote(s, 'aldenhold', 'militia').reason).toBeNull();
+  it('cities can recruit and hire beyond 24 units when their realm supports the people', () => {
+    const s = newGame(1, 'western-realm'); s.gold=5000; s.towns.aldenhold.pop=30000;
+    const army=home(s); while(army.troops.length<ARMY_CAP+1) army.troops.push(makeTroop(s,'militia'));
+    expect(recruitQuote(s,'aldenhold','militia').reason).toBeNull();
+    expect(hireQuote(s,s.offers[0]).reason).toBeNull();
   });
 
-  it('troops can’t march into an army that would go over 12', () => {
+  it('troops can’t march into an army that would go over 24', () => {
     const s = newGame(1, 'western-realm');
     const army = home(s);
     const next = neighborsOf(s, army.at).find((k) => marchQuote(s, army.at, [army.troops[1].id], k).reason === null)!;
     const camp: Army = { id: s.nextId++, owner: 'player', at: next, from: null, troops: [] };
     for (let i = 0; i < ARMY_CAP - 1; i++) camp.troops.push(makeTroop(s, 'militia'));
     s.armies.push(camp);
-    expect(marchQuote(s, army.at, [army.troops[1].id, army.troops[2].id], next).reason).toMatch(/^Only 1 more unit fits in the army at .+ \(12 at most\)\.$/);
+    expect(marchQuote(s, army.at, [army.troops[1].id, army.troops[2].id], next).reason).toMatch(/^Only 1 more unit fits in the army at .+ \(24 at most\)\.$/);
     expect(marchQuote(s, army.at, [army.troops[1].id], next).reason).toBeNull();
   });
 
-  it('the orc Hold stops growing its garrison at 12', () => {
+  it('the orc Hold stops growing its garrison at 24', () => {
     const s = newGame(1, 'western-realm');
     const lair = armyAt(s, townLocation(s, 'gharzak'), 'orcs')!;
     while (lair.troops.length < ARMY_CAP) lair.troops.push(makeTroop(s, 'warband'));

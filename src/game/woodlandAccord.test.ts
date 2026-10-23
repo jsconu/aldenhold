@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { LAND } from '../content/rules';
 import { renderCampaign } from '../ui/campaignView';
 import { advanceMonth, armyAt, canRecruitAt, neighborsOf, newGame, recruit, recruitQuote } from './campaign';
-import { buildCity, constructionQuote } from './cities';
+import { buildCity, constructionQuote, yieldFactor } from './cities';
 import { usesBow } from './equipment';
 import { advanceQuests, chooseQuest, onTownOwnershipChange, questQuote, trackedQuests } from './quests';
 import { parseSave } from './saves';
@@ -55,7 +55,7 @@ describe('Q04 The Woodland Accord', () => {
     expect(questQuote(atGreenveil(), 'Q04', 'cap').reason).toBeNull();
   });
 
-  it('capping logging wins the alliance and woodland archers, and the cap is enforced in city actions across reload', () => {
+  it('sustainable logging wins the alliance, reduces output and still permits expansion after reload', () => {
     let s = atGreenveil();
     withLumberCamp(s);
     expect(constructionQuote(s, 'aldenhold', 'lumber').reason).toBeNull();
@@ -69,10 +69,11 @@ describe('Q04 The Woodland Accord', () => {
     expect(s.flags).toContain('logging-cap');
 
     s = reload(s);
-    expect(constructionQuote(s, 'aldenhold', 'lumber').reason).toBe('You promised Greenveil that no lumber camp would grow past its first tier.');
-    expect(buildCity(s, 'aldenhold', 'lumber')).toMatch(/promised Greenveil/);
+    expect(constructionQuote(s, 'aldenhold', 'lumber').reason).toBeNull();
+    expect(yieldFactor(s, 'aldenhold', 'lumber')).toBe(.75);
+    expect(buildCity(s, 'aldenhold', 'lumber')).toBeNull();
     expect(s.cityEconomies.aldenhold.buildings.lumber).toBe(1);
-    // A first-tier camp elsewhere is still allowed; only growth past it is capped.
+    // The output tradeoff leaves construction available in every town.
     s.cityEconomies.millbrook.goods.timber = 50;
     expect(constructionQuote(s, 'millbrook', 'lumber').reason).toBeNull();
 
