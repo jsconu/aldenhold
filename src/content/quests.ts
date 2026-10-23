@@ -132,8 +132,8 @@ export const M01_INHERITANCE: QuestDefinition = {
   summary: 'Your father is dead and the hall is yours. The council will swear to you once Aldenhold can defend itself.',
   prerequisites: [], needsEnvoy: false,
   stages: [{
-    id: 'muster', text: 'Raise two more formations to guard the realm.', choices: [],
-    objectives: [{ id: 'mustered', label: 'Mustered the guard', when: [{ kind: 'formations', atLeast: 7 }], then: {
+    id: 'muster', text: 'Raise two more units to guard the realm.', choices: [],
+    objectives: [{ id: 'mustered', label: 'Mustered the guard', when: [{ kind: 'units', atLeast: 7 }], then: {
       status: 'succeeded', effects: [{ kind: 'gold', amount: 100 }, { kind: 'item', item: 'oathlance' }],
       journal: 'The council of Aldenhold swore to you before your new companies, returned your father\u2019s Oathlance, and granted 100 gold.',
     } }],

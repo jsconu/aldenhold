@@ -3,7 +3,7 @@ import { createBattle, escapeQuote, tryEscape } from './battle';
 import { makeTroop, newGame } from './campaign';
 import type { Army, Battle } from './types';
 
-/** A fresh field battle; `playerAttacks` decides which side is yours. Formations start well apart. */
+/** A fresh field battle; `playerAttacks` decides which side is yours. Units start well apart. */
 function battle(playerAttacks: boolean, seed = 5): Battle {
   const s = newGame(1, 'western-realm');
   const mine: Army = { id: 900, owner: 'player', at: 'x', from: null, troops: [makeTroop(s, 'militia'), makeTroop(s, 'spearmen')] };
@@ -37,7 +37,7 @@ describe('running away', () => {
     expect(escapeQuote(encounter, 'attacker')).toMatchObject({ after: 8, reason: 'You can try to run away after turn 8.' });
   });
 
-  it('is harder with enemies already at grips: 10% less per formation in contact, never below 20%', () => {
+  it('is harder with enemies already at grips: 10% less per unit in contact, never below 20%', () => {
     const b = battle(true);
     b.round = 5;
     const [m1, m2] = b.units.filter((u) => u.side === 'attacker');

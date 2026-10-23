@@ -21,7 +21,7 @@ function field() {
 }
 
 describe('simultaneous battle movement', () => {
-  it('keeps a formation together under the slowest movement budget and reloads exactly', () => {
+  it('keeps a unit together under the slowest movement budget and reloads exactly', () => {
     const { state, battle, lead, companion } = field();
     const ids = [lead.id, companion.id];
     const spacing = hexDistance(lead, companion);

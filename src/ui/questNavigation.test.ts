@@ -36,7 +36,7 @@ describe('quest destination navigation', () => {
     armyAt(state, townLocation(state, 'aldenhold'), 'player')!.at = '7,7';
     expect(chooseQuest(state, 'Q00', 'decline')).toBeNull();
     const html = renderCampaign(state, {...ui(townLocation(state,'aldenhold')),view:'city',cityTab:'quests'});
-    expect(html.includes('title="Show Old Quarry on the map"')).toBe(true);
+    expect(html.includes('title="Show Old Quarry"')).toBe(true);
     expect(html).toContain('data-node="24,15">Show Old Quarry');
     expect(html).toContain('Divert the workers');
     expect(chooseQuest(state, 'Q02', 'divert')).toBeNull();

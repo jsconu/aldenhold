@@ -1042,3 +1042,36 @@ Validation: all tests pass, including 9 engineer and spy tests:
 - spies unmasking scouts, and enemy spies finding yours.
 
 The Westmere scenario test moved to seed 15, since scouted orc raids change which town falls. Checked in the browser: the engineer's build buttons, and raising a fort.
+
+## Spies on their own, the action bar, battle markers, recruiting and quests (owner requests, October 22–23, 2026)
+
+**Spies** (`src/game/intel.ts`).
+- **Covert parties.** Scouts and spies travelling without other troops are covert, on any side. Armies neither fight nor block them, and they never fight or take a town.
+- **On the move,** a spy may unmask hidden scouts in sight of its path, and picks up a clue to one further off, such as "signs of a hidden scout about 6 hexes north-east of …".
+- **Infiltrate.** A spy in or next to a town that isn't yours can slip inside. It reports the garrison, the armies within 3 hexes and the town's raid plans at once and again each month (on the town panel), gaining experience. Each month it may be caught: 12%, falling 2% a level to at least 3%.
+
+**Action bar.** Above the overland map, the selected place's actions sit in one row: Move troops… (the troop toggles with Select all / Deselect all), Select all, Deselect all, Set up camp, Station scout, Infiltrate, Besiege, Lift the siege, and Open the town.
+
+**Battle screen.**
+- Zoom goes up to 260%, with the zoom level shown.
+- Every unit carries a pennant and a ring in its side's colour and shape: yours a blue swallowtail with a gold crown and a solid ring, the enemy's a red triangle and a dashed ring.
+- The battle bar has a key, and a "Your army" label sits over your troops on the first round.
+
+**Recruiting.** Raising a unit shows a "New unit created" popup. "Formation" is now "unit" everywhere in the game's text.
+
+**Quests.**
+- The top-bar shortcut no longer reveals an unexplored quest site; it says which way the site lies from your capital.
+- A Quests screen (top bar, with a count) lists every open quest in full, main objectives first, then those running out soonest.
+- On the map, a town names its quests in one line with a button to that screen; a quest site keeps its full card, so an army there can act.
+- Quests with a deadline show "ends in N months" (red when it ends this month or next), on their cards and on the top-bar shortcuts.
+
+Validation: 553 tests pass. New tests cover:
+- spies slipping past armies and into towns, clues, and infiltration reports and capture;
+- the quests screen, pointer and deadline badges;
+- the action bar;
+- the new-unit popup;
+- battle markers and zoom.
+
+Checked in the browser: the action bar, quests screen and badges, the recruit popup, and the battle markers and key.
+
+Still queued: troop morale on the campaign (bad-weather marches, priests) and town unrest (high taxes, no garrison, food shortages).

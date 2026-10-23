@@ -13,7 +13,7 @@ function field(troops: string[]): { b: Battle; mine: Battle['units'] } {
 }
 
 describe('hero command', () => {
-  it('a hero makes regular formations within 2 hexes fight better: leadership plus 2 per level, in percent', () => {
+  it('a hero makes regular units within 2 hexes fight better: leadership plus 2 per level, in percent', () => {
     const { b, mine } = field(['lord', 'spearmen', 'militia']);
     const [lord, spear, militia] = mine;
     Object.assign(lord, { col: 3, row: 4 });
@@ -47,7 +47,7 @@ describe('hero hitting power by class', () => {
     expect(at('lord', 10)).toBeCloseTo(33.6); // 12 × (1 + 0.2 × 9)
     expect(at('priest', 10)).toBeCloseTo(15.2);
     expect(at('mage', 10)).toBeCloseTo(8.7);
-    // A seasoned champion out-hits an elite formation of knights.
+    // A seasoned champion out-hits an elite unit of knights.
     const knights = powerOf({ type: 'knights', xp: 18, men: 10 });
     expect(at('champion', 10)).toBeGreaterThan(knights * 3);
   });

@@ -40,7 +40,7 @@ export function cityWarbandTurn(state:GameState):void{
    const troops=ranks.slice(-cfg.size);garrison.troops=garrison.troops.filter(t=>!troops.includes(t));
    const party:Army={id:state.nextId++,owner:'neutral',at:garrison.at,from:null,troops,cityRaid:{origin,target:warning.target,launched:state.turn}};
    state.armies.push(party);delete rival.warning;rival.nextRaidTurn=state.turn+cfg.cadence;
-   deed(state,'realm',nodeName(state,origin)+' sends '+troops.length+' formations toward '+nodeName(state,warning.target)+'. Its home garrison remains in place.',garrison.at);
+   deed(state,'realm',nodeName(state,origin)+' sends '+troops.length+' units toward '+nodeName(state,warning.target)+'. Its home garrison remains in place.',garrison.at);
   }
   const sources=Object.values(state.towns).filter(t=>t.owner==='neutral' && t.kind==='town').sort((a,b)=>a.id.localeCompare(b.id));
   for(const [index,town] of sources.entries()){

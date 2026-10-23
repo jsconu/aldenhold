@@ -1,5 +1,7 @@
 import {explored} from './game/challenge';
-import { stationScout } from './game/intel';
+import { bearingFrom } from './game/intel';
+import { QUESTS } from './content/quests';
+import { infiltrate, stationScout } from './game/intel';
 import { build, type Build } from './game/battle';
 import { acceptTerms, beginSiege, liftSiege, refuseTerms, siegeOf } from './game/sieges';
 import { mapClickIntent } from './ui/mapClick';
@@ -12,7 +14,8 @@ import { HEX_ZOOMS, hexZoom } from './ui/hexMapView';
 import {
   attackOrder, attackOrderQuote, autoResolve, castSpell, escapeQuote, groupReachable, moveGroup, moveUnit, playerEndTurn, playerSide, reachable, spellTargets, teleportDestinations, tryEscape, unitAt,
 } from './game/battle';
-import { applyBattle, armyAt, campaignOf, endTurn, hireHero, marchQuote, moveTroops, newGame, recruit, setTax } from './game/campaign';
+import { applyBattle, armyAt, campaignOf, endTurn, hireHero, marchQuote, moveTroops, newGame, nodeName, recruit, setTax } from './game/campaign';
+import { UNIT_TYPES } from './game/data';
 import { townLocation, townAt } from './game/world';
 import { hexKey } from './game/hex';
 import type { CampaignId, GameState, SpellId } from './game/types';
@@ -214,11 +217,18 @@ function onAction(action: string, data: DOMStringMap, additive = false) {
   if(ui.rulerDraft && nameInput)ui.rulerDraft.name=nameInput.value;
   ui.message = '';
   if (ui.assault && !['assault-attack', 'assault-retreat', 'assault-besiege'].includes(action)) return;
+  if (ui.notice && action !== 'notice-close') return;
   if (ui.townChoice && !['town-choice-move', 'town-choice-city', 'town-choice-close', 'town-choice-cancel', 'troops-all', 'troops-none'].includes(action)) return;
   // A later consequential command closes the one-step undo window. Browsing the map does not.
   if (!['node', 'hex', 'undo-move', 'assault-retreat', 'route-first-leg', 'locate-army', 'plan-route', 'route-clear',
     'route-preference', 'map-layer', 'map-zoom', 'hex-zoom', 'battle-zoom', 'view-quest', 'goto', 'journal', 'treasury', 'spell'].includes(action)) undoMove = null;
   switch (action) {
+    case 'troops-pick':
+      if (ui.selected) ui.townChoice = { at: ui.selected, step: 'troops' };
+      break;
+    case 'siege-begin':
+      ui.message = beginSiege(state, data.from ?? '', data.to ?? '') ?? 'The siege has begun. Each month the town weakens; storm, hold or lift it from the town panel.';
+      break;
     case 'town-choice-move':
       if (ui.townChoice) ui.townChoice = { ...ui.townChoice, step: 'troops' };
       break;
@@ -241,6 +251,9 @@ function onAction(action: string, data: DOMStringMap, additive = false) {
     }
     case 'troops-none':
       ui.checked = new Set();
+      break;
+    case 'infiltrate':
+      ui.message = infiltrate(state, Number(data.army)) ?? 'Your spy is inside. Its report is on the town panel and comes again each month.';
       break;
     case 'station-scout':
       ui.message = stationScout(state, Number(data.troop)) ?? 'The scout stays here on watch; the rest of the army can march on.';
@@ -394,12 +407,20 @@ function onAction(action: string, data: DOMStringMap, additive = false) {
       break;
     case 'view-quest': {
       const destination = questFocus(state, data.quest ?? '');
-      if (destination) {
+      // An unexplored quest site is never revealed by the shortcut: say which way it lies instead.
+      if (destination && !explored(state, destination)) {
+        const capital = townLocation(state, campaignOf(state).capital);
+        ui.view = 'quests';
+        ui.message = `${QUESTS[data.quest ?? '']?.name ?? 'This quest'}: its place is still unexplored, ${bearingFrom(capital, destination)} of ${nodeName(state, capital)}. Explore that way to find it.`;
+      } else if (destination) {
         ui.view = townAt(state,destination)?'city':'map';ui.cityTab='quests';
         selectNode(destination);
       }
       break;
     }
+    case 'quests':
+      ui.view = ui.view === 'quests' && !data.quest ? 'map' : 'quests';
+      break;
     case 'quest-choice':
       if (!questQuote(state, data.quest ?? '', data.choice ?? '').reason && !checkpoint('Before quest choice')) break;
       ui.message = chooseQuest(state, data.quest ?? '', data.choice ?? '') ?? '';
@@ -423,7 +444,7 @@ function onAction(action: string, data: DOMStringMap, additive = false) {
       ui.message = discardItem(state, data.item ?? '') ?? '';
       break;
     case 'replacements':
-      ui.message=recruitReplacements(state,Number(data.troop),data.count?Number(data.count):undefined)??'Recruits added. This formation will be ready next month.';
+      ui.message=recruitReplacements(state,Number(data.troop),data.count?Number(data.count):undefined)??'Recruits added. This unit will be ready next month.';
       break;
     case 'inspect-refit':
       if(Object.hasOwn(EQUIPMENT,data.item??''))ui.refitChoice={troop:Number(data.troop),item:data.item as EquipmentId};
@@ -433,7 +454,7 @@ function onAction(action: string, data: DOMStringMap, additive = false) {
       if (!Object.hasOwn(EQUIPMENT, item)) { ui.message = 'Unknown equipment.'; break; }
       const err = beginRefit(state, data.node!, Number(data.troop), item);
       ui.message = err ?? 'Refit purchased. The new gear becomes available next month.';
-      if (!err) log(state, `A formation begins refitting with ${EQUIPMENT[item].name}.`);
+      if (!err) log(state, `A unit begins refitting with ${EQUIPMENT[item].name}.`);
       break;
     }
     case 'dismantle': {
@@ -498,8 +519,17 @@ function onAction(action: string, data: DOMStringMap, additive = false) {
       }
       break;
     }
-    case 'recruit':
-      ui.message = recruit(state, data.node!, data.type!) ?? '';
+    case 'recruit': {
+      const err = recruit(state, data.node!, data.type!);
+      ui.message = err ?? '';
+      if (!err) {
+        const type = UNIT_TYPES[data.type!];
+        ui.notice = { title: 'New unit created', lines: [`${type.name}: ${type.men} ${type.hero ? 'HP' : 'men'}, level 1, raised in ${nodeName(state, data.node!)}.`, 'It has joined your troops there and is listed under your army.'] };
+      }
+      break;
+    }
+    case 'notice-close':
+      ui.notice = null;
       break;
     case 'node': {
       const id = data.node!;
@@ -533,7 +563,7 @@ function onAction(action: string, data: DOMStringMap, additive = false) {
       ui.battleSpell = null;
       break;
     case 'battle-zoom':
-      ui.battleZoom = Math.min(1.6, Math.max(0.5, Math.round(((ui.battleZoom ?? 1) + 0.2 * Number(data.dir)) * 10) / 10));
+      ui.battleZoom = Math.min(2.6, Math.max(0.5, Math.round(((ui.battleZoom ?? 1) + 0.2 * Number(data.dir)) * 10) / 10));
       break;
     case 'battle-auto':
       ui.battleUnits = new Set();
@@ -589,7 +619,7 @@ function onHex(col: number, row: number, additive = false) {
   if (clicked && clicked.side === b.active) {
     if (additive) {
       if (clicked.moved || clicked.acted || clicked.routing || (sel && (sel.moved || sel.acted || sel.routing))) {
-        ui.message = 'Only ready formations can move together. Select a ready blue unit first.';
+        ui.message = 'Only ready units can move together. Select a ready blue unit first.';
         return;
       }
       const ids = new Set(group.map((u) => u.id));
@@ -608,7 +638,7 @@ function onHex(col: number, row: number, additive = false) {
   ui.battleSpell = null;
   if (!sel) return;
   if (group.length > 1) {
-    if (clicked) { ui.message = 'Select one formation to attack. The group moves together to glowing empty hexes.'; return; }
+    if (clicked) { ui.message = 'Select one unit to attack. The group moves together to glowing empty hexes.'; return; }
     if (groupReachable(b, group.map((u) => u.id)).has(hexKey({ col, row }))) {
       const before = captureMove(state, ui, 'Undo battle move');
       if (moveGroup(b, group.map((u) => u.id), { col, row })) {

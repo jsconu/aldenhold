@@ -1,7 +1,7 @@
 import {campaignObjectives,explored,DIFFICULTIES} from '../game/challenge';
-import { detectChance } from '../game/intel';
-import { BREACH, siegeOf, siegeOutlook, surrenderPolicy } from '../game/sieges';
-import { currentWeather, exposureLoss, SEASON_NAME } from '../game/weather';
+import { detectChance, infiltrateQuote } from '../game/intel';
+import { BREACH, siegeOf, siegeOutlook, siegeQuote, surrenderPolicy } from '../game/sieges';
+import { campQuote, currentWeather, exposureLoss, SEASON_NAME } from '../game/weather';
 import { onWatch, SCOUT_RANGE, scoutContactStatus } from '../game/scouts';
 import {replacementQuote} from '../game/replacements';
 import {formationCapacity} from '../game/formationCapacity';
@@ -30,7 +30,7 @@ import { renderJournal } from './journalView';
 import { renderTreasury } from './treasuryView';
 import { questFocus, questSites } from './questNavigation';
 import { BUILDING_IDS, BUILDINGS, cityMaintenance, constructionQuote, dismantleQuote, developmentSites, endowment, totalCityMaintenance } from '../game/cities';
-import { conditionHolds, conditionText, isOpen, questQuote, questsAt, questsAtSite, questSummary, stageOf, trackedQuests, type EncounterPreview } from '../game/quests';
+import { campaignQuests, conditionHolds, conditionText, isOpen, monthsLeft, questQuote, questsAt, questsAtSite, questSummary, stageOf, trackedQuests, type EncounterPreview } from '../game/quests';
 import { esc, type UIState } from './shared';
 import { placeScene } from './placeScene';
 import { renderOverland } from './overlandMap';
@@ -54,13 +54,14 @@ export function renderCampaign(state: GameState, ui: UIState): string {
   const operating = totalCityMaintenance(state);
   const net = income - upkeep - operating;
   return `
-  <header class="bar" ${ui.assault || ui.townChoice ? 'inert' : ''}>
+  <header class="bar" ${ui.assault || ui.townChoice || ui.notice ? 'inert' : ''}>
     <h1>Aragon <small>${esc(campaignOf(state).name)}</small></h1>
     <span class="date">${dateLabel(state.turn)}</span>
     <span class="gold" title="Taxes ${income}, troop wages ${upkeep}, city maintenance ${operating}">Gold <b>${state.gold}</b>
       <em class="${net < 0 ? 'neg' : 'pos'}">${net >= 0 ? '+' : ''}${net}/month</em></span>
     <span class="spacer"></span>
-    ${trackedQuests(state).map((q) => `<button data-action="view-quest" data-quest="${q.id}" class="ghost" title="Show ${esc(nodeName(state, questFocus(state, q.id)!))} on the map">${q.kind === 'main' ? 'Objective' : 'Quest'}: ${esc(q.name)}</button>`).join('')}
+    ${trackedQuests(state).map((q) => `<button data-action="view-quest" data-quest="${q.id}" class="ghost" title="Show ${esc(nodeName(state, questFocus(state, q.id)!))}">${q.kind === 'main' ? 'Objective' : 'Quest'}: ${esc(q.name)}${dueBadge(state, q.id)}</button>`).join('')}
+    <button data-action="quests" class="ghost">${ui.view === 'quests' ? 'Back to the map' : `Quests (${openQuests(state).length})`}</button>
     <button data-action="treasury" class="ghost">${ui.view === 'treasury' ? 'Back to the map' : 'Treasury'}</button>
     <button data-action="journal" class="ghost">${ui.view === 'journal' ? 'Back to the map' : `Journal (${state.journal.length})`}</button>
     <button data-action="new-game" class="ghost">New game</button>
@@ -71,8 +72,9 @@ export function renderCampaign(state: GameState, ui: UIState): string {
   ${renderWeatherTicker(state)}
   ${ui.choosing ? renderChooser(state) : ''}
   ${state.status !== 'playing' ? `<div class="banner ${state.status}">${state.status === 'won' && state.endingReason === 'chapter-complete' ? `${esc(campaignOf(state).chapter!.title)} is complete. ${esc(campaignOf(state).chapter!.ending)}` : state.status === 'won' ? `You have won. ${isHexCampaign(state) ? 'The realm' : 'The valley'} is united.` : state.endingReason === 'lord-dead' ? 'You have lost. Your lord is dead.' : `You have lost. ${esc(nodeName(state, campaignOf(state).capital))} has fallen.`} <button data-action="new-game">Play again</button></div>` : ''}
-  ${ui.view === 'city' ? renderCityScreen(state,ui) : ui.view === 'treasury' ? renderTreasury(state) : ui.view === 'journal' ? renderJournal(state) : `<main class="campaign" ${ui.assault || ui.townChoice ? 'inert' : ''}>
+  ${ui.view === 'city' ? renderCityScreen(state,ui) : ui.view === 'quests' ? renderQuestScreen(state, ui) : ui.view === 'treasury' ? renderTreasury(state) : ui.view === 'journal' ? renderJournal(state) : `<main class="campaign" ${ui.assault || ui.townChoice || ui.notice ? 'inert' : ''}>
     ${isHexCampaign(state) ? renderHexSection(state, ui) : `<section class="map-wrap">
+      ${renderActionBar(state, ui)}
       ${renderMapToolbar(state, ui)}
       ${renderOverland(state, ui, [...moveTargets(state, ui).keys()], plannedRoute(state, ui)?.stops.map((s) => s.id) ?? [])}
       <div class="atlas-legend" aria-label="Map legend">
@@ -98,7 +100,8 @@ export function renderCampaign(state: GameState, ui: UIState): string {
     </aside>
   </main>`}
   ${ui.assault ? renderCityAssault(state, ui.assault) : ''}
-  ${ui.townChoice ? renderTownChoice(state, ui, ui.townChoice) : ''}`;
+  ${ui.townChoice ? renderTownChoice(state, ui, ui.townChoice) : ''}
+  ${ui.notice ? renderNotice(ui.notice) : ''}`;
 }
 
 /** Keep the immediate march action visible even when the troop list is farther down the sidebar. */
@@ -172,7 +175,7 @@ function renderRoutePlanner(state: GameState, ui: UIState): string {
       earliest ${esc(dateLabel(state.turn + Math.max(0, route.legs - 1)))}
       <small>Assumes an army can move each month and no battles delay it.</small></p>${stopList}
       ${route.legs > 0 ? `<button data-action="route-first-leg" ${ready ? '' : 'disabled'}
-        title="${ready ? 'March checked formations along the first road' : 'Select ready troops at the departure location'}">
+        title="${ready ? 'March checked units along the first road' : 'Select ready troops at the departure location'}">
         March first leg →</button>` : ''}` : to ? '<p class="hint">No connected route available.</p>' : ''}
     <button class="ghost route-clear" data-action="route-clear">Close planner</button>
   </section>`;
@@ -219,7 +222,7 @@ function renderNodePanel(state: GameState, ui: UIState, at: string): string {
   const town = townAt(state, at);
   if(town && ui.view==='map'){
     const troops=state.armies.filter(a=>a.at===at && a.owner==='player');
-    return '<h2>'+esc(nodeName(state,at))+'</h2><p>'+(town.kind==='capital'?'Your capital':'Town')+' · '+OWNER_LABEL(town.owner)+(relationWith(state,town.id)&&relationWith(state,town.id)!=='self'?' · '+RELATION_LABEL[relationWith(state,town.id) as keyof typeof RELATION_LABEL]:'')+' · '+town.pop.toLocaleString()+' people</p><button data-action="open-city" data-node="'+esc(at)+'" class="primary">Open city</button><p class="sub">Development, recruitment, equipment and city quests are in the city screen. To march on it or attack it, select your army, tick its troops and click the town when it is lit (or use Move selected army).</p>'+renderSiege(state,town.id)+(town.owner==='player'?renderRaidThreat(state,town.id):'')+troops.map(a=>renderArmy(state,ui,a)).join('');
+    return '<h2>'+esc(nodeName(state,at))+'</h2><p>'+(town.kind==='capital'?'Your capital':'Town')+' · '+OWNER_LABEL(town.owner)+(relationWith(state,town.id)&&relationWith(state,town.id)!=='self'?' · '+RELATION_LABEL[relationWith(state,town.id) as keyof typeof RELATION_LABEL]:'')+' · '+town.pop.toLocaleString()+' people</p><button data-action="open-city" data-node="'+esc(at)+'" class="primary">Open city</button><p class="sub">Development, recruitment, equipment and city quests are in the city screen. To march on it or attack it, select your army, tick its troops and click the town when it is lit (or use Move selected army).</p>'+questPointer(state,town.id)+renderSiege(state,town.id)+renderIntel(state,town.id)+(town.owner==='player'?renderRaidThreat(state,town.id):'')+troops.map(a=>renderArmy(state,ui,a)).join('');
   }
   const id = town?.id ?? at;
   const armies = state.armies.filter((a) => a.at === at);
@@ -262,8 +265,11 @@ function renderNodePanel(state: GameState, ui: UIState, at: string): string {
   }
   const site = town?.id ?? placeAt(state, at)?.id;
   if (town) html += renderMerchants(state, town.id);
-  if (town) html += renderQuests(state, questsAt(state, town.id));
-  if (site) html += renderQuests(state, questsAtSite(state, site));
+  // Quests offered in a town are named in one line (they are in full on the Quests screen and the city screen);
+  // a quest site's encounter keeps its full card, so an army standing there can act from where it is.
+  const offered = (town ? questsAt(state, town.id) : []).filter((d) => isOpen(state.quests[d.id]));
+  if (town) html += questPointer(state, town.id);
+  if (site) html += renderQuests(state, questsAtSite(state, site).filter((d) => !offered.includes(d)));
   for (const a of armies) html += renderArmy(state, ui, a);
   if (!armies.length) html += `<p class="sub">No troops here.</p>`;
   return html;
@@ -314,7 +320,7 @@ function renderQuests(state: GameState, defs: QuestDefinition[]): string {
   return defs.map((def) => {
     const q = state.quests[def.id];
     if (q.status === 'unavailable') return '';
-    const head = `<div class="quest-card"><h3>${esc(def.name)} <small>${def.kind === 'main' ? 'Main objective' : 'Side quest'} · ${esc(def.giver)}</small></h3>`;
+    const head = `<div class="quest-card" id="quest-${def.id}"><h3>${esc(def.name)}${dueBadge(state, def.id)} <small>${def.kind === 'main' ? 'Main objective' : 'Side quest'} · ${esc(def.giver)} · ${esc(nodeName(state, def.at))}</small></h3>`;
     if (!isOpen(q)) {
       const passage = q.status === 'succeeded' && state.treaties[def.at]?.passage
         ? `<p class="sub">Your armies may share this town with its neutral garrison. ${esc(nodeName(state, def.at))} remains independent and pays no tax.</p>` : '';
@@ -351,7 +357,7 @@ function renderEncounterParty(state: GameState, preview: EncounterPreview): stri
     return esc(`${troop.name ?? type.name} (Lv ${type.hero ? heroLevel(troop.xp) : level(troop.xp)}, ${troop.men} ${type.hero ? 'HP' : 'men'})`);
   }).join(', ');
   return `<details class="encounter-party"><summary>Expedition: ${preview.deployed.length} deployed${preview.reserves.length ? ` · ${preview.reserves.length} in reserve` : ''}${preview.waiting.length ? ` · ${preview.waiting.length} stay outside` : ''}</summary>
-    <p>${preview.heroesOnly ? 'Only hired heroes enter; your lord and formations stay outside.' : 'The whole army at this site joins the expedition.'}</p>
+    <p>${preview.heroesOnly ? 'Only hired heroes enter; your lord and units stay outside.' : 'The whole army at this site joins the expedition.'}</p>
     <p><b>Deployed:</b> ${preview.deployed.length ? names(preview.deployed) : 'No eligible troops at this site.'}</p>
     ${preview.reserves.length ? `<p><b>Off-field reserves:</b> ${names(preview.reserves)}. They stay off the field and earn no combat experience.</p>` : ''}
     ${preview.waiting.length ? `<p><b>Waiting outside:</b> ${names(preview.waiting)}</p>` : ''}
@@ -388,7 +394,7 @@ function renderLair(state: GameState, lair: LairDefinition): string {
     ${st.status === 'cleared'
       ? `<p>Cleared${st.clearedTurn ? ` in ${esc(dateLabel(st.clearedTurn))}` : ''}. Nothing stirs here now.</p>`
       : `<p class="sub">${esc(sp.tactics)}</p><p class="sub">Counter: ${esc(sp.counter)}</p>
-        <p>${garrison ? `Garrison: ${garrison.troops.length} formations (${esc(garrison.troops.map((t) => UNIT_TYPES[t.type].name).join(', '))}).` : ''}
+        <p>${garrison ? `Garrison: ${garrison.troops.length} units (${esc(garrison.troops.map((t) => UNIT_TYPES[t.type].name).join(', '))}).` : ''}
         Defeat it to clear the lair for good: ${lair.loot.gold} gold in plunder.</p>`}
   </div>`;
 }
@@ -466,19 +472,19 @@ function renderArmy(state: GameState, ui: UIState, a: Army): string {
     : `<p class="msg exposure-warning">${esc(`In the open: this ${weather.rule.name.toLowerCase()} will cost the army ${pct(loss)} of its men at month end unless it reaches one of your towns or an allied one.`)}
       <br><button data-action="make-camp" data-army="${a.id}" title="Ends this army's marching for the month">Set up camp</button> <small>Halves the loss to ${pct(loss / 2)}, but the army can't march again this month.</small></p>`;
   return `<div class="army-card own-${a.owner}"><h3>${mine ? 'Your troops' : a.owner === 'orcs' ? 'Orc host' : 'Town militia'}</h3>
-    ${mine ? renderBesieging(state, a) : ''}${mine ? a.troops.filter((t) => t.type === 'spy').map((t) => `<p class="sub spy-note"><b>${esc(t.name ?? 'Spy')} #${t.id}</b> · Lv ${level(t.xp)}: each month may unmask hidden enemy scouts within ${SCOUT_RANGE} hexes (${Math.round(detectChance(level(t.xp), 1) * 100)}% against a new scout). It gains experience with every scout it finds.</p>`).join('') : ''}${mine && a.troops.some((t) => t.type === 'engineer') ? '<p class="sub">Engineers march with the army but never fight. In battle they build field forts, bridges and siege towers; in a siege they batter down the walls.</p>' : ''}${cold}${mine && a.troops.length > 1 && a.at === ui.selected ? `<div class="troop-quick"><button data-action="troops-all" class="ghost">Select all</button><button data-action="troops-none" class="ghost">Deselect all</button></div>` : ''}<ul class="troops">${rows}</ul>
+    ${mine ? renderBesieging(state, a) : ''}${mine ? a.troops.filter((t) => t.type === 'spy').map((t) => `<p class="sub spy-note"><b>${esc(t.name ?? 'Spy')} #${t.id}</b> · Lv ${level(t.xp)}: each month may unmask hidden enemy scouts within ${SCOUT_RANGE} hexes (${Math.round(detectChance(level(t.xp), 1) * 100)}% against a new scout). It gains experience with every scout it finds. Travelling alone, it slips past armies unseen and spots signs of hidden scouts as it goes.${renderInfiltrate(state, a, t)}</p>`).join('') : ''}${mine && a.troops.some((t) => t.type === 'engineer') ? '<p class="sub">Engineers march with the army but never fight. In battle they build field forts, bridges and siege towers; in a siege they batter down the walls.</p>' : ''}${cold}${mine && a.troops.length > 1 && a.at === ui.selected ? `<div class="troop-quick"><button data-action="troops-all" class="ghost">Select all</button><button data-action="troops-none" class="ghost">Deselect all</button></div>` : ''}<ul class="troops">${rows}</ul>
     ${mine ? a.troops.filter((t) => t.type === 'scout').map((t) => `<div class="scout-post"><b>Scout #${t.id}</b> · ${onWatch(t) ? `On watch over ${esc(nodeName(state, a.at))}` : 'Not on watch'}
       <div class="save-actions">
         ${onWatch(t) ? `<button data-action="scout-post" data-troop="${t.id}" data-post="recall">Stop watching</button>` : `<button data-action="scout-post" data-troop="${t.id}" data-post="watch">Keep watch here</button>`}
         ${a.troops.length > 1 ? `<button data-action="station-scout" data-troop="${t.id}" title="The scout leaves this army and keeps watch here alone; the army can march on">Station scout here</button>` : ''}
       </div><small class="sub">Lv ${level(t.xp)}: gains experience each month on watch, and the higher its level the harder it is for enemy spies to find. A scout on watch sees ${SCOUT_RANGE} hexes all around (shaded on the map) and reports visible orc and rival-city forces with an estimated destination. Scouts stay out of battle and cannot capture towns; an enemy reaching their post ends their watch. Isolated scouts cannot hold a position. Marching the scout ends its watch.</small></div>`).join('') : ''}
     ${mine && ui.view==='city' && townAt(state, a.at)?.owner === 'player' ? renderRefitChoices(state, a, ui) : ''}
-    ${mine ? '<p class="sub">In battle, your toughest melee formations set up in front; archers, casters and the leader start behind them.</p>' : ''}
+    ${mine ? '<p class="sub">In battle, your toughest melee units set up in front; archers, casters and the leader start behind them.</p>' : ''}
     ${ready ? `<p class="hint">${hint}</p>` : ''}</div>`;
 }
 
 function renderRefitChoices(state: GameState, army: Army, ui:UIState): string {
-  // Formations the player can raise (orc troops captured in some future rule would not qualify).
+  // Units the player can raise (orc troops captured in some future rule would not qualify).
   const choices = army.troops.filter((t) => !UNIT_TYPES[t.type].hero && UNIT_TYPES[t.type].recruit !== null);
   if (!choices.length) return '';
   return `<section class="refit-panel" aria-label="Troop equipment"><h3>Troop equipment upgrades</h3>
@@ -498,7 +504,7 @@ function renderRefitChoices(state: GameState, army: Army, ui:UIState): string {
             ${gear.name} · ${quote.gold}g${inputs ? ' + ' + inputs : ''}</button>
             <small>Lv ${gear.level}+ · ${gear.slot === 'bow' ? `Damage ×${gear.attackFactor}, range +${gear.rangeBonus}` :
               `Defense +${gear.defenseBonus}`} · upkeep ${gear.upkeep}g/mo
-              ${quote.reason ? ' · ' + esc(quote.reason) : ''}</small>${ui.refitChoice?.troop===troop.id && ui.refitChoice.item===id ? `<div class="refit-preview"><p>${quote.reason ? esc(quote.reason)+' Earn experience in battle, build the required forge and keep this formation in town to refit.' : 'Ready to order. Pay now; equipment arrives at month end.'}</p><button data-action="refit" data-node="${townId}" data-troop="${troop.id}" data-item="${id}" ${quote.reason?'disabled':''}>Confirm refit · ${quote.gold}g</button></div>` : ''}</div>`;
+              ${quote.reason ? ' · ' + esc(quote.reason) : ''}</small>${ui.refitChoice?.troop===troop.id && ui.refitChoice.item===id ? `<div class="refit-preview"><p>${quote.reason ? esc(quote.reason)+' Earn experience in battle, build the required forge and keep this unit in town to refit.' : 'Ready to order. Pay now; equipment arrives at month end.'}</p><button data-action="refit" data-node="${townId}" data-troop="${troop.id}" data-item="${id}" ${quote.reason?'disabled':''}>Confirm refit · ${quote.gold}g</button></div>` : ''}</div>`;
         }).join('')}</div>`;
     }).join('')}
   </section>`;
@@ -543,6 +549,7 @@ function renderHexSection(state: GameState, ui: UIState): string {
   const zoom = hexZoom(ui);
   const step = HEX_ZOOMS.indexOf(zoom as (typeof HEX_ZOOMS)[number]);
   return `<section class="map-wrap">
+    ${renderActionBar(state, ui)}
     <div class="map-toolbar" role="toolbar" aria-label="Map display">
       <div class="map-zoom-group">
         <button data-action="hex-zoom" data-zoom="out" title="Zoom out" aria-label="Zoom out" ${step <= 0 ? 'disabled' : ''}>−</button>
@@ -575,18 +582,18 @@ function renderChooser(state: GameState): string {
 }
 
 /**
- * Reinforce formations stationed in this town, in its Recruitment tab: recruit 10 or fill to capacity. Recruits
- * arrive untrained, so the formation's experience is shared out and its level drops; the buttons show by how much.
+ * Reinforce units stationed in this town, in its Recruitment tab: recruit 10 or fill to capacity. Recruits
+ * arrive untrained, so the unit's experience is shared out and its level drops; the buttons show by how much.
  */
 function renderReinforce(state:GameState,townId:string):string{
  const at=townLocation(state,townId),army=armyAt(state,at,'player');
- const formations=army?.troops.filter(t=>!UNIT_TYPES[t.type].hero && UNIT_TYPES[t.type].recruit!==null && t.type!=='scout')??[];
- if(!formations.length)return '';
+ const units=army?.troops.filter(t=>!UNIT_TYPES[t.type].hero && UNIT_TYPES[t.type].recruit!==null && t.type!=='scout')??[];
+ if(!units.length)return '';
  const after=(t:Troop,men:number)=>level(Math.floor(t.xp*t.men/(t.men+men)));
  const lv=(t:Troop,men:number)=>men&&after(t,men)<level(t.xp)?' · Lv '+level(t.xp)+' → '+after(t,men):' · Lv '+level(t.xp);
- return '<section class="refit-panel"><h3>Reinforce an existing formation</h3><p class="sub">Adds soldiers to a formation stationed here. Infantry hold up to 100; mounted 50 in leather, 33 in chain, 25 in plate. Recruits arrive untrained: the formation’s experience is shared across everyone, so its level drops, and filling a small veteran formation to full strength erases most of what it learned. Equipment is kept and outfitting is included; bigger formations cost more upkeep.</p>'+formations.map(t=>{
+ return '<section class="refit-panel"><h3>Reinforce an existing unit</h3><p class="sub">Adds soldiers to a unit stationed here. Infantry hold up to 100; mounted 50 in leather, 33 in chain, 25 in plate. Recruits arrive untrained: the unit’s experience is shared across everyone, so its level drops, and filling a small veteran unit to full strength erases most of what it learned. Equipment is kept and outfitting is included; bigger units cost more upkeep.</p>'+units.map(t=>{
  const q=replacementQuote(state,t.id,10),full=replacementQuote(state,t.id);
- return '<p><b>'+esc(UNIT_TYPES[t.type].name)+' #'+t.id+'</b> · '+t.men+'/'+formationCapacity(t)+' men · Lv '+level(t.xp)+'<br><button data-action="replacements" data-troop="'+t.id+'" data-count="10" '+(q.reason?'disabled':'')+'>Recruit '+q.men+' · '+q.gold+'g'+lv(t,q.men)+'</button> <button data-action="replacements" data-troop="'+t.id+'" '+(full.reason?'disabled':'')+' title="'+esc(full.reason??'Recruit to this formation’s capacity')+'">Fill to '+full.capacity+' · '+full.gold+'g'+lv(t,full.men)+'</button>'+(q.reason?'<small>'+esc(q.reason)+'</small>':'')+'</p>';
+ return '<p><b>'+esc(UNIT_TYPES[t.type].name)+' #'+t.id+'</b> · '+t.men+'/'+formationCapacity(t)+' men · Lv '+level(t.xp)+'<br><button data-action="replacements" data-troop="'+t.id+'" data-count="10" '+(q.reason?'disabled':'')+'>Recruit '+q.men+' · '+q.gold+'g'+lv(t,q.men)+'</button> <button data-action="replacements" data-troop="'+t.id+'" '+(full.reason?'disabled':'')+' title="'+esc(full.reason??'Recruit to this unit’s capacity')+'">Fill to '+full.capacity+' · '+full.gold+'g'+lv(t,full.men)+'</button>'+(q.reason?'<small>'+esc(q.reason)+'</small>':'')+'</p>';
  }).join('')+'</section>';
 }
 function renderCampaignObjectives(state:GameState):string{
@@ -608,9 +615,9 @@ function renderCityScreen(state:GameState,ui:UIState):string{
   content+=renderMerchants(state,town.id);
  }
  if(tab==='development')content=renderCityDevelopment(state,town.id);
- if(tab==='recruitment')content=renderRecruit(state,town,owned?'Raise a new formation':'Allied troops')+(owned?'<p class="sub">A new formation starts at full strength and level 1.</p>'+renderReinforce(state,town.id):'')+renderOffers(state,town.id);
+ if(tab==='recruitment')content=renderRecruit(state,town,owned?'Raise a new unit':'Allied troops')+(owned?'<p class="sub">A new unit starts at full strength and level 1.</p>'+renderReinforce(state,town.id):'')+renderOffers(state,town.id);
  if(tab==='army'){
-  const armies=state.armies.filter(a=>a.at===ui.selected);content=armies.map(a=>renderArmy(state,ui,a)).join('')||'<p>No formations are stationed here.</p>';
+  const armies=state.armies.filter(a=>a.at===ui.selected);content=armies.map(a=>renderArmy(state,ui,a)).join('')||'<p>No units are stationed here.</p>';
  }
  if(tab==='quests')content=renderQuests(state,questsAt(state,town.id))||'<p>No quests are currently offered here.</p>';
  return '<main class="city-screen"><header class="city-heading"><div><p class="report-eyebrow">City management</p><h1>'+esc(nodeName(state,ui.selected))+'</h1></div><button class="primary" data-action="close-city">Back to overland map</button></header><nav class="city-tabs" aria-label="City management">'+tabs.map(t=>'<button data-action="city-tab" data-tab="'+t.id+'" aria-pressed="'+(t.id===tab)+'" class="'+(t.id===tab?'primary':'ghost')+'">'+t.label+'</button>').join('')+'</nav>'+(ui.message?'<p class="msg" role="status">'+esc(ui.message)+'</p>':'')+'<section class="city-content" aria-label="'+tabs.find(t=>t.id===tab)!.label+'">'+content+'</section><button data-action="close-city">Back to overland map</button></main>';
@@ -701,4 +708,89 @@ function renderBesieging(state: GameState, army: Army): string {
   const siege = state.sieges.find((s) => s.army === army.id);
   if (!siege) return '';
   return `<p class="msg siege-note">Besieging ${esc(nodeName(state, siege.town))}. Marching this army away lifts the siege. Open the town to storm, hold or lift it.</p>`;
+}
+
+/** A spy's Infiltrate button, or what it is doing inside a town. */
+function renderInfiltrate(state: GameState, army: Army, spy: Troop): string {
+  if (spy.infiltrating) return `<br><b>Inside ${esc(nodeName(state, spy.infiltrating))}</b>, reporting each month. Each month there is a small chance it is caught (less as it gains levels); march it out to leave.`;
+  const q = infiltrateQuote(state, army.id);
+  if (!q.town) return '';
+  return `<br><button data-action="infiltrate" data-army="${army.id}" ${q.reason ? `disabled title="${esc(q.reason)}"` : ''}>Infiltrate ${esc(nodeName(state, q.town))}</button>${q.reason ? ` <small>${esc(q.reason)}</small>` : ''}`;
+}
+
+/** What your spies last learned inside this town. */
+function renderIntel(state: GameState, townId: string): string {
+  const intel = state.intel?.[townId];
+  if (!intel) return '';
+  return `<section class="intel-report"><h3>Spy report · ${esc(dateLabel(intel.turn))}</h3><ul>${intel.lines.map((l) => `<li>${esc(l)}</li>`).join('')}</ul></section>`;
+}
+
+/**
+ * The action bar above the map: what you can do with the selected place, in one row at the top (the side panel
+ * keeps the detail). Each button is the same action as its counterpart in the panels.
+ */
+function renderActionBar(state: GameState, ui: UIState): string {
+  const at = ui.selected;
+  if (!at || state.status !== 'playing') return '';
+  const army = armyAt(state, at, 'player');
+  const town = townAt(state, at);
+  const name = esc(nodeName(state, at));
+  const actions: string[] = [];
+  if (army) {
+    const ready = army.troops.filter((t) => t.mp > 0 && !t.refit).length;
+    actions.push(`<button data-action="troops-pick" class="primary" ${ready ? '' : 'disabled title="No troops here can march again this month"'}>Move troops…</button>`);
+    if (army.troops.length > 1 && ui.checked.size < ready) actions.push('<button data-action="troops-all">Select all</button>');
+    if (ui.checked.size) actions.push('<button data-action="troops-none">Deselect all</button>');
+    if (!campQuote(state, army.id).reason) actions.push(`<button data-action="make-camp" data-army="${army.id}">Set up camp</button>`);
+    const scout = army.troops.find((t) => t.type === 'scout' && !t.scoutPost);
+    if (scout) actions.push(`<button data-action="${army.troops.length > 1 ? 'station-scout' : 'scout-post'}" data-troop="${scout.id}" data-post="watch">${army.troops.length > 1 ? 'Station scout here' : 'Keep watch here'}</button>`);
+    const spy = infiltrateQuote(state, army.id);
+    if (spy.town && !spy.reason) actions.push(`<button data-action="infiltrate" data-army="${army.id}">Infiltrate ${esc(nodeName(state, spy.town))}</button>`);
+    const besiege = Object.values(state.towns).find((t) => !siegeQuote(state, at, townLocation(state, t.id)).reason);
+    if (besiege) actions.push(`<button data-action="siege-begin" data-from="${esc(at)}" data-to="${esc(townLocation(state, besiege.id))}">Besiege ${esc(nodeName(state, besiege.id))}</button>`);
+    const siege = state.sieges.find((g) => g.army === army.id);
+    if (siege) actions.push(`<button data-action="siege-lift" data-town="${siege.town}">Lift the siege of ${esc(nodeName(state, siege.town))}</button>`);
+  }
+  if (town && explored(state, at)) actions.push(`<button data-action="open-city" data-node="${esc(at)}">Open ${name}</button>`);
+  if (!actions.length) return '';
+  return `<div class="action-bar" role="toolbar" aria-label="Actions for ${name}"><b>${name}</b>${actions.join('')}</div>`;
+}
+
+/** A small acknowledgement popup, closed with OK. */
+function renderNotice(notice: NonNullable<UIState['notice']>): string {
+  return `<div class="assault-shade"><section class="assault-prompt notice-popup" role="dialog" aria-modal="true" aria-labelledby="notice-title">
+    <h2 id="notice-title">${esc(notice.title)}</h2>${notice.lines.map((l) => `<p>${esc(l)}</p>`).join('')}
+    <div class="assault-actions"><button data-action="notice-close" class="primary">OK</button></div></section></div>`;
+}
+
+/** Open quests, main objectives first, then the ones running out soonest. */
+function openQuests(state: GameState): QuestDefinition[] {
+  const left = (id: string) => monthsLeft(state, id) ?? Infinity;
+  return campaignQuests(state).filter((d) => isOpen(state.quests[d.id]))
+    .sort((a, b) => (a.kind === b.kind ? 0 : a.kind === 'main' ? -1 : 1) || left(a.id) - left(b.id));
+}
+
+/** How long a quest has before it ends on its own, as a small badge. */
+function dueBadge(state: GameState, questId: string): string {
+  const left = monthsLeft(state, questId);
+  if (left === null) return '';
+  const text = left <= 0 ? 'ends this month' : left === 1 ? 'ends next month' : `ends in ${left} months`;
+  return ` <span class="due-badge${left <= 1 ? ' urgent' : ''}" title="If nothing is done, this quest ends on its own ${text.replace('ends ', '')}.">${text}</span>`;
+}
+
+/** The quests screen: every open quest in full, with where it is and how long it has. */
+function renderQuestScreen(state: GameState, ui: UIState): string {
+  const quests = openQuests(state);
+  return `<main class="quest-screen"><header class="city-heading"><div><p class="report-eyebrow">Quests</p><h1>Open quests</h1></div><button class="primary" data-action="quests">Back to the map</button></header>
+    ${ui.message ? `<p class="msg" role="status">${esc(ui.message)}</p>` : ''}
+    <p class="sub">Main objectives first, then whatever runs out soonest. "Show on map" takes you to a quest's place once you have explored it.</p>
+    ${quests.map((d) => `${renderQuests(state, [d])}<p class="quest-goto">${explored(state, questFocus(state, d.id) ?? '') ? `<button class="link" data-action="view-quest" data-quest="${d.id}">Show on map</button>` : `<small>Its place is still unexplored.</small>`}</p>`).join('') || '<p>No open quests right now.</p>'}
+  </main>`;
+}
+
+/** A town's quests in one line, with how long they have, and a button to the Quests screen. */
+function questPointer(state: GameState, townId: string): string {
+  const offered = questsAt(state, townId).filter((d) => isOpen(state.quests[d.id]));
+  if (!offered.length) return '';
+  return `<p class="quest-pointer">${offered.length} quest${offered.length === 1 ? '' : 's'} offered here: ${offered.map((d) => `${esc(d.name)}${dueBadge(state, d.id)}`).join(', ')}. <button data-action="quests" data-quest="${offered[0].id}">Open quests</button></p>`;
 }

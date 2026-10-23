@@ -129,7 +129,7 @@ describe('the cyclops boulder', () => {
     expect(b.log.some((l) => /hurls a boulder at Your Spearmen/.test(l))).toBe(true);
   });
 
-  it('aims at formations before heroes, so it never quietly snipes your lord', () => {
+  it('aims at units before heroes, so it never quietly snipes your lord', () => {
     const s = newGame(1, 'western-realm');
     const mine: Army = { id: 900, owner: 'player', at: 'x', from: null, troops: [makeTroop(s, 'lord', 'Aldric'), makeTroop(s, 'militia')] };
     const foe: Army = { id: 901, owner: 'orcs', at: 'x', from: null, troops: [makeTroop(s, 'cyclops')] };

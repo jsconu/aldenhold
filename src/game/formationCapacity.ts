@@ -2,7 +2,7 @@ import { UNIT_TYPES } from './data';
 import type { Troop } from './types';
 
 export const FORMATION_SPACE = 200;
-/** Capacity budget for one formation; combining multiple formations in a hex remains separate work. */
+/** Capacity budget for one unit; combining multiple units in a hex remains separate work. */
 export function formationCapacity(troop: Pick<Troop, 'type' | 'gear'>): number {
   const type = UNIT_TYPES[troop.type];
   if (!type || type.hero || troop.type === 'scout' || type.recruit === null) return type?.men ?? 0;

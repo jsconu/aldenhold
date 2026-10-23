@@ -49,6 +49,15 @@ export function campaignQuests(state: GameState): QuestDefinition[] {
   return Object.values(QUESTS).filter((q) => q.campaignIds.includes(state.campaignId));
 }
 
+/** Months until an open quest's current stage ends on its own (0 = this month), or null if it has no deadline. */
+export function monthsLeft(state: GameState, questId: string): number | null {
+  const def = QUESTS[questId];
+  const p = state.quests[questId];
+  if (!def || !p || !isOpen(p)) return null;
+  const months = stageOf(def, p.stage)?.deadline?.months;
+  return months === undefined || p.stageTurn === null ? null : Math.max(0, p.stageTurn + months - state.turn);
+}
+
 /** The journal tracks at most this many quests; the header shows them as shortcuts to their towns. */
 export const MAX_TRACKED = 3;
 
@@ -118,7 +127,7 @@ function measure(state: GameState, c: QuestCondition): number | null {
     case 'towns-ruled': return Object.values(state.towns).filter((t) => t.owner === 'player' && t.kind !== 'lair').length;
     case 'standing': return Object.values(state.towns).filter((t) => t.kind !== 'lair' &&
       ['self', 'ally', 'vassal'].includes(relationWith(state, t.id) ?? '')).length;
-    case 'formations': return state.armies.filter((a) => a.owner === 'player')
+    case 'units': return state.armies.filter((a) => a.owner === 'player')
       .reduce((n, a) => n + a.troops.filter((t) => !isHero(t.type)).length, 0);
     case 'food': return state.towns[c.town]?.owner === 'player' ? state.cityEconomies[c.town]?.goods.food ?? 0 : 0;
     default: return null;
@@ -148,7 +157,7 @@ export function conditionText(state: GameState, c: QuestCondition): string {
     case 'month': return `Month ${c.atLeast} arrives`;
     case 'towns-ruled': return `Rule ${c.atLeast} towns${progress}`;
     case 'standing': return `Rule or ally with ${c.atLeast} towns${progress}`;
-    case 'formations': return `Field ${c.atLeast} formations${progress}`;
+    case 'units': return `Field ${c.atLeast} units${progress}`;
     case 'food': return `Store ${c.atLeast} food in ${nodeName(state, c.town)}${progress}`;
     case 'any': return c.of.map((x) => conditionText(state, x)).join(', or ');
     case 'army-at': return `Bring an army to ${nodeName(state, startLocation(state, c.place))}`;

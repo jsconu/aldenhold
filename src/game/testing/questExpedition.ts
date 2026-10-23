@@ -52,7 +52,7 @@ export function playQuestExpedition(seed: number, options: {
   // A side quest is done once it is settled: one whose deadline passed (say, held up by winter) is not retried.
   const allDone = () => ['Q02', 'Q03', 'Q05'].every((id) => ['succeeded', 'failed'].includes(state.quests[id].status));
   let heroesLost = 0;
-  // Replacement formations on their way to the party after a lost fight.
+  // Replacement units on their way to the party after a lost fight.
   const reinforcementIds: number[] = [];
   const partyFormations = () => state.armies.find((a) => a.owner === 'player' && a.troops.some((t) => partyIds.includes(t.id)))
     ?.troops.filter((t) => partyIds.includes(t.id) && !UNIT_TYPES[t.type].hero).length ?? 0;

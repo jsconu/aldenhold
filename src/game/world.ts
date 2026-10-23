@@ -206,9 +206,12 @@ function cheapest(
 }
 
 /** True if entering this location means a fight or a capture for `owner`. */
-/** A hidden scout of another side (game/intel.ts): an army of nothing but scouts that isn't yours. */
+/**
+ * A covert party (game/intel.ts): an army of nothing but scouts and spies, on any side. Armies neither fight it nor
+ * are stopped by it, and it never fights or takes a town itself. Only spies find scouts.
+ */
 export function isCovert(army: Army): boolean {
-  return army.owner !== 'player' && army.troops.length > 0 && army.troops.every((t) => t.type === 'scout');
+  return army.troops.length > 0 && army.troops.every((t) => t.type === 'scout' || t.type === 'spy');
 }
 
 export function stopsMarch(state: GameState, at: string, owner: FactionId): boolean {

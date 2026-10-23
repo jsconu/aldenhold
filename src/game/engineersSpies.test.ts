@@ -3,7 +3,7 @@ import { renderHexMap } from '../ui/hexMapView';
 import type { UIState } from '../ui/shared';
 import { attackTargets, build, buildTargets, createBattle } from './battle';
 import { armyAt, arrivalOutcome, makeTroop, moveTroops, newGame } from './campaign';
-import { advanceIntel, catchScouts, detectChance, stationScout } from './intel';
+import { advanceIntel, catchScouts, detectChance, infiltrate, infiltrateQuote, spyOnTheMove, stationScout } from './intel';
 import { parseSave } from './saves';
 import { beginSiege, siegeOf, siegeOutlook } from './sieges';
 import type { Army, GameState } from './types';
@@ -147,5 +147,54 @@ describe('scouts and spies', () => {
     expect(t.armies.some((a) => a.troops.includes(scout))).toBe(false);
     expect(t.journal.some((j) => j.text.startsWith('Enemy spies found your scout'))).toBe(true);
     expect(level(scout.xp)).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe('spies on their own', () => {
+  function spyBy(s: GameState, at: string) {
+    const spy = makeTroop(s, 'spy');
+    const army: Army = { id: s.nextId++, owner: 'player', at, from: null, troops: [spy] };
+    s.armies.push(army);
+    return { spy, army };
+  }
+
+  it('slip past armies and into towns without fighting or taking them', () => {
+    const s = newGame(1, 'western-realm');
+    const { spy } = spyBy(s, '7,7');
+    spy.mp = 18;
+    const fenwick = townLocation(s, 'fenwick');
+    expect(moveTroops(s, '7,7', [spy.id], fenwick)).toBeNull();
+    expect(s.battle).toBeNull();
+    expect(s.towns.fenwick.owner).toBe('neutral');
+    const moved = s.armies.find((x) => x.troops.includes(spy))!;
+    expect(moved.at).toBe(fenwick);
+    expect(isCovert(moved)).toBe(true);
+  });
+
+  it('pick up a clue to a hidden scout further off, with a direction', () => {
+    const s = newGame(2, 'western-realm');
+    s.turn = 6;
+    advanceIntel(s);
+    const eye = s.armies.find((a) => a.owner === 'orcs' && isCovert(a))!;
+    const [c, r] = eye.at.split(',').map(Number);
+    const { army } = spyBy(s, `${c - 6},${r}`);
+    spyOnTheMove(s, army, [army.at]);
+    expect(s.journal.at(-1)!.text).toMatch(/^Your spy found signs of a hidden scout about 6 hexes (east|north-east|south-east) of /);
+  });
+
+  it('infiltrate a town, report on it each month, and may be caught', () => {
+    const s = newGame(1, 'western-realm');
+    const { spy, army } = spyBy(s, '7,7');
+    spy.mp = 18;
+    expect(infiltrateQuote(s, army.id)).toEqual({ reason: null, town: 'fenwick' });
+    expect(infiltrate(s, army.id)).toBeNull();
+    expect(spy.infiltrating).toBe('fenwick');
+    expect(s.intel!.fenwick.lines[0]).toMatch(/^Garrison: /);
+    expect(parseSave(JSON.stringify(s)).intel!.fenwick).toEqual(s.intel!.fenwick);
+    s.turn += 1;
+    advanceIntel(s);
+    expect(s.armies.includes(army) ? s.intel!.fenwick.turn : s.turn).toBe(s.turn);
+    for (let i = 0; i < 80 && s.armies.includes(army); i++) advanceIntel(s);
+    expect(s.journal.some((j) => j.text === 'Your spy in Fenwick was caught and executed.')).toBe(true);
   });
 });

@@ -40,7 +40,7 @@ export const SPECIES: Record<MonsterSpecies, SpeciesProfile> = {
   giants: {
     name: 'Giants', lands: ['hills', 'mountains', 'badlands'], minDistance: 12,
     tactics: 'Rare heavy raids; they hurl boulders and pressure walls.',
-    counter: 'Fortifications and strong formations led by heroes.',
+    counter: 'Fortifications and strong units led by heroes.',
     raids: { kind: 'siege', warning: 2, takesTowns: false },
   },
   titans: {

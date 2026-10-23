@@ -22,7 +22,7 @@ export interface PartyPreset {
 export const PARTIES: Record<string, PartyPreset> = {
   // The starting home army, ruler included: the risky choice of marching your lord to a monster.
   home: { id: 'home', label: 'Lord with the starting army', troops: [{ type: 'lord', name: 'Aldric' }, 'militia', 'militia', 'spearmen', 'archers'] },
-  // Codex's expedition: a hired priest with three formations, the lord left at home.
+  // Codex's expedition: a hired priest with three units, the lord left at home.
   expedition: { id: 'expedition', label: 'Priest with militia, spearmen and archers', troops: [{ type: 'priest', name: 'Osric' }, 'militia', 'spearmen', 'archers'] },
   // A small band without a hero.
   band: { id: 'band', label: 'Militia, spearmen and archers', troops: ['militia', 'spearmen', 'archers'] },

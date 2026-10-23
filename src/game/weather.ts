@@ -122,7 +122,7 @@ export function weatherToll(state: GameState): string[] {
         t.men = Math.max(1, t.men - Math.ceil(heroMaxHp(t.type, t.xp) * rate));
         continue;
       }
-      // Snow and blizzards always cost a formation at least one man, so they can finish off a small party.
+      // Snow and blizzards always cost a unit at least one man, so they can finish off a small party.
       const gone = Math.min(t.men, Math.max(Math.round(t.men * rate), rate >= 0.1 ? 1 : 0));
       lost += gone;
       t.men -= gone;

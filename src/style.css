@@ -645,3 +645,32 @@ button.travel-destination b { color: var(--gold); font-size: 11px; }
 /* The town popup's first choice: one button per line. */
 .assault-actions.stacked { flex-direction: column; align-items: stretch; }
 .assault-actions.stacked button { width: 100%; }
+
+/* Spy reports on a town. */
+.intel-report { border-left: 3px solid #8aa0c8; padding-left: 10px; margin: 10px 0; }
+.intel-report ul { margin: 4px 0; padding-left: 18px; }
+
+/* The action bar above the map: the selected place's actions, at the top. */
+.action-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 8px 10px; margin-bottom: 8px; border: 1px solid #4a4130; border-radius: 8px; background: #221e17; }
+.action-bar b { margin-right: 6px; color: #f3e2b0; }
+
+/* Telling the sides apart in battle: a ring and a pennant in each side's colour and shape, and a key in the bar. */
+.field .unit .side-ring { fill: none; stroke-width: 2.4; pointer-events: none; }
+.field .unit.mine .side-ring { stroke: #6fb0ff; }
+.field .unit.foe .side-ring { stroke: #ff6a55; stroke-dasharray: 5 3; }
+.field .pennant .pole { stroke: #3b2c1c; stroke-width: 1.2; }
+.field .pennant.mine .flag, .side-key .pennant.mine .flag { fill: #3d7cf0; stroke: #e8f0ff; stroke-width: .6; }
+.field .pennant.mine .crown, .side-key .pennant.mine .crown { fill: #ffd75a; }
+.field .pennant.foe .flag, .side-key .pennant.foe .flag { fill: #d8382a; stroke: #2a0a06; stroke-width: .6; }
+.side-key .pennant .pole { stroke: #e0d2b0; stroke-width: 1.2; }
+.side-key { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: #d8cba8; }
+.your-army-label rect { fill: #1f3f8acc; stroke: #9fc4ff; stroke-width: 1.5; }
+.your-army-label text { fill: #fff; font: bold 12px system-ui, sans-serif; text-anchor: middle; }
+.camera .zoom-level { min-width: 42px; text-align: center; font-size: 12px; color: #cbbd9b; }
+
+/* Quests: their own screen, a one-line pointer on the map panel, and a badge for how long each has. */
+.quest-screen { max-width: 980px; margin: 0 auto; padding: 16px; }
+.quest-pointer { border-left: 3px solid var(--gold); padding-left: 8px; }
+.due-badge { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 9px; font-size: 11px; font-weight: 600; background: #4a3d22; color: #f3dfa8; vertical-align: middle; }
+.due-badge.urgent { background: #7a2a1f; color: #ffe2d8; }
+.quest-goto { margin: -6px 0 16px; }

@@ -19,8 +19,8 @@ describe('army cap', () => {
     s.gold = 5000;
     const army = home(s);
     while (army.troops.length < ARMY_CAP) army.troops.push(makeTroop(s, 'militia'));
-    expect(recruitQuote(s, 'aldenhold', 'militia').reason).toBe('The army at Aldenhold is full: 12 formations is the most one army can hold.');
-    expect(hireQuote(s, s.offers[0]).reason).toMatch(/is full: 12 formations/);
+    expect(recruitQuote(s, 'aldenhold', 'militia').reason).toBe('The army at Aldenhold is full: 12 units is the most one army can hold.');
+    expect(hireQuote(s, s.offers[0]).reason).toMatch(/is full: 12 units/);
     army.troops.pop();
     expect(recruitQuote(s, 'aldenhold', 'militia').reason).toBeNull();
   });
@@ -32,7 +32,7 @@ describe('army cap', () => {
     const camp: Army = { id: s.nextId++, owner: 'player', at: next, from: null, troops: [] };
     for (let i = 0; i < ARMY_CAP - 1; i++) camp.troops.push(makeTroop(s, 'militia'));
     s.armies.push(camp);
-    expect(marchQuote(s, army.at, [army.troops[1].id, army.troops[2].id], next).reason).toMatch(/^Only 1 more formation fits in the army at .+ \(12 at most\)\.$/);
+    expect(marchQuote(s, army.at, [army.troops[1].id, army.troops[2].id], next).reason).toMatch(/^Only 1 more unit fits in the army at .+ \(12 at most\)\.$/);
     expect(marchQuote(s, army.at, [army.troops[1].id], next).reason).toBeNull();
   });
 
@@ -87,7 +87,7 @@ describe('automatic deployment', () => {
   it('removes the editable city battle grid while explaining setup', () => {
     const s = newGame(1, 'western-realm');
     const html = renderCampaign(s, ui(townLocation(s, 'aldenhold')));
-    expect(html).toContain('toughest melee formations set up in front');
+    expect(html).toContain('toughest melee units set up in front');
     expect(html).not.toContain('data-action="tactics-cell"');
     expect(html).not.toContain('data-action="set-stance"');
   });

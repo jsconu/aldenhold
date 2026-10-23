@@ -1,9 +1,9 @@
 import {describe,it,expect} from 'vitest';
 import {battleFigure} from './richBattle';
-describe('formations and hero silhouettes',()=>{
- it('shows a group for regular formations, including mixed human artwork',()=>{
+describe('units and hero silhouettes',()=>{
+ it('shows a group for regular units, including mixed human artwork',()=>{
  const art=battleFigure('spearmen',50,60,false,20,undefined,'male');
- expect(art).toContain('20 soldiers in formation');expect(art.match(/rich-battle-unit/g)).toHaveLength(3);expect(art).toContain('humans-female-v1.png');expect(art).toContain('humans-v1.png');
+ expect(art).toContain('20 soldiers in unit');expect(art.match(/rich-battle-unit/g)).toHaveLength(3);expect(art).toContain('humans-female-v1.png');expect(art).toContain('humans-v1.png');
  expect(battleFigure('archers',50,60,false,2).match(/rich-battle-unit/g)).toHaveLength(2);
  });
  it('keeps heroes and creatures single while matching human figure scale',()=>{
