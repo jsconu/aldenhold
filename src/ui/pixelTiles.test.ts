@@ -38,5 +38,5 @@ describe('pixel hex tiles', () => {
     const b = paintTerrain(realm).data;
     expect(a.length).toBe(b.length);
     expect(a.every((v, i) => v === b[i])).toBe(true);
-  });
+  }, 20_000); // Two full native-resolution paintings of the doubled authored world.
 });

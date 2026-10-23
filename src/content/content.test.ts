@@ -96,15 +96,15 @@ describe('Western Realm hex map', () => {
     return validateContent(copy).join('\n');
   };
 
-  it('is a 52×38 hex map with twelve core settlements and three border towns/strongholds', () => {
+  it('is a 76×52 authored map with twenty settlements and strongholds', () => {
     const c = getCampaign('western-realm');
-    expect([c.hex!.rows[0].length, c.hex!.rows.length]).toEqual([52, 38]);
-    expect(c.hex!.places.filter((p) => p.kind === 'town')).toHaveLength(15);
+    expect([c.hex!.rows[0].length, c.hex!.rows.length]).toEqual([76, 52]);
+    expect(c.hex!.places.filter((p) => p.kind === 'town')).toHaveLength(20);
     expect([c.nodes, c.edges]).toEqual([[], []]);
   });
 
   it('catches ragged rows, unknown land and places on impassable ground', () => {
-    expect(realm((w) => (w.rows[3] = w.rows[3].slice(1)))).toMatch(/row 3 is 51 wide/);
+    expect(realm((w) => (w.rows[3] = w.rows[3].slice(1)))).toMatch(/row 3 is 75 wide/);
     expect(realm((w) => (w.rows[0] = 'X' + w.rows[0].slice(1)))).toMatch(/unknown land "X"/);
     expect(realm((w) => Object.assign(w.places.find((p) => p.id === 'barrow')!, { col: 29, row: 0 }))).toMatch(/"barrow" stands on impassable mountains/);
   });

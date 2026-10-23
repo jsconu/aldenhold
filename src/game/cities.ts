@@ -56,6 +56,11 @@ const ENDOWMENTS: Record<string, { fertility: number; forest: number; ore: numbe
   redford: { fertility: 0.7, forest: 0.5, ore: 1.5 },
   saltwick: { fertility: 1.1, forest: 0.5, ore: 0 },
   ironbridge: { fertility: 0.6, forest: 0.7, ore: 1.6 },
+  willowford: { fertility: 1.35, forest: 1.1, ore: 0 },
+  miretooth: { fertility: 0.5, forest: 1.6, ore: 0.3 },
+  reedspire: { fertility: 1.5, forest: 0.5, ore: 0 },
+  brineport: { fertility: 1.1, forest: 0.9, ore: 0 },
+  gullmere: { fertility: 1, forest: 1.2, ore: 0.6 },
   // Western Realm towns that the quick-play valley doesn't have.
   greenveil: { fertility: 0.6, forest: 1.6, ore: 0.2 },
   westmere: { fertility: 1.2, forest: 0.5, ore: 0.6 },

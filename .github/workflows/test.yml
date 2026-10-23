@@ -1,4 +1,4 @@
-name: Aragon checks
+name: Aldenhold checks
 on:
   push:
     branches: [main]

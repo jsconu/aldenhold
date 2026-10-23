@@ -1,4 +1,5 @@
 import { cityTreasuryMoney } from './cityBattle';
+import { REED_COAST_TOWNS, REED_COAST_ARMIES } from '../content/campaigns/reedCoast';
 import {formationCapacity} from './formationCapacity';
 import { LAIRS as LAIRS_BY_ID, lairsOf, SPECIES } from '../content/lairs';
 import { FACTIONS } from '../content/factions';
@@ -781,6 +782,36 @@ function upgradeWesternMap(value: Record<string, unknown>) {
   value.campaignRevision = 2;
 }
 
+/** Revision 3 adds the coast outside the former 52×38 bounds, preserving all existing state. */
+function upgradeReedCoast(value: Record<string, unknown>) {
+  if (value.campaignId !== 'western-realm' || value.campaignRevision !== 2) return;
+  const towns = object(value.towns), economies = object(value.cityEconomies);
+  const oldIds = [...WESTERN_REVISION_1_TOWNS, ...WESTERN_ADDED_TOWNS.map(t => t.id)];
+  requireValue(Object.keys(towns).length === oldIds.length && oldIds.every(id => Object.hasOwn(towns, id)) &&
+    Object.keys(economies).length === oldIds.length && oldIds.every(id => Object.hasOwn(economies, id)), 'revision-2 Western town registry');
+  requireValue(integer(value.nextId, 1), 'revision-2 Western identity counter');
+  const withinOldMap = (at: unknown) => typeof at === 'string' && /^\d+,\d+$/.test(at) &&
+    Number(at.split(',')[0]) < 52 && Number(at.split(',')[1]) < 38;
+  for (const raw of array(value.armies)) {
+    const army = object(raw);
+    requireValue(withinOldMap(army.at) && (army.from === null || withinOldMap(army.from)), 'revision-2 Western army location');
+    requireValue(integer(army.id, 1, Number(value.nextId) - 1), 'revision-2 Western army identity');
+    for (const t of array(army.troops)) requireValue(integer(object(t).id, 1, Number(value.nextId) - 1), 'revision-2 Western troop identity');
+  }
+  const state = value as unknown as GameState;
+  for (const town of REED_COAST_TOWNS) {
+    towns[town.id] = { ...town }; economies[town.id] = initialCityEconomy(town);
+  }
+  for (const garrison of REED_COAST_ARMIES) {
+    const troops = garrison.troops.map(t => {
+      const troop = typeof t === 'string' ? makeTroop(state, t) : makeTroop(state, t.type, t.name);
+      troop.mp = 0; return troop;
+    });
+    state.armies.push({ id: state.nextId++, owner: garrison.owner, at: startLocation(state, garrison.at), from: null, troops });
+  }
+  value.campaignRevision = 3;
+}
+
 /** Migration runs on parsed JSON only; it never edits the legacy storage entry. */
 export function parseSave(raw: string): GameState {
   requireValue(new TextEncoder().encode(raw).length <= MAX_SAVE_BYTES, 'file exceeds 5 MB');
@@ -845,6 +876,7 @@ export function parseSave(raw: string): GameState {
   if (value.version === 17) upgradeToV18(value);
   addNewQuests(value);
   upgradeWesternMap(value);
+  upgradeReedCoast(value);
   addLairGarrisons(value);
   validate(value);
   return value;

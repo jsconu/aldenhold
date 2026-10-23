@@ -1,3 +1,4 @@
+import { REED_COAST_TOWNS } from '../content/campaigns/reedCoast';
 import { LAIRS } from '../content/lairs';
 import { describe, expect, it } from 'vitest';
 import { CATALOG, getCampaign } from '../content';
@@ -20,7 +21,7 @@ const added = new Set(WESTERN_ADDED_TOWNS.map((t) => t.id));
 const ui: UIState = { selected: null, checked: new Set(), battleUnit: null, battleSpell: null, message: '', view: 'map' };
 function legacy(seed = 1): GameState {
   const s = newGame(seed, 'western-realm');
-  const newLocations = new Set(WESTERN_ADDED_TOWNS.map((t) => townLocation(s, t.id)));
+  const newLocations = new Set([...WESTERN_ADDED_TOWNS,...REED_COAST_TOWNS].map((t) => townLocation(s, t.id)));
   const arrivals = s.armies.filter((a) => newLocations.has(a.at));
   s.nextId = Math.min(...arrivals.flatMap((a) => [a.id, ...a.troops.map((t) => t.id)]));
   s.armies = s.armies.filter((a) => !newLocations.has(a.at));
@@ -29,7 +30,7 @@ function legacy(seed = 1): GameState {
   s.armies = s.armies.filter((a) => !lairPlaces.has(a.at));
   delete (s as Partial<GameState>).lairs;
   (s as { version: number }).version = 13;
-  for (const id of added) { delete s.towns[id]; delete s.cityEconomies[id]; }
+  for (const id of [...added,...REED_COAST_TOWNS.map(t=>t.id)]) { delete s.towns[id]; delete s.cityEconomies[id]; }
   s.campaignRevision = 1;
   return s;
 }
@@ -43,16 +44,16 @@ function preserved(old: GameState, current: GameState) {
   for (const key of ['seed', 'turn', 'gold', 'treasury', 'items', 'treaties', 'flags', 'quests', 'journal', 'log', 'offers', 'status', 'endingReason', 'pending', 'battle'] as const) expect(current[key]).toEqual(old[key]);
 }
 
-describe('Western Realm revision 2', () => {
-  it('adds 76% more cells while preserving all original terrain and town/site coordinates', () => {
+describe('Western Realm expanded geography', () => {
+  it('expands to the coast while preserving all original terrain and town/site coordinates', () => {
     const s = newGame(1, 'western-realm'), w = getCampaign('western-realm').hex!;
-    expect([w.rows[0].length, w.rows.length]).toEqual([52, 38]);
+    expect([w.rows[0].length, w.rows.length]).toEqual([76, 52]);
     expect(w.rows.slice(0, 28).map((r) => r.slice(0, 40))).toEqual(WESTERN_REVISION_1_ROWS);
     const oldPositions = { aldenhold: '4,14', millbrook: '6,21', fenwick: '8,7', greenveil: '3,4', harrowgate: '20,6', westmere: '19,12', duskwater: '20,20', reedhaven: '24,22', gharzak: '35,12', watchtower: '30,22', quarry: '24,15', mine: '26,3' };
     for (const [id, at] of Object.entries(oldPositions)) expect(startLocation(s, id)).toBe(at);
-    expect(Object.keys(s.towns)).toHaveLength(15);
+    expect(Object.keys(s.towns)).toHaveLength(20);
     // Twelve landmarks, plus the five monster lairs (content/lairs.ts).
-    expect(w.places.filter((p) => p.kind === 'landmark' && !Object.values(LAIRS).some((l) => l.place === p.id))).toHaveLength(12);
+    expect(w.places.filter((p) => p.kind === 'landmark' && !Object.values(LAIRS).some((l) => l.place === p.id))).toHaveLength(17);
     expect(w.places.filter((p) => Object.values(LAIRS).some((l) => l.place === p.id))).toHaveLength(5);
     expect(validateContent(CATALOG)).toEqual([]);
   });
@@ -112,12 +113,12 @@ describe('additive Western map migration', () => {
     armyAt(old, townLocation(old, 'millbrook'), 'player')!.at = neighborsOf(old, townLocation(old, 'fenwick')).find((at) => Number.isFinite(stepCost(old, at)) && !armyAt(old, at))!;
     expect(chooseQuest(old, 'Q00', 'sign')).toBeNull();
     const current = migrate(old); preserved(old, current);
-    expect(current.campaignRevision).toBe(2);
+    expect(current.campaignRevision).toBe(3);
     expect(current.nextId).toBeGreaterThan(old.nextId);
     const newcomers = current.armies.filter((a) => !old.armies.some((b) => b.id === a.id));
     // Six new town garrisons from the map upgrade, and the five lair garrisons from save v14.
     const towns = newcomers.filter((a) => a.owner === 'neutral');
-    expect(towns).toHaveLength(6);
+    expect(towns).toHaveLength(11);
     expect(towns.every((a) => a.troops.every((t) => t.mp === 0))).toBe(true);
     expect(newcomers.filter((a) => a.owner !== 'neutral').map((a) => a.owner).sort()).toEqual(['giants', 'goblins', 'goblins', 'titans', 'trolls']);
     expect(Object.values(current.lairs).every((l) => l.status === 'active' && !l.discovered)).toBe(true);

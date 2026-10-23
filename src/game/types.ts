@@ -333,7 +333,7 @@ export interface CampaignDefinition {
   hex?: HexWorld;
   towns: Town[];
   /** Static local economic context; mechanics use the town's actual resource endowment. */
-  settlementProfiles?: Record<string, { region: string; role: string }>;
+  settlementProfiles?: Record<string, { region: string; role: string; raids?: boolean }>;
   /** Start locations are node ids on the valley and place ids on a hex map. */
   armies: { owner: FactionId; at: string; troops: StartTroop[] }[];
   offers: HeroOffer[];
@@ -397,6 +397,8 @@ export type QuestCondition =
   | { kind: 'units'; atLeast: number }
   /** One of your armies stands at this town or landmark (a discovery). */
   | { kind: 'army-at'; place: string }
+  /** Peaceful talks can happen beside a guarded town without attacking its garrison. */
+  | { kind: 'army-near'; place: string }
   /** Food stored in one of your cities. */
   | { kind: 'food'; town: string; atLeast: number }
   /** Any one of these holds. */
@@ -501,6 +503,8 @@ export interface QuestDefinition {
   id: string;
   campaignIds: CampaignId[];
   kind: 'main' | 'side';
+  /** Longer optional multi-settlement arcs are presented separately from local highlights. */
+  scope?: 'regional';
   name: string;
   giver: string;
   /** Town id where the quest is offered and decided. */

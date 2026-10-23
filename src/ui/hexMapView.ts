@@ -82,6 +82,11 @@ export const PLACE_SPRITES: Record<string, string[]> = {
   banner: ['kk.....', 'kFFFFk.', 'kFFFFFk', 'kFFFFk.', 'k......', 'k......', 'k......', 'k......'],
 };
 
+// Reuse small landmark silhouettes; the coastal town art remains uncluttered.
+PLACE_SPRITES.coastgate = PLACE_SPRITES.pass;
+PLACE_SPRITES.reedbeacon = PLACE_SPRITES.watchtower;
+PLACE_SPRITES.reedden = PLACE_SPRITES.camp;
+
 /** Which map sprite a place uses: towns by kind, landmarks by id. */
 function spriteFor(state: GameState, placeId: string, kind: 'town' | 'landmark'): string | null {
   if (PLACE_SPRITES[placeId]) return placeId;
@@ -92,7 +97,9 @@ function spriteFor(state: GameState, placeId: string, kind: 'town' | 'landmark')
   return PLACE_SPRITES[placeId] ? placeId : null;
 }
 
+let mapSymbols: string | undefined;
 function symbolDefs(): string {
+  if (mapSymbols) return mapSymbols;
   let defs = '';
   for (const [name, rows] of Object.entries(PLACE_SPRITES)) {
     for (const [owner, colour] of Object.entries(OWNER_COLOUR)) {
@@ -100,7 +107,7 @@ function symbolDefs(): string {
       defs += `<symbol id="${id}" viewBox="0 0 ${rows[0].length} ${rows.length}"><g shape-rendering="crispEdges">${pixelRects(rows, (ch) => (ch === 'F' ? colour : MAP_PALETTE[ch]))}</g></symbol>`;
     }
   }
-  return `<defs>${defs}</defs>`;
+  mapSymbols = `<defs>${defs}</defs>`; return mapSymbols;
 }
 
 /**
@@ -231,7 +238,8 @@ export function renderHexMap(
       const title = `${lair.name}: ${SPECIES[lair.species].name.toLowerCase()} lair, tier ${lair.tier}. ${st.status === 'cleared' ? 'Cleared.' : `Active. ${garrison ? `Garrison: ${armyTitle(garrison)}.` : ''}`}`;
       places += `<g class="settlement-owner lair-marker"><title>${esc(title)}</title>${bannerSvg(st.status === 'cleared' ? 'cleared' : 'lair', cx - 9, cy - 18, 20)}</g>`;
     }
-    labels += `<text x="${cx}" y="${cy + 15}" class="${p.kind === 'town' ? 'place-label' : 'place-label landmark'}">${esc(p.name)}</text>`;
+    const labelOffset = p.id === 'reedden' ? 23 : p.id === 'lanternford' ? -12 : 15;
+    labels += `<text x="${cx}" y="${cy + labelOffset}" class="${p.kind === 'town' ? 'place-label' : 'place-label landmark'}">${esc(p.name)}</text>`;
   }
 
   let armies = '';

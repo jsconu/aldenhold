@@ -1,40 +1,42 @@
-# Aragon (working title)
+# Aldenhold
 
-A browser remake of *Sword of Aragon* (SSI, 1989): run your towns, raise troops, march across the province and fight turn-based hex battles against the orcs of Gharzak Hold.
+**A free browser strategy game inspired by Sword of Aragon and Civilization.**
+
+I was inspired by *Sword of Aragon* and *Civilization*, and wanted to build a successor to those games that anyone can play for free. Aldenhold combines developing cities, exploring an authored world, recruiting armies and heroes, diplomacy, layered quests and turn-based battles. It is an original game in active development.
+
+## Play the prototype
 
 ```bash
 npm install
-npm run dev     # play at http://localhost:5173
-npm test        # rules tests, including seeded chapter playthroughs
-npm run simulate:chapter -- 1 42 2026 # chapter economy/combat report
-npm run simulate:quests -- 1 42 2026  # paid optional-quest expedition
-npm run build   # type-check and build to dist/
+npm run dev       # open the local address shown in the terminal
+npm test          # rules, saves and seeded campaign playthroughs
+npm run build     # type-check and create the production build
 ```
 
-See [docs/design.md](docs/design.md) for the original prototype design and code layout. The approved expansion plan is in [completion requirements](docs/completion-requirements.md) and [expanded campaign](docs/expanded-campaign.md) ([archived v1 Word document](docs/Aragon_Game_Completion_Requirements.docx)); track implementation in [progress](docs/implementation-progress.md) and the [backlog](docs/backlog.md).
+The playable prototype runs in a browser. A public hosted play link will be added when it is ready; the current version can be run locally from this repository.
 
-The game autosaves to your browser after every action. **Saved games** has three named manual slots and three rotating recovery positions made before months, quest choices, imports, restores and new campaigns. Use **Export save** for a JSON backup you can keep outside the browser or **Import save** to restore one. Older saves migrate to version 16, including battles already in progress. The original legacy storage slot is retained. Invalid saves pause autosaving until you import a valid save or choose New game; storage failures show a warning.
+## What is playable
 
-Battles field the first 27 formations per army. Additional formations appear in the reserve list and remain off-field for that battle. They earn no combat XP or combat losses, but share their army's retreat, pursuit losses and dispersal if cut off. Deployment selection and reinforcement waves are planned for a later increment.
+- **An authored 76×52 world:** twenty cities and strongholds, the Western Realm and the new Reed Coast. Explore forests, marshes, passes and rivers with real crossing routes. Existing Western saves expand without moving their old geography or resetting armies and development.
+- **Three layers of goals:** local side quests, larger regional campaigns such as the Reed Coast Compact, and realm-wide objectives. Two relevant local quests are highlighted; the others remain available. Coastal talks can happen beside guarded cities without attacking them.
+- **Cities that support your armies:** improvement levels are uncapped, subject to money, local materials, workforce, deposits and upkeep. Each city provides one army-support place per 20 residents plus 10 per completed improvement level. Each soldier counts once, and each hero counts once regardless of HP. The Cities screen shows population, support and relevant growth tasks.
+- **24-unit marches and battles:** large city garrisons can assemble armies, while each marching army and each side of a new battle fields at most 24 units. Scouts and spies stay outside combat. Existing older battles keep their saved limits and positions.
+- **City defenses and pillage:** walls, gates, streets and actual developed buildings form settlement battlefields. Defenders can place units before an assault. Attackers can occupy an improvement to destroy a level or take bounded treasury money; collected loot and damage persist, including after retreat.
+- **Heroes and scouting:** leaders have HP and recover wounds. The ruler can join leader-only adventures. Stationed scouts provide nearby army intelligence; a distant threat is not automatically known everywhere.
+- **A saved campaign:** browser autosaves, named manual slots, rotating recovery positions and JSON import/export. Invalid imports stop autosaving until a valid game is restored or a new one is created. Existing storage keys are retained through the Aldenhold rename.
 
-In battle, tick multiple ready blue formations under **Move together**, or Shift-click them on the field. Click a glowing destination to move the group while keeping its shape; the slowest formation sets the movement budget. **Undo battle move** restores the position before the last move, including terrain harm. **Undo march** does the same for the last overland move, even if it just opened a battle. Undo is one step and available only in the current browser session until another consequential action or move.
+The nine-location Valley remains a short quick-play mode. The larger world grows through authored regions toward the planned 128×80 world; it is not a promise that every region and story act is already finished. Generated local events can add variety around fixed geography and regional stories.
 
-The present battle model has one formation per hex and 27 deployed formations per side; it does not yet reproduce the original game's point-based tactical stacks. Multiple formations may travel together on an overland hex.
+## Controls
 
-The Western Realm has grown to **52×38 hexes**, with 12 core regional settlements and three border towns/strongholds. Existing Western saves expand automatically while retaining their armies and development. See [map growth and save migration](docs/western-map-growth.md).
+Select an army, tick ready units and click a glowing destination to march. **Select up to 24 to march** helps assemble a party from a large city garrison. Unlit places are inspected rather than marched to. End the month to restore movement.
 
-The chapter simulation uses normal player commands, monthly save/import checkpoints and auto-resolved battles. See [the reproducible balance baseline](docs/chapter-playthroughs.md) for policies, metrics and limits.
+In battle, select a unit and click a glowing position to move, or a marked enemy to move into range and attack. Use **Move together**, Shift-click or Select all for group movement. Units remain separate, with one unit per tactical hex. Camera zoom, drag-to-pan and the minimap help inspect the field. A city defender can reposition before choosing **Begin city assault**.
 
-To march in the Western Realm, select the hex with your blue army banner. The ready troops are ticked in **Your troops**; click a glowing nearby hex to send them. Clicking an unlit hex only inspects it. Repeat the march from the new location, and use **End month** when the troops run out of movement. **March your troops** in the sidebar shows how many are ready and can locate an army after you inspect another place.
+The Treasury records taxes, purchases, wages, upkeep, rewards and pillage. Review a construction button to see its exact requirements and any shortage. Export a save for a backup outside the browser.
 
-Use the Journal’s **Show** links to locate an active encounter on the map. Tracked quest shortcuts also open the current encounter site; movement and battles still require your commands.
+## Development
 
-At an encounter site, expand **Expedition** to inspect the troops that will deploy, remain in reserve or wait outside. Hero-only trials leave your ruler and formations outside.
+See the [implementation progress](docs/implementation-progress.md), [active backlog](docs/backlog.md), [world plan](docs/expanded-campaign.md) and [Reed Coast expansion](docs/reed-coast.md). Historical design files may refer to the former working title Aragon. Those references and stable save identifiers remain to preserve history and compatibility.
 
-Battles set up your army automatically: healthy, strong melee formations go in front, while archers, priests, mages and the ruler start behind the screen. There is no formation grid in the city panel. Older saves with custom army plans still load, but new battles use the automatic layout; a battle already in progress keeps its saved positions.
-
-Marching into a defended hostile town opens an assault preview first. It shows the known defenders and the movement cost. Choose **Attack** to march and fight, or **Retreat** to stay at your current location without spending movement. **Besiege** is visible but unavailable until the siege rules are built. Empty towns and lairs use the current arrival rules.
-
-In the Western Realm, recruit a **Scout** in your city. Its troop card offers **Watch city** while it is in an owned town, or **Watch road** on a road hex. Marching it to another place clears the assignment. A watch can report a nearby orc army's planned route in the journal and at the threatened city, about one to three months before arrival when there is enough distance; a surprise force nearby may give no useful lead time. Scouts cost upkeep and are very weak in battle. Monster raid notices currently use their separate warning rules.
-
-The **Treasury** shows posted receipts and payments by category and location, the cash reconciliation, and unpaid bills. Quest rewards and item sales appear alongside taxes; current-month activity remains separate from closed months.
+Artwork is original project artwork with generation prompts and provenance recorded beside the assets. The new city buildings use restrained colors and detailed materials while leaving troops and movement clear.

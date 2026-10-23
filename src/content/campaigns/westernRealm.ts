@@ -1,18 +1,18 @@
 import { lairsOf } from '../lairs';
-import { WESTERN_REVISION_1_ROWS } from './westernRevision1';
-import { WESTERN_ADDED_ARMIES, WESTERN_ADDED_TOWNS, WESTERN_EAST_ROWS, WESTERN_SOUTH_ROWS } from './westernExpansion';
+import { reedCoastRows, REED_COAST_TOWNS, REED_COAST_ARMIES, REED_COAST_PLACES, REED_COAST_ROUTES } from './reedCoast';
+import { WESTERN_ADDED_ARMIES, WESTERN_ADDED_TOWNS } from './westernExpansion';
 import type { CampaignDefinition } from '../../game/types';
 
 /**
- * The Western Realm: a 52x38 hex overland map in the spirit of the original's overland view. The Aldwater
+ * The Western Realm: a 76x52 hex overland map in the spirit of the original's overland view. The Aldwater
  * splits the valley and can only be crossed at its bridges; a mountain spine shields the orc badlands, broken
  * only at Grey Pass and the southern trail by the Old Watchtower. Map key: see LAND in content/rules.ts.
  */
 export const WESTERN_REALM: CampaignDefinition = {
   id: 'western-realm',
-  revision: 2,
+  revision: 3,
   name: 'The Western Realm',
-  blurb: 'A larger 52×38 realm: twelve Crown Valley and Western March settlements, three border strongholds, and rivers crossed at bridges.',
+  blurb: 'A 76×52 authored realm with twenty settlements and strongholds, the Reed Coast regional campaign, local stories and two coastal crossing routes.',
   intro: 'Your father is dead and Aldenhold is yours. Orcs raid the realm from Gharzak Hold beyond Grey Pass. Secure your inheritance, win the free towns of the Aldwater, and hold the west.',
   chapter: {
     title: 'Act I: The Inheritance',
@@ -27,8 +27,9 @@ export const WESTERN_REALM: CampaignDefinition = {
   nodes: [],
   edges: [],
   hex: {
-    rows: [...WESTERN_REVISION_1_ROWS.map((row, i) => row + WESTERN_EAST_ROWS[i]), ...WESTERN_SOUTH_ROWS],
+    rows: reedCoastRows(),
     places: [
+      ...REED_COAST_PLACES,
       { id: 'oakcross', name: 'Oakcross', col: 6, row: 30, kind: 'town' },
       { id: 'bellwater', name: 'Bellwater', col: 14, row: 31, kind: 'town' },
       { id: 'thornwatch', name: 'Thornwatch', col: 24, row: 33, kind: 'town' },
@@ -64,6 +65,7 @@ export const WESTERN_REALM: CampaignDefinition = {
       { id: 'eldersanctum', name: 'The Elder Sanctum', col: 47, row: 8, kind: 'landmark' },
     ],
     routes: [
+      ...REED_COAST_ROUTES,
       ['millbrook', 'oakcross', 'saltroad', 'saltwick'],
       ['oakcross', 'bellwater'],
       ['bellwater', 'southford', 'ironbridge', 'thornwatch'],
@@ -93,6 +95,7 @@ export const WESTERN_REALM: CampaignDefinition = {
     { id: 'reedhaven', owner: 'neutral', pop: 1300, tax: 15, kind: 'town' },
     { id: 'gharzak', owner: 'orcs', pop: 0, tax: 0, kind: 'lair' },
     ...WESTERN_ADDED_TOWNS,
+    ...REED_COAST_TOWNS,
   ],
   // Army and offer locations are place ids; newGame turns them into hexes.
   armies: [
@@ -110,8 +113,14 @@ export const WESTERN_REALM: CampaignDefinition = {
     // Lair garrisons (content/lairs.ts).
     ...lairsOf('western-realm').map((l) => ({ owner: l.species, at: l.place, troops: l.garrison })),
     ...WESTERN_ADDED_ARMIES,
+    ...REED_COAST_ARMIES,
   ],
   settlementProfiles: {
+    willowford: { region: 'Reed Coast', role: 'Willow-bank farms and the western crossing; fertile fields and useful timber, no ore.', raids: false },
+    miretooth: { region: 'Reed Coast', role: 'A guarded marsh causeway; troll tolls, dense timber and poor grain land.', raids: false },
+    reedspire: { region: 'Reed Coast', role: 'The coast’s grain and census town; strong farms support population and recruits.', raids: false },
+    brineport: { region: 'Reed Coast', role: 'The coastal port and compact council; food, shipping timber and the beacon road.', raids: false },
+    gullmere: { region: 'Reed Coast', role: 'A northern coastal watch; mixed farms, woodland and modest mineral deposits.', raids: false },
     oakcross: { region: 'Crown Valley', role: 'Rich granary country; strong farms and timber, with little local ore.' },
     bellwater: { region: 'Crown Valley', role: 'River farms and ferry approaches; fertile fields, limited woodland and no ore deposit.' },
     thornwatch: { region: 'Western March', role: 'A guarded forest frontier; its woodland supports lumber camps and modest mines.' },

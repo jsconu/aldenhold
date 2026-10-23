@@ -348,7 +348,7 @@ function validateQuests(catalog: Catalog, err: (msg: string) => void) {
       if (c.kind === 'quest' && !quests[c.quest]) err(`${at}: requires unknown quest "${c.quest}"`);
       if ((c.kind === 'town-owner' || c.kind === 'food') && !q.campaignIds.every((cid) => catalog.campaigns[cid]?.towns.some((t) => t.id === c.town))) err(`${at}: requires unknown town "${c.town}"`);
       if ('atLeast' in c && (!Number.isInteger(c.atLeast) || c.atLeast < 0)) err(`${at}: invalid count`);
-      if (c.kind === 'army-at') for (const cid of q.campaignIds) if (!placesOf(cid).includes(c.place)) err(`${at}: requires unknown place "${c.place}" in "${cid}"`);
+      if (c.kind === 'army-at' || c.kind === 'army-near') for (const cid of q.campaignIds) if (!placesOf(cid).includes(c.place)) err(`${at}: requires unknown place "${c.place}" in "${cid}"`);
       if (c.kind === 'any') {
         if (!c.of.length) err(`${at}: "any" with no conditions`);
         c.of.forEach((x) => checkCondition(x, at));

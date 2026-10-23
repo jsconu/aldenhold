@@ -78,3 +78,10 @@ City improvements may grow without a level/type ceiling. Recruitment is constrai
 Settlement attacks now have buildings as occupied defensive positions, a defender placement phase and persistent pillage of an improvement or local treasury. Future work remains broader seeded layout variety and AI monthly sieges; the new tactical city slice does not claim those are complete. See the October 23 implementation-progress entry.
 
 For world growth, retain an authored map and regional campaigns, add generated local events around them, and expand one populated region at a time toward the established 128×80 goal. The three objective layers are local side quests, regional campaigns and realm-wide goals; map enlargement itself is a separate next increment.
+
+
+## Owner naming and expansion direction, October 23
+
+The game and GitHub repository are **Aldenhold**. The public description should state the inspiration from Sword of Aragon and Civilization and the goal of a successor anyone can play for free. Retain old save identifiers and historical documents rather than breaking saved games for a branding change.
+
+The next authored increment is delivered as the Reed Coast: a 76×52 world, five new towns, a regional compact and two local stories. See [Reed Coast scope](reed-coast.md). Further regions, later main-story acts and postwar continuation remain in the expanded campaign queue.
