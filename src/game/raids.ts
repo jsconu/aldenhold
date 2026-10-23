@@ -1,3 +1,4 @@
+import { scoutSees } from './scouts';
 import { lairsOf, LAIRS, SPECIES, type LairDefinition } from '../content/lairs';
 import { UNIT_TYPES } from './data';
 import { captureTown, dateLabel, deed, fallBack, findArmy, makeTroop, nodeName, startBattle } from './campaign';
@@ -173,8 +174,10 @@ export function planRaids(state: GameState): string[] {
     const warning = SPECIES[def.species].raids.warning;
     state.lairs[def.id].lastRaid = state.turn;
     state.raids.push({ lair: def.id, target: town.id, announced: state.turn, arrives: state.turn + warning });
+    if (scoutSees(state, lairLocation(state, def))) {
     deed(state, 'realm', `Warning: ${raiders(state, def)} are gathering to raid ${nodeName(state, town.id)} ${monthsAway(warning)}. ${raidStakes(state, def.id, town.id)} A stronger garrison may turn them back.`, townLocation(state, town.id));
     news.push(`Raid expected at ${nodeName(state, town.id)} ${monthsAway(warning)}.`);
+    }
   }
   return news;
 }
@@ -193,7 +196,7 @@ function record(state: GameState, raid: { lair: string; target: string }, result
 export function resolveRaids(state: GameState): string[] {
   const news: string[] = [];
   for (const raid of state.raids) {
-    if (raid.arrives - state.turn !== 1 || raid.arrives - raid.announced <= 1) continue;
+    if (raid.arrives - state.turn !== 1 || raid.arrives - raid.announced <= 1 || !raidObserved(state, raid)) continue;
     deed(state, 'realm', `${raiders(state, LAIRS[raid.lair])} will reach ${nodeName(state, raid.target)} next month.`, townLocation(state, raid.target));
     news.push(`Raiders reach ${nodeName(state, raid.target)} next month.`);
   }
@@ -342,4 +345,10 @@ export function raidLine(r: RaidRecord): string {
     r.battle ? `garrison lost ${r.garrisonLost} men, raiders ${r.raidersLost}` : '',
   ].filter(Boolean);
   return `${dateLabel(r.turn)}: ${RAID_RESULT_LABEL[r.result]}${costs.length ? ` (${costs.join('; ')})` : ''}.`;
+}
+
+/** The source is visible while gathering; a town scout can spot a raid on its final approach. */
+export function raidObserved(state: GameState, raid: {lair: string; target: string; arrives: number}): boolean {
+  return scoutSees(state, lairLocation(state, LAIRS[raid.lair]))
+    || (raid.arrives - state.turn <= 1 && scoutSees(state, townLocation(state, raid.target)));
 }

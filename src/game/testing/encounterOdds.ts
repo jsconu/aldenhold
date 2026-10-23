@@ -70,6 +70,8 @@ export function encounterOdds(questId: string, choiceId: string, party: PartyPre
   let wins = 0, heroDeaths = 0, lost = 0, rounds = 0;
   for (let seed = 1; seed <= runs; seed++) {
     const mine = build(state, 900001, 'player', at, party.troops);
+    if (enc.heroesOnly) mine.troops = mine.troops.filter((t) => isHero(t.type));
+    if (!mine.troops.length) throw new Error('Leaders only: this party has no eligible leader.');
     const foe = build(state, 900002, enc.owner, at, enc.troops);
     const start = mine.troops.reduce((n, t) => n + t.men, 0);
     const b = createBattle(at, mine, foe, false, seed, land);

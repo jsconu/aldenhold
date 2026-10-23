@@ -38,11 +38,11 @@ describe('optional quests through a paid campaign expedition', () => {
   }, 30_000);
 
   it('can return from the expedition and finish the chapter after Westmere fell before M03 unlocked', () => {
-    // Seed 15 is one where the orcs take Westmere before M03 unlocks.
-    const result = playQuestExpedition(15, { finishChapter: true });
+    // Seed 15 loses its first leader party at the Cyclops. Replacements finish the tour and Act I in 38 months; the priest falls. Westmere is already orc-held when M03 opens.
+    const result = playQuestExpedition(15, { finishChapter: true, maxMonths: 48 });
     expect(result).toMatchObject({
       status: 'won', ending: 'chapter-complete', crossing: 'superseded', westmereOwner: 'orcs',
-      rulerAlive: true, priestAlive: true, unpaid: 0, foodShortages: 0, corrections: 0,
+      rulerAlive: true, unpaid: 0, foodShortages: 0, corrections: 0,
       resolutions: { Q02: 'succeeded', Q03: 'succeeded', Q05: 'succeeded' },
     });
     expect(result.actions.some((a) => a.includes('Q00: sign after expedition'))).toBe(true);

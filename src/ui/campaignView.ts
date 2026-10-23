@@ -1,14 +1,15 @@
+import { campaignMorale, townUnrest, unrestOutlook } from '../game/readiness';
 import {campaignObjectives,explored,DIFFICULTIES} from '../game/challenge';
 import { detectChance, infiltrateQuote } from '../game/intel';
 import { BREACH, siegeOf, siegeOutlook, siegeQuote, surrenderPolicy } from '../game/sieges';
 import { campQuote, currentWeather, exposureLoss, SEASON_NAME } from '../game/weather';
-import { onWatch, SCOUT_RANGE, scoutContactStatus } from '../game/scouts';
+import { scoutSees, onWatch, SCOUT_RANGE, scoutContactStatus } from '../game/scouts';
 import {replacementQuote} from '../game/replacements';
 import {formationCapacity} from '../game/formationCapacity';
 import { renderRulerSelection } from './rulerSelection';
 import { questOutcome } from './gameplayFeedback';
 import { LAIRS, SPECIES, type LairDefinition } from '../content/lairs';
-import { DETERRENCE, monthsAway, raidLine, raidOdds, raidsOn, raidStakes } from '../game/raids';
+import { raidObserved, DETERRENCE, monthsAway, raidLine, raidOdds, raidsOn, raidStakes } from '../game/raids';
 import { lairAt, lairGarrison } from '../game/lairs';
 import { CATALOG } from '../content';
 import {
@@ -30,7 +31,7 @@ import { renderJournal } from './journalView';
 import { renderTreasury } from './treasuryView';
 import { questFocus, questSites } from './questNavigation';
 import { BUILDING_IDS, BUILDINGS, cityMaintenance, constructionQuote, dismantleQuote, developmentSites, endowment, totalCityMaintenance } from '../game/cities';
-import { campaignQuests, conditionHolds, conditionText, isOpen, monthsLeft, questQuote, questsAt, questsAtSite, questSummary, stageOf, trackedQuests, type EncounterPreview } from '../game/quests';
+import { sideQuestHighlights, campaignQuests, conditionHolds, conditionText, isOpen, monthsLeft, questQuote, questsAt, questsAtSite, questSummary, stageOf, trackedQuests, type EncounterPreview } from '../game/quests';
 import { esc, type UIState } from './shared';
 import { placeScene } from './placeScene';
 import { renderOverland } from './overlandMap';
@@ -343,7 +344,7 @@ function renderQuests(state: GameState, defs: QuestDefinition[]): string {
     return `${head}${def.adventureSite ? '<p class="adventure-label">Ruler adventure · your army waits outside. Progress is saved after each choice.</p>' : ''}<p>${esc(def.summary)}</p><p class="sub">${esc(stage.text)}</p>${siteLinks}${goals}${deadline}
       ${shared ? `<p class="hint">${esc(shared)}</p>` : ''}
       ${quotes.length ? `<div class="quest-actions">${quotes.map(({ c, quote }) => `<div class="quest-option"><button data-action="quest-choice" data-quest="${def.id}" data-choice="${c.id}"
-        ${quote.reason ? `disabled title="${esc(quote.reason)}"` : ''}>${esc(c.label)}${quote.gold ? ` · ${quote.gold}g` : ''}${'encounter' in c.then ? ` · battle at ${esc(nodeName(state, startLocation(state, c.then.encounter.site)))}` : ''}</button>${quote.reason && !shared ? `<small class="hint">${esc(quote.reason)}</small>` : ''}${quote.encounter ? renderEncounterParty(state, quote.encounter) : ''}</div>`).join('')}</div>` : ''}</div>`;
+        ${quote.reason ? `disabled title="${esc(quote.reason)}"` : ''}>${esc(c.label)}${quote.gold ? ` · ${quote.gold}g` : ''}${'encounter' in c.then && c.then.encounter.heroesOnly ? ' · Leaders only' : ''}${'encounter' in c.then ? ` · battle at ${esc(nodeName(state, startLocation(state, c.then.encounter.site)))}` : ''}</button>${quote.reason && !shared ? `<small class="hint">${esc(quote.reason)}</small>` : ''}${quote.encounter ? renderEncounterParty(state, quote.encounter) : ''}</div>`).join('')}</div>` : ''}</div>`;
   }).join('');
 }
 
@@ -357,7 +358,7 @@ function renderEncounterParty(state: GameState, preview: EncounterPreview): stri
     return esc(`${troop.name ?? type.name} (Lv ${type.hero ? heroLevel(troop.xp) : level(troop.xp)}, ${troop.men} ${type.hero ? 'HP' : 'men'})`);
   }).join(', ');
   return `<details class="encounter-party"><summary>Expedition: ${preview.deployed.length} deployed${preview.reserves.length ? ` · ${preview.reserves.length} in reserve` : ''}${preview.waiting.length ? ` · ${preview.waiting.length} stay outside` : ''}</summary>
-    <p>${preview.heroesOnly ? 'Only hired heroes enter; your lord and units stay outside.' : 'The whole army at this site joins the expedition.'}</p>
+    <p>${preview.heroesOnly ? 'Leaders only: your ruler and hired heroes enter; ordinary units stay outside.' : 'The whole army at this site joins the expedition.'}</p>
     <p><b>Deployed:</b> ${preview.deployed.length ? names(preview.deployed) : 'No eligible troops at this site.'}</p>
     ${preview.reserves.length ? `<p><b>Off-field reserves:</b> ${names(preview.reserves)}. They stay off the field and earn no combat experience.</p>` : ''}
     ${preview.waiting.length ? `<p><b>Waiting outside:</b> ${names(preview.waiting)}</p>` : ''}
@@ -376,7 +377,7 @@ function renderRaidThreat(state: GameState, townId: string): string {
   if (!due && !odds.sources.length && !past.length) return '';
   const name = (id: string) => (state.lairs[id]?.discovered ? LAIRS[id].name : 'an unknown lair');
   const from = odds.sources.map((s) => `${SPECIES[s.lair.species].name.toLowerCase()} from ${name(s.lair.id)}`).join(', ');
-  const warning = due ? `<p class="msg raid-warning">${esc(`Raid expected ${monthsAway(due.arrives - state.turn)}: ${SPECIES[LAIRS[due.lair].species].name.toLowerCase()} from ${name(due.lair)}. ${raidStakes(state, due.lair, townId)}`)} Reinforce to ${odds.needed.toFixed(1)} defence to turn them back.</p>` : '';
+  const warning = due && raidObserved(state, due) ? `<p class="msg raid-warning">${esc(`Raid expected ${monthsAway(due.arrives - state.turn)}: ${SPECIES[LAIRS[due.lair].species].name.toLowerCase()} from ${name(due.lair)}. ${raidStakes(state, due.lair, townId)}`)} Reinforce to ${odds.needed.toFixed(1)} defence to turn them back.</p>` : '';
   const history = past.length ? `<p class="sub">Last raids:</p><ul class="raid-history">${past.map((r) => `<li>${esc(raidLine(r))}</li>`).join('')}</ul>` : '';
   const line = !odds.sources.length ? '' : odds.deterred
     ? `Deterred: the garrison (${odds.defense.toFixed(1)}) is at least ${DETERRENCE}× the threat (${odds.threat.toFixed(1)}). No routine raids.`
@@ -455,7 +456,7 @@ function renderArmy(state: GameState, ui: UIState, a: Army): string {
       }
       const lv = level(t.xp);
       return `<li class="${spent && mine ? 'done' : ''}"><label>${box}<span class="tname">${type.name}</span>
-        <span class="men">${t.men} men</span><span class="lv">Lv ${lv}</span>
+        <span class="men">${t.men} men · Morale ${campaignMorale(t)}/100</span><span class="lv">Lv ${lv}</span>
         <small class="gear-label">${t.gear.bow ? EQUIPMENT[t.gear.bow].name + ' · ' : ''}${EQUIPMENT[t.gear.armor].name}</small>
         ${t.refit ? '<span class="tag">refitting</span>' : ''}${marched}</label></li>`;
     })
@@ -479,7 +480,7 @@ function renderArmy(state: GameState, ui: UIState, a: Army): string {
         ${a.troops.length > 1 ? `<button data-action="station-scout" data-troop="${t.id}" title="The scout leaves this army and keeps watch here alone; the army can march on">Station scout here</button>` : ''}
       </div><small class="sub">Lv ${level(t.xp)}: gains experience each month on watch, and the higher its level the harder it is for enemy spies to find. A scout on watch sees ${SCOUT_RANGE} hexes all around (shaded on the map) and reports visible orc and rival-city forces with an estimated destination. Scouts stay out of battle and cannot capture towns; an enemy reaching their post ends their watch. Isolated scouts cannot hold a position. Marching the scout ends its watch.</small></div>`).join('') : ''}
     ${mine && ui.view==='city' && townAt(state, a.at)?.owner === 'player' ? renderRefitChoices(state, a, ui) : ''}
-    ${mine ? '<p class="sub">In battle, your toughest melee units set up in front; archers, casters and the leader start behind them.</p>' : ''}
+    ${mine ? '<p class="sub">Bad-weather marches reduce morale once each month. Shelter restores 10 morale/month; a priest adds 5. Low campaign morale lowers starting battle morale. In battle, your toughest melee units set up in front; archers, casters and the leader start behind them.</p>' : ''}
     ${ready ? `<p class="hint">${hint}</p>` : ''}</div>`;
 }
 
@@ -610,6 +611,10 @@ function renderCityScreen(state:GameState,ui:UIState):string{
  let content='';
  if(tab==='overview'){
   content=renderScoutContacts(state,ui.selected!)+renderSiege(state,town.id)+placeScene(state,town.id)+'<p>'+OWNER_LABEL(town.owner)+' · '+(RELATION_LABEL[relationWith(state,town.id) as keyof typeof RELATION_LABEL]??'Your city')+' · Population '+town.pop.toLocaleString()+'</p>';
+  if(owned){
+    const outlook=unrestOutlook(state,town);
+    content+='<p><b>Unrest: '+townUnrest(town)+'/100</b> · monthly trend '+(outlook.change>0?'+':'')+outlook.change+' ('+esc(outlook.reasons.join(', ')||'settled conditions')+'). Unrest reduces tax receipts by up to 50%. Lower taxes to 25% or less, keep a garrison and provide enough food.</p>';
+  }
   if(owned)content+='<label class="tax">Tax rate<select data-change="tax" data-node="'+town.id+'">'+Array.from({length:11},(_,i)=>i*5).map(v=>'<option value="'+v+'" '+(town.tax===v?'selected':'')+'>'+v+'%</option>').join('')+'</select></label><p>Income: '+townIncome(town)+' gold/month. Population change: '+townGrowth(town)+'/month.</p>'+renderRaidThreat(state,town.id);
   const profile=campaignOf(state).settlementProfiles?.[town.id];if(profile)content+='<p>'+esc(profile.role)+'</p>';
   content+=renderMerchants(state,town.id);
@@ -624,8 +629,8 @@ function renderCityScreen(state:GameState,ui:UIState):string{
 }
 
 function renderCityWarWarnings(state:GameState):string{
- const warnings=Object.entries(state.cityPolitics?.rivals??{}).filter(([,r])=>r.warning).map(([origin,r])=>'<li>'+esc(nodeName(state,origin))+' is mustering against '+esc(nodeName(state,r.warning!.target))+'. Marches '+(r.warning!.launchTurn<=state.turn?'now':'next month')+'.</li>');
- const parties=state.armies.filter(a=>a.cityRaid && !a.cityRaid.returning).map(a=>'<li>'+esc(nodeName(state,a.cityRaid!.origin))+' has a war party marching on '+esc(nodeName(state,a.cityRaid!.target))+'.</li>');
+ const warnings=Object.entries(state.cityPolitics?.rivals??{}).filter(([origin,r])=>r.warning && scoutSees(state,townLocation(state,origin))).map(([origin,r])=>'<li>'+esc(nodeName(state,origin))+' is mustering against '+esc(nodeName(state,r.warning!.target))+'. Marches '+(r.warning!.launchTurn<=state.turn?'now':'next month')+'.</li>');
+ const parties=state.armies.filter(a=>a.cityRaid && !a.cityRaid.returning && scoutSees(state,a.at)).map(a=>'<li>'+esc(nodeName(state,a.cityRaid!.origin))+' has a war party marching on '+esc(nodeName(state,a.cityRaid!.target))+'.</li>');
  return warnings.length+parties.length?'<section class="city-war-warning" role="status"><h3>Rival city threats</h3><ul>'+warnings.join('')+parties.join('')+'</ul><p>Reinforce the threatened city. Allies, vassals and truces do not send war parties.</p></section>':'';
 }
 
@@ -780,11 +785,16 @@ function dueBadge(state: GameState, questId: string): string {
 
 /** The quests screen: every open quest in full, with where it is and how long it has. */
 function renderQuestScreen(state: GameState, ui: UIState): string {
-  const quests = openQuests(state);
+  const quests=openQuests(state), highlights=sideQuestHighlights(state,ui.selected);
+  const main=quests.filter(q=>q.kind==='main'), others=quests.filter(q=>q.kind==='side'&&!highlights.includes(q));
+  const cards=(items:QuestDefinition[])=>items.map(d=>`${renderQuests(state,[d])}<p class="quest-goto">${explored(state,questFocus(state,d.id)??'') ? `<button class="link" data-action="view-quest" data-quest="${d.id}">Show on map</button>` : '<small>Its place is still unexplored.</small>'}</p>`).join('');
   return `<main class="quest-screen"><header class="city-heading"><div><p class="report-eyebrow">Quests</p><h1>Open quests</h1></div><button class="primary" data-action="quests">Back to the map</button></header>
     ${ui.message ? `<p class="msg" role="status">${esc(ui.message)}</p>` : ''}
-    <p class="sub">Main objectives first, then whatever runs out soonest. "Show on map" takes you to a quest's place once you have explored it.</p>
-    ${quests.map((d) => `${renderQuests(state, [d])}<p class="quest-goto">${explored(state, questFocus(state, d.id) ?? '') ? `<button class="link" data-action="view-quest" data-quest="${d.id}">Show on map</button>` : `<small>Its place is still unexplored.</small>`}</p>`).join('') || '<p>No open quests right now.</p>'}
+    <p class="sub">Two side quests relevant to your location, troops, progress and deadlines are highlighted. All other quests remain available. Main objectives are separate.</p>
+    ${main.length ? '<h2>Main objectives</h2>'+cards(main) : ''}
+    ${highlights.length ? '<section aria-label="Recommended side quests"><h2>Recommended side quests</h2>'+cards(highlights)+'</section>' : ''}
+    ${others.length ? '<details class="other-quests"><summary>Other available side quests ('+others.length+')</summary>'+cards(others)+'</details>' : ''}
+    ${quests.length ? '' : '<p>No open quests right now.</p>'}
   </main>`;
 }
 

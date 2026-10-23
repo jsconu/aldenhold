@@ -1,3 +1,4 @@
+import { scoutSees } from './scouts';
 import { scoutedTarget } from './intel';
 import { ARMY_CAP, armyAt, campaignOf, enterNode, log, makeTroop, marchAlong, neighborsOf, nodeName, sharedMp } from './campaign';
 import type { Army, GameState } from './types';
@@ -28,7 +29,7 @@ export function orcTurn(state: GameState, beforeMarch?: (state: GameState, army:
       const raiders = ranks.slice(0,state.challenge?Math.min(2,Math.max(0,garrison.troops.length-8)):Math.ceil(ranks.length / 2));
       garrison.troops = garrison.troops.filter((t) => !raiders.includes(t));
       if(raiders.length)state.armies.push({ id: state.nextId++, owner: 'orcs', at: LAIR, from: null, troops: raiders });
-      if(raiders.length)log(state, 'A war party rides out of Gharzak Hold.');
+      if(raiders.length && scoutSees(state, LAIR))log(state, 'A war party rides out of Gharzak Hold.');
     }
   }
 

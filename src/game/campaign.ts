@@ -1,3 +1,4 @@
+import { advanceReadiness, marchMorale, townUnrest } from './readiness';
 import { advanceIntel, catchScouts, spyOnTheMove } from './intel';
 import { advanceSieges, siegeStormed, wallsBreached } from './sieges';
 import { rollWeather, weatherMarch, weatherToll } from './weather';
@@ -209,7 +210,7 @@ export function findArmy(state: GameState, id: number): Army | undefined {
 }
 
 export function townIncome(t: Town): number {
-  return Math.floor((t.pop * t.tax) / 500);
+  return Math.floor((t.pop * t.tax) / 500 * (1 - townUnrest(t) / 200));
 }
 
 export function townGrowth(t: Town): number {
@@ -321,6 +322,7 @@ export function moveTroops(state: GameState, from: string, troopIds: number[], t
   // The marching troops keep their army's battle plan; units without a custom place set up automatically.
   const army: Army = { id: state.nextId++, owner: 'player', at: from, from: null, troops: moving, ...(src.tactics ? { tactics: structuredClone(src.tactics) } : {}) };
   state.armies.push(army);
+  marchMorale(state, moving);
   marchAlong(state, army, quote.path);
   // A covert party slips along unseen, watching; an army marching through hidden enemy scouts catches them.
   const moved = state.armies.find((a) => a.troops.some((t) => quote.troopIds.includes(t.id)));
@@ -639,7 +641,7 @@ export function checkStatus(state: GameState) {
 /** The phases of a month, in the order they run. */
 export type MonthPhaseId =
   | 'snapshot' | 'cities' | 'population' | 'heroes' | 'treasury' | 'construction' | 'refits' | 'shortages'
-  | 'desertion' | 'exposure' | 'calendar' | 'weather' | 'offers' | 'quests' | 'lairs' | 'intel' | 'ai' | 'raids' | 'sieges' | 'ending';
+  | 'public-order' | 'desertion' | 'exposure' | 'calendar' | 'weather' | 'offers' | 'quests' | 'lairs' | 'intel' | 'ai' | 'raids' | 'sieges' | 'ending';
 
 /** One line the month produced: news for the chronicle, or a deed that also goes in the journal. */
 export interface MonthNote {
@@ -753,6 +755,7 @@ const MONTH_PHASES: MonthPhase[] = [
   },
   // The month's weather takes its toll before it turns: rain, storms and snow cost men out in the open.
   { id: 'exposure', run(state) { return weatherToll(state).map(news); } },
+  { id: 'public-order', run(state) { return advanceReadiness(state).map(news); } },
   {
     id: 'calendar',
     run(state) {

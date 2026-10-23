@@ -64,3 +64,8 @@ Gharzak can be attacked before completing the other objectives (#73); all object
 Open GitHub issues are not a reliable list of wholly unimplemented work: #17 and #57–#62 include delivered foundations. Review their individual acceptance criteria before closing them; remaining scope is recorded above. A full Normal diagnostic controller now covers relics, development and Gharzak using real commands. Its three initial baselines fail; see [full campaign baselines](full-campaign-baselines.md). Next: [#76 capital production path](https://github.com/jsconu/aragon/issues/76), improve the preparation policy, rerun full victory checks, then owner playthrough and pacing acceptance. Existing chapter simulations exercise the legacy story path, not that full victory contract.
 
 Next priority: resolve #76 before claiming the Normal campaign is winnable through the implemented economy. The scout lifecycle and full-campaign diagnostic are delivered; the diagnostic currently reports failures.
+
+
+## Playtest handoff, October 23, 2026
+
+Claude's spy/action-bar/quest-screen changes are merged in #81. The current increment adds leader-only Cyclops/Minotaur encounters (including every ruler class), campaign morale and town unrest, scout-gated incoming-army warnings, clearer leader HP/recovery, larger battle zoom, battle Select all / Deselect all, PANIC routing labels, honest noncombatant reserve explanations, and two context-relevant quest highlights with longer side-quest failure deadlines. All other quests remain available. #76's production-site blocker was addressed by redevelopment in #78; remaining full Normal-campaign policy/balance acceptance is still outstanding.

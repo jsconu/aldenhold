@@ -53,7 +53,7 @@ describe('quest destination navigation', () => {
     advanceQuests(state);
     expect(questFocus(state, 'Q03')).toBe(startLocation(state, 'watchtower'));
     expect(renderJournal(state)).toContain('data-node="30,22">Show Old Watchtower');
-    expect(renderCampaign(state, ui(startLocation(state, 'watchtower')))).toContain('Send in your heroes');
+    expect(renderCampaign(state, ui(startLocation(state, 'watchtower')))).toContain('Send in your leaders');
   });
 
   it('retains graph locations for quick-play diplomacy and hides Western-only destinations', () => {

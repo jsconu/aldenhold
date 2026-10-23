@@ -57,7 +57,7 @@ describe('encounters: Q02 One Eye at the Quarry', () => {
     expect(questQuote(s, 'Q02', 'hunt').reason).toBeNull();
     const html = renderCampaign(s, ui(startLocation(s, 'quarry')));
     expect(html).toContain('One Eye at the Quarry');
-    expect(html).toMatch(/data-choice="hunt"\s*>Hunt the cyclops · battle at Old Quarry/);
+    expect(html).toMatch(/data-choice="hunt"\s*>Hunt the cyclops · Leaders only · battle at Old Quarry/);
   });
 
   it('starts a battle against the cyclops; retreating leaves the quest open and the cyclops gone from the map', () => {
@@ -159,19 +159,19 @@ describe('the cyclops boulder', () => {
 });
 
 describe('encounters: Q03 Beneath the Old Tower', () => {
-  it('is found by reaching the watchtower, and only hired heroes go in, never the lord', () => {
+  it('is found by reaching the watchtower; the ruler and hired heroes enter while units wait', () => {
     let s = newGame(1, 'western-realm');
     const army = sendHome(s, 'watchtower');
     advanceQuests(s);
     expect(s.quests.Q03.status).toBe('available');
-    expect(questQuote(s, 'Q03', 'enter').reason).toMatch(/council will not risk your lord/);
+    expect(questQuote(s, 'Q03', 'enter').reason).toBeNull();
     const champion = makeTroop(s, 'champion', 'Brannoc');
     army.troops.push(champion);
     expect(chooseQuest(s, 'Q03', 'enter')).toBeNull();
     const e = s.battle!.encounter!;
     const party = s.armies.find((a) => a.id === e.party)!;
-    expect(party.troops.map((t) => t.type)).toEqual(['champion']);
-    expect(army.troops.some((t) => t.type === 'lord')).toBe(true);
+    expect(party.troops.map((t) => t.type)).toEqual(['lord', 'champion']);
+    expect(army.troops.every((t) => !['lord', 'champion'].includes(t.type))).toBe(true);
     s = reload(s);
     retreat(s.battle!, 'attacker');
     applyBattle(s, s.battle!);

@@ -11,7 +11,7 @@ import {
 import { nodeName } from '../game/campaign';
 import { raidAftermath } from '../game/raids';
 import { SPELLS, TERRAIN, UNIT_TYPES } from '../game/data';
-import { heroLevel, kitBonus, level } from '../game/units';
+import { heroMaxHp, heroLevel, kitBonus, level } from '../game/units';
 import { hexKey, hexDistance } from '../game/hex';
 import type { Battle, BattleUnit, GameState, Side, Terrain } from '../game/types';
 import { pixelSprite, pixelSpriteDefs } from './pixelSprites';
@@ -100,15 +100,15 @@ export function renderBattle(state: GameState, ui: UIState): string {
       const frac = Math.min(1, u.men / u.maxMen);
       const morale = hero ? 1 : u.morale / 100;
       return `<g class="${cls}" data-action="hex" data-col="${u.col}" data-row="${u.row}">
-        <title>${esc(unitLabel(b, u))}: ${u.men} ${hero ? 'HP' : `men, morale ${u.morale}${u.routing ? ', running' : ''}`}</title>
+        <title>${esc(unitLabel(b, u))}: ${u.men} ${hero ? 'HP' : `men, morale ${u.morale}${u.routing ? ', panicking' : ''}`}</title>
         <ellipse cx="${cx}" cy="${cy + 4}" rx="21" ry="17" class="mark"/>
         <ellipse cx="${cx}" cy="${cy + 9}" rx="15" ry="5" class="base"/>
         <ellipse cx="${cx}" cy="${cy + 9}" rx="19" ry="7" class="side-ring"/>
         ${u.type === 'scout' ? scoutFigure(cx, cy, u.side === 'defender', u.troopId) : battleFigure(u.type, cx, cy, u.side === 'defender', u.men, mine ? state.rulerAppearance : undefined, u.name ? (/^(Mother|Sister|Edith|Tamsin|Ysolde)/.test(u.name)?'female':'male') : (u.troopId%2?'female':'male')) || pixelSprite(u.type, mine ? 'mine' : 'foe', cx, cy + 10, 2.5, u.side === 'defender')}
         ${hero ? `<path d="m${cx + 15} ${cy - 23} 1.5 3 3.3.5-2.4 2.3.6 3.3-3-1.6-3 1.6.6-3.3-2.4-2.3 3.3-.5z" class="star"/>` : ''}
         ${sidePennant(mine, cx, cy)}
-        <rect x="${cx - 18}" y="${cy + 3}" width="36" height="16" rx="4" class="unit-status-back"/>
-        <text x="${cx}" y="${cy + 12}" class="men${hero ? ' hero-hp' : ''}">${u.routing ? 'RUN' : hero ? u.men+' HP' : u.men}</text>
+        <rect x="${cx - 22}" y="${cy + 3}" width="44" height="16" rx="4" class="unit-status-back"/>
+        <text x="${cx}" y="${cy + 12}" class="men${hero ? ' hero-hp' : ''}">${u.routing ? 'PANIC' : hero ? u.men+' HP' : u.men}</text>
         <rect x="${cx - 14}" y="${cy + 14}" width="28" height="2" class="hp-bg"/>
         <rect x="${cx - 14}" y="${cy + 14}" width="${(28 * frac).toFixed(1)}" height="2" class="hp"/>
         ${aimedBy ? `<g class="aimed"><title>${esc(unitLabel(b, aimedBy))} will throw a boulder here next turn if this unit is still within ${UNIT_TYPES[aimedBy.type].boulder!.range} hexes.</title><circle cx="${cx}" cy="${cy - 2}" r="24" class="aim-ring"/><text x="${cx - 18}" y="${cy - 14}" class="aim-mark">!</text></g>` : ''}
@@ -120,7 +120,7 @@ export function renderBattle(state: GameState, ui: UIState): string {
     .join('');
 
   const w = PAD * 2 + S * 2 + (b.width - 1) * 1.5 * S;
-  const zoom = ui.battleZoom ?? 1;
+  const zoom = Math.max(0.5, Math.min(5, ui.battleZoom ?? 1.8));
   const h = PAD * 2 + H * (b.height + 0.5);
   const turnText = b.outcome
     ? b.owners[b.outcome] === 'player' ? 'Victory!' : 'Defeat.'
@@ -144,7 +144,7 @@ export function renderBattle(state: GameState, ui: UIState): string {
          <span class="camera" aria-label="Camera">
            <button data-action="battle-zoom" data-dir="-1" class="ghost" title="Zoom out" ${zoom <= 0.5 ? 'disabled' : ''}>−</button>
            <output class="zoom-level">${Math.round(zoom * 100)}%</output>
-           <button data-action="battle-zoom" data-dir="1" class="ghost" title="Zoom in" ${zoom >= 2.6 ? 'disabled' : ''}>+</button>
+           <button data-action="battle-zoom" data-dir="1" class="ghost" title="Zoom in" ${zoom >= 5 ? 'disabled' : ''}>+</button>
            ${sel ? '<button data-action="battle-center" class="ghost" title="Scroll to the selected unit">Centre</button>' : ''}
          </span>
          <button data-action="battle-auto" class="ghost">Auto-resolve</button>
@@ -152,7 +152,7 @@ export function renderBattle(state: GameState, ui: UIState): string {
   </header>
   <main class="battle">
     <section class="field-wrap battle-scroll" tabindex="0" aria-label="Battlefield: drag or use the arrow keys to look around">
-      <svg viewBox="0 0 ${w.toFixed(0)} ${h.toFixed(0)}" class="field" width="${(w * zoom).toFixed(0)}" height="${(h * zoom).toFixed(0)}">
+      <svg viewBox="0 0 ${w.toFixed(0)} ${h.toFixed(0)}" class="field" style="width:${(w * zoom).toFixed(0)}px;height:${(h * zoom).toFixed(0)}px" width="${(w * zoom).toFixed(0)}" height="${(h * zoom).toFixed(0)}">
       ${spriteDefs()}
       <defs>${pixelSpriteDefs()}
         <filter id="battle-terrain-blend" x="-5%" y="-5%" width="110%" height="110%">
@@ -180,7 +180,7 @@ export function renderBattle(state: GameState, ui: UIState): string {
       ${ui.message ? `<p class="msg" role="status">${esc(ui.message)}</p>` : ''}
       ${myTurn ? renderGroupSelector(b, group) : ''}
       ${b.outcome ? '' : group.length > 1 ? `<p class="hint">${group.length} units selected. The slowest has ${Math.min(...group.map(movementOf))} movement. Click a glowing location to move together while keeping their spacing. Select one unit to attack or cast.</p>` : sel ? renderUnit(state, b, sel, ui) : '<p class="hint">Gold-bordered hexes show where you can move this turn. Click one of your units, then a marked enemy to move into range and attack in one click, or a glowing location to move. Each unit may move, then attack, once a turn. Heroes (★) can cast spells instead of attacking.</p>'}
-      <p class="sub">Groups of soldiers are units; single figures marked ★ are heroes. People share the same scale; groups represent units. Unit numbers count soldiers; hero numbers show HP. The thin bar under each troop is its morale. Below ${ROUT_AT} it breaks and runs for its own edge of the field; at ${RALLY_AT} it may rally.</p>
+      <p class="sub">Groups of soldiers are units; single figures marked ★ are heroes. People share the same scale; groups represent units. Unit numbers count soldiers; hero numbers show HP. The green bar shows health; the thin gold bar under regular units shows morale. PANIC means a unit is routing toward its own edge. Below ${ROUT_AT} it breaks and runs for its own edge of the field; at ${RALLY_AT} it may rally.</p>
       ${b.walls ? `<p class="sub">${me === 'defender' ? 'You fight behind town walls: +1 defense.' : 'The enemy is behind walls: +1 defense.'}</p>` : ''}
       ${renderReserves(b)}
       ${renderLegend(b)}
@@ -223,6 +223,7 @@ function renderGroupSelector(b: Battle, group: BattleUnit[]): string {
   const selected = new Set(group.map((u) => u.id));
   return `<details class="battle-group" open><summary>Move together (${selected.size} selected)</summary>
     <p class="sub">Tick units here, or Shift-click blue units. A glowing destination moves them together at the slowest pace, keeping their spacing. One unit occupies each battle hex.</p>
+    <div class="group-actions"><button data-action="battle-select-all">Select all</button><button data-action="battle-select-none">Deselect all</button></div>
     <div class="battle-group-list">${alive(b, b.active).map((u) =>
       `<label><input type="checkbox" data-change="battle-check" data-troop="${u.id}" ${selected.has(u.id) ? 'checked' : ''} ${u.moved || u.acted || u.routing ? 'disabled' : ''}>
         ${esc(unitLabel(b, u))} · ${u.moved || u.acted ? 'moved' : `${movementOf(u)} move`}</label>`).join('')}</div>
@@ -254,9 +255,11 @@ function renderUnit(state: GameState, b: Battle, u: BattleUnit, ui: UIState): st
     })
     .join('');
   return `<h2>${title}</h2>
+    <svg class="unit-detail-art" viewBox="-38 -45 76 65" role="img" aria-label="${esc(u.name ?? t.name)} enlarged unit illustration">${battleFigure(u.type,0,0,false,u.men,u.side===playerSide(b) ? state.rulerAppearance : undefined) || pixelSprite(u.type,'mine',0,0,2.5,false)}</svg>
+    ${t.hero ? `<p class="leader-health"><b>One leader · ${u.men}/${u.maxMen} HP</b><progress aria-label="Leader health" value="${u.men}" max="${u.maxMen}"></progress>Wounds reduce HP, not soldier count. Surviving leaders recover ${Math.ceil(heroMaxHp(u.type,u.xp)/4)} HP each month. A priest’s Heal works in battle; Healing Draughts work between battles through Journal → Inventory.</p>` : ''}
     <dl class="stats">
-      <dt>${t.hero ? 'Health' : 'Men'}</dt><dd>${u.men} / ${u.maxMen}</dd>
-      ${t.hero ? `<dt>Leadership</dt><dd>+${t.hero.leadership} morale to the army</dd>` : `<dt>Morale</dt><dd>${u.morale}${u.routing ? ' (running)' : ''}</dd>`}
+      <dt>${t.hero ? 'Health' : 'Men'}</dt><dd>${u.men} / ${u.maxMen}${t.hero ? ' HP' : ' soldiers'}</dd>
+      ${t.hero ? `<dt>Leadership</dt><dd>+${t.hero.leadership} morale to the army</dd>` : `<dt>Morale</dt><dd>${u.morale}${u.routing ? ' (PANIC)'  : ''}</dd>`}
       <dt>Attack</dt><dd>${attackOf(u, b).toFixed(1)}${commandOf(b, u) ? ` <small>(+${Math.round(commandOf(b, u) * 100)}% from a hero's command)</small>` : ''}</dd>
       ${t.hero ? `<dt>Hitting power</dt><dd>${powerOf(u).toFixed(1)} <small>(grows ${Math.round(t.hero.growth * 100)}% a level)</small></dd>
       <dt>Command</dt><dd>+${t.hero.leadership + kitBonus(u.kit).leadership + 2 * heroLevel(u.xp)}% attack to units within ${COMMAND_RANGE} hexes</dd>` : ''}
@@ -278,17 +281,18 @@ function renderOutcome(state: GameState, b: Battle): string {
   const won = b.owners[b.outcome!] === 'player';
   const lost = (side: 'attacker' | 'defender') =>
     b.units.filter((u) => u.side === side && !UNIT_TYPES[u.type].hero).reduce((s, u) => s + (u.startMen - u.men), 0);
+  const leaderLoss = (side: Side) => b.units.filter(u=>u.side===side && UNIT_TYPES[u.type].hero).reduce((n,u)=>n+Math.max(0,u.startMen-u.men),0);
   const me = playerSide(b)!;
   const rows = (side: 'attacker' | 'defender') => b.units.filter(u=>u.side===side).map(u=> {
     const hero = !!UNIT_TYPES[u.type].hero;
     const gain = u.men > 0 && !u.reserve ? (hero ? 1 + Math.floor(u.deeds / 2) : 1) : 0;
     const before = hero ? heroLevel(u.xp) : level(u.xp);
     const after = hero ? heroLevel(u.xp + gain) : level(u.xp + gain);
-    return '<tr><th scope="row">'+esc(u.name ?? UNIT_TYPES[u.type].name)+'</th><td>'+Math.max(0,u.startMen-u.men)+(hero ? ' HP' : '')+'</td><td>'+(u.men<=0 ? (hero ? 'Fallen' : 'Destroyed') : u.reserve ? 'Reserve' : u.fled ? 'Withdrew' : 'Survived')+'</td><td>'+ (gain ? '+'+gain+' XP'+(after>before ? ' · Level '+after : '') : '—')+'</td></tr>';
+    return '<tr><th scope="row">'+esc(u.name ?? UNIT_TYPES[u.type].name)+'</th><td>'+Math.max(0,u.startMen-u.men)+(hero ? ' HP lost · '+u.men+'/'+u.maxMen+' HP remaining' : ' soldiers')+'</td><td>'+(u.men<=0 ? (hero ? 'Fallen' : 'Destroyed') : u.reserve ? 'Reserve' : u.fled ? 'Withdrew' : hero && u.men < u.maxMen ? 'Wounded' : 'Survived')+'</td><td>'+ (gain ? '+'+gain+' XP'+(after>before ? ' · Level '+after : '') : '—')+'</td></tr>';
   }).join('');
   const army = (side: 'attacker' | 'defender') => '<section><h3>'+ (side===me ? 'Your army' : 'Enemy army')+'</h3><div class="report-table"><table><thead><tr><th>Unit</th><th>Losses</th><th>Fate</th><th>Advancement</th></tr></thead><tbody>'+rows(side)+'</tbody></table></div></section>';
   return `<section class="battle-report" aria-labelledby="battle-result-title"><div class="battle-report-sheet"><p class="report-eyebrow">Chronicle of battle · Round ${b.round}</p><h2 id="battle-result-title">${won ? 'Victory' : 'Defeat'} at ${esc(nodeName(state,b.at))}</h2>
-    <p class="battle-spoils">Gold spoils: <b>${battleSpoils(b)}g</b>${won ? ' · collected when you continue' : ' · victory is required'}.</p><p>You lost ${lost(me)} men. The enemy lost ${lost(me === 'attacker' ? 'defender' : 'attacker')}.</p>
+    <p class="battle-spoils">Gold spoils: <b>${battleSpoils(b)}g</b>${won ? ' · collected when you continue' : ' · victory is required'}.</p><p>Your army: ${lost(me)} soldiers lost · ${leaderLoss(me)} leader HP lost. Enemy army: ${lost(me === 'attacker' ? 'defender' : 'attacker')} soldiers lost · ${leaderLoss(me === 'attacker' ? 'defender' : 'attacker')} leader HP lost.</p><p>Surviving leaders recover a quarter of their maximum HP each month (rounded up). Priests can Heal in battle; Healing Draughts restore HP between battles.</p>
     ${army(me)}${army(me === 'attacker' ? 'defender' : 'attacker')}
     ${b.retreated === me && !b.raid ? '<p class="sub">Your troops fall back to where they came from.</p>' : ''}
     ${b.raid ? `<p class="raid-outcome">${esc(won ? `The raid is beaten off. ${nodeName(state, b.raid.town)} is safe.` : `The raiders break into ${nodeName(state, b.raid.town)}. ${raidAftermath(state, b.raid.lair, b.raid.town)}`)}</p>` : ''}<p class="sub">Experience and campaign consequences are applied when you continue.</p><button data-action="battle-continue" class="primary">Continue to the realm</button></div></section>`;
@@ -297,9 +301,9 @@ function renderOutcome(state: GameState, b: Battle): string {
 function renderReserves(b: Battle): string {
   const held = reserves(b);
   if (!held.length) return '';
-  return `<details class="log reserves" open><summary>Reserves (${held.length} units)</summary>
-    <p class="sub">Only the first ${FIELD_LIMIT} units in each army deploy. Reserves stay off-field for the entire battle: no attacks, spells, combat losses or experience. They retreat with the army and share pursuit losses; if cut off, they scatter with it.</p>
-    <ul>${held.map((u) => `<li>${esc(unitLabel(b, u))}: ${u.men} ${UNIT_TYPES[u.type].hero ? 'HP' : 'men'} — reserve (field full)</li>`).join('')}</ul></details>`;
+  return `<details class="log reserves" open><summary>${held.every(u=>u.type==='scout'||UNIT_TYPES[u.type].noncombat==='spy') ? 'Outside combat' : 'Reserves'} (${held.length} units)</summary>
+    <p class="sub">Armies hold up to 12 units. Each side has ${FIELD_LIMIT} deployment positions (3 columns × 9 rows), with one combat unit per hex. Scouts and spies stay outside battle and do not use these positions. Extra combat units are reserves; Reserves stay off-field for the entire battle: no attacks, spells, combat losses or experience. They retreat with the army and share pursuit losses; if cut off, they scatter with it.</p>
+    <ul>${held.map((u) => `<li>${esc(unitLabel(b, u))}: ${u.men} ${UNIT_TYPES[u.type].hero ? 'HP' : u.men===1 ? 'soldier' : 'soldiers'} — ${u.type==='scout' || UNIT_TYPES[u.type].noncombat==='spy' ? 'noncombatant: stays outside battle' : 'reserve: no deployment position available'}</li>`).join('')}</ul></details>`;
 }
 
 /**

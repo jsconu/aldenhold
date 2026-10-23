@@ -129,7 +129,7 @@ describe('additive Western map migration', () => {
     home.at = startLocation(old, 'quarry');
     expect(chooseQuest(old, 'Q02', 'hunt')).toBeNull();
     const cyclops = old.battle!.units.find((u) => u.type === 'cyclops')!;
-    const target = old.battle!.units.find((u) => u.side === 'attacker' && u.type === 'militia')!;
+    const target = old.battle!.units.find((u) => u.side === 'attacker' && u.type === 'lord')!;
     // The target at the front of its zone, the cyclops 3 hexes out, everyone else back where they can't interfere.
     const zone = deploymentZone(old.battle!, 'attacker');
     old.battle!.units.filter((u) => u.side === 'attacker' && u !== target).forEach((u, i) => { u.col = zone.cols[2]; u.row = zone.top + 2 + i; });

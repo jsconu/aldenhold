@@ -59,6 +59,7 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
     const e = object(entry);
     requireValue(Object.hasOwn(object(s.towns), town) && integer(e.turn, 1, Number(s.turn)) && array(e.lines).every(text), 'intelligence report');
   }
+  if(s.questPacing !== undefined) requireValue(object(s.questPacing).highlights===2, 'quest pacing');
   const weather = object(s.weather);
   requireValue(oneOf(weather.kind, ['clear', 'rain', 'storm', 'snow', 'blizzard']) && integer(weather.turn, 1, Number(s.turn)) && integer(weather.seed, -2147483648, 2147483647), 'weather');
   if(s.rulerAppearance!==undefined){const look=object(s.rulerAppearance);requireValue(oneOf(look.gender,['male','female']) && oneOf(look.skin,['fair','olive','brown','deep']) && (look.rulerClass===undefined || oneOf(look.rulerClass,['knight','priest','mage'])),'ruler appearance');}
@@ -107,6 +108,7 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
   for (const [id, entry] of Object.entries(towns)) {
     const t = object(entry);
     requireValue(t.id === id && def.towns.some((d) => d.id === id) && oneOf(t.owner, factions) && integer(t.pop) && integer(t.tax, 0, 50) && oneOf(t.kind, ['capital', 'town', 'lair']), 'town');
+    requireValue(t.unrest === undefined || integer(t.unrest, 0, 100), 'town unrest');
   }
   if(s.cityPolitics!==undefined){
     const p=object(s.cityPolitics);requireValue(integer(p.lastTurn,0,Number(s.turn)),'city politics turn');
@@ -140,6 +142,8 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
       const t = object(item);
       useId(t.id);
       requireValue(text(t.type) && Object.hasOwn(UNIT_TYPES, t.type) && integer(t.xp) && integer(t.men, 1) && integer(t.mp, 0, maxMp(t.type)), 'troop');
+      requireValue(t.campaignMorale === undefined || integer(t.campaignMorale, 0, 100), 'campaign morale');
+      requireValue(t.moraleMarchTurn === undefined || integer(t.moraleMarchTurn, 1, Number(s.turn)), 'morale march month');
       requireValue(t.name === undefined || text(t.name), 'troop name');
       requireValue(t.infiltrating === undefined || (t.type === 'spy' && a.owner === 'player' && text(t.infiltrating) && Object.hasOwn(object(s.towns), t.infiltrating)), 'infiltrating spy');
       requireValue(t.scoutPost === undefined || (t.type === 'scout' && oneOf(t.scoutPost, ['watch', 'city', 'road']) &&
