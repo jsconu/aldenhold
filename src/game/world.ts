@@ -2,7 +2,7 @@ import { LAIRS } from '../content/lairs';
 import { getCampaign } from '../content';
 import { LAND, UNIT_TYPES } from '../content/rules';
 import { hexDistance, hexKey, hexNeighbors, type Hex } from './hex';
-import type { CampaignDefinition, FactionId, GameState, HexWorld, Land, LandType, MapNode, Place, Town, Troop } from './types';
+import type { Army, CampaignDefinition, FactionId, GameState, HexWorld, Land, LandType, MapNode, Place, Town, Troop } from './types';
 
 /**
  * The only module that knows how a campaign's world is laid out. Rules ask it about locations; a location is a
@@ -206,8 +206,13 @@ function cheapest(
 }
 
 /** True if entering this location means a fight or a capture for `owner`. */
+/** A hidden scout of another side (game/intel.ts): an army of nothing but scouts that isn't yours. */
+export function isCovert(army: Army): boolean {
+  return army.owner !== 'player' && army.troops.length > 0 && army.troops.every((t) => t.type === 'scout');
+}
+
 export function stopsMarch(state: GameState, at: string, owner: FactionId): boolean {
-  if (state.armies.some((a) => a.at === at && a.owner !== owner)) return true;
+  if (state.armies.some((a) => a.at === at && a.owner !== owner && !isCovert(a))) return true;
   const town = townAt(state, at);
   return !!town && town.owner !== owner;
 }

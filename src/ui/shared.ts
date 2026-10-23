@@ -24,6 +24,8 @@ export interface UIState {
   undoMoveLabel?: string;
   /** Why the last move can't be undone (shown on a disabled Undo button right after it). */
   undoMoveBlocked?: string;
+  /** What the selected engineers are about to build (game/battle.ts BUILDS). */
+  battleBuild?: import('../game/battle').Build | null;
   /** Spell the selected hero is about to cast. */
   battleSpell: SpellId | null;
   battleTarget?: number | null;

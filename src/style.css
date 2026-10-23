@@ -641,3 +641,7 @@ button.travel-destination b { color: var(--gold); font-size: 11px; }
 .siege-stats dt { font-size: 11px; color: #bcb39a; }
 .siege-stats dd { margin: 0; font-weight: 600; }
 .siege-note { border-left: 3px solid #c8783a; padding-left: 8px; }
+
+/* The town popup's first choice: one button per line. */
+.assault-actions.stacked { flex-direction: column; align-items: stretch; }
+.assault-actions.stacked button { width: 100%; }

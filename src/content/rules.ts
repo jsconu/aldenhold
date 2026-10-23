@@ -10,6 +10,8 @@ export const UNIT_TYPES: Record<string, UnitType> = {
   spearmen: { id: 'spearmen', name: 'Spearmen', short: 'SPR', attack: 3, defense: 4, move: 3, range: 1, men: 20, cost: 120, upkeep: 8, recruit: 'any', march: 12 },
   archers: { id: 'archers', name: 'Archers', short: 'ARC', attack: 2, defense: 2, move: 3, range: 4, men: 15, cost: 110, upkeep: 7, recruit: 'any', march: 12 },
   scout: { id: 'scout', name: 'Scout', short: 'SCT', attack: 1, defense: 1, move: 5, range: 1, men: 1, cost: 75, upkeep: 3, recruit: 'any', march: 18 },
+  engineer: { id: 'engineer', name: 'Engineers', short: 'ENG', attack: 0, defense: 1, move: 3, range: 1, men: 10, cost: 150, upkeep: 8, recruit: 'any', march: 12, noncombat: 'engineer' },
+  spy: { id: 'spy', name: 'Spy', short: 'SPY', attack: 0, defense: 1, move: 5, range: 1, men: 1, cost: 120, upkeep: 5, recruit: 'any', march: 18, noncombat: 'spy' },
   woodlandArchers: { id: 'woodlandArchers', name: 'Woodland Archers', short: 'WDA', attack: 3, defense: 2, move: 4, range: 5, men: 15, cost: 150, upkeep: 9, recruit: { ally: 'greenveil' }, march: 14, startingBow: 'long-bow' },
   knights: { id: 'knights', name: 'Knights', short: 'KNT', attack: 5, defense: 4, move: 6, range: 1, men: 10, cost: 220, upkeep: 15, recruit: 'capital', march: 18 },
   warband: { id: 'warband', name: 'Orc Warband', short: 'ORC', attack: 3, defense: 2, move: 3, range: 1, men: 20, cost: 0, upkeep: 0, recruit: null, march: 12 },
@@ -57,6 +59,8 @@ export const TERRAIN: Record<Terrain, TerrainType> = {
   ruins: T({ id: 'ruins', name: 'Ruins', move: 2, defense: 2, text: 'Costs 2 to enter. +2 defense behind old walls.' }),
   rocks: T({ id: 'rocks', name: 'Rocks', move: Infinity, text: 'Impassable.' }),
   spring: T({ id: 'spring', name: 'Holy spring', move: 1, heal: 3, text: 'A troop that starts its turn here gets back 3 men lost this battle (heroes 3 HP) and steadies.' }),
+  fort: T({ id: 'fort', name: 'Field fort', move: 2, defense: 3, text: 'Built by engineers. Costs 2 to enter. +3 defense behind its palisade.' }),
+  bridge: T({ id: 'bridge', name: 'Bridge', move: 1, text: 'Laid by engineers over water or marsh. Crossed like open ground.' }),
 };
 
 /** Heroes for hire. The lord is the player's own and never offered. */

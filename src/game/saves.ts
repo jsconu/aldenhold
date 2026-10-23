@@ -137,7 +137,8 @@ function validate(value: unknown, allowMissingBattleTroops = false): asserts val
       useId(t.id);
       requireValue(text(t.type) && Object.hasOwn(UNIT_TYPES, t.type) && integer(t.xp) && integer(t.men, 1) && integer(t.mp, 0, maxMp(t.type)), 'troop');
       requireValue(t.name === undefined || text(t.name), 'troop name');
-      requireValue(t.scoutPost === undefined || (t.type === 'scout' && oneOf(t.scoutPost, ['watch', 'city', 'road']) && a.owner === 'player'), 'scout post');
+      requireValue(t.scoutPost === undefined || (t.type === 'scout' && oneOf(t.scoutPost, ['watch', 'city', 'road']) &&
+        (a.owner === 'player' || (a.troops as unknown[]).every((x) => object(x).type === 'scout'))), 'scout post');
       requireValue(t.men <= (isHero(t.type) ? heroMaxHp(t.type, t.xp) : formationCapacity(t as unknown as GameState['armies'][number]['troops'][number])), 'troop strength');
       requireValue(isHero(t.type) ? integer(t.mana, 0, heroMaxMana(t.type, t.xp)) : t.mana === undefined || t.mana === 0, 'troop mana');
       const gear = object(t.gear);

@@ -14,7 +14,7 @@ const COVER: Record<string, Cover> = {
   // Overland lands.
   plains: 'open', farmland: 'field', forest: 'wood', deepwood: 'wood', hills: 'high', mountains: 'rock', swamp: 'wet', water: 'water', badlands: 'rock',
   // Battlefield terrain.
-  plain: 'open', hill: 'high', stream: 'water', marsh: 'wet', thorns: 'wood', ruins: 'rock', rocks: 'rock', spring: 'water',
+  plain: 'open', hill: 'high', stream: 'water', marsh: 'wet', thorns: 'wood', ruins: 'rock', rocks: 'rock', spring: 'water', fort: 'rock', bridge: 'open',
 };
 
 export function coverOf(land: string): Cover {

@@ -3,7 +3,7 @@ export type FactionId = 'player' | 'orcs' | 'neutral' | MonsterSpecies;
 /** Monster peoples who hold lairs (monster raids spec): each is its own faction. */
 export type MonsterSpecies = 'goblins' | 'trolls' | 'giants' | 'titans';
 export type Side = 'attacker' | 'defender';
-export type Terrain = 'plain' | 'forest' | 'hill' | 'stream' | 'marsh' | 'thorns' | 'ruins' | 'rocks' | 'spring';
+export type Terrain = 'plain' | 'forest' | 'hill' | 'stream' | 'marsh' | 'thorns' | 'ruins' | 'rocks' | 'spring' | 'fort' | 'bridge';
 
 export interface TerrainType {
   id: Terrain;
@@ -100,6 +100,11 @@ export interface UnitType {
   boulder?: { range: number; factor: number };
   /** Never loses morale or runs (quest monsters): it fights until it falls. */
   fearless?: boolean;
+  /**
+   * A non-combat unit: it marches with the army but never attacks. Engineers take the field to build forts, siege
+   * towers and bridges; spies stay off the field and hunt enemy scouts.
+   */
+  noncombat?: 'engineer' | 'spy';
   /** Regains this many men (up to its starting strength) at the start of each of its turns: trolls. */
   regenerate?: number;
   /** Present for heroes. For heroes, `men` is base hit points and `cost` the hiring fee. */

@@ -2,6 +2,7 @@ import { battleSpoils } from '../game/battleRewards';
 import { cellHash, coverOf, seasonDefs, seasonLayer } from './seasonArt';
 import { currentWeather } from '../game/weather';
 import { battleFigure, richBattleGround, richRuin, scoutFigure } from './richBattle';
+import { BUILDS, buildTargets, type Build } from '../game/battle';
 import { EFFECTS } from '../content/spells';
 import {
   attackOf, attackOrderQuote, alive, commandOf, maxRounds, COMMAND_RANGE, defenseOf, escapeQuote, groupReachable, isAI, powerOf, knownSpells, playerSide, RALLY_AT, rangeOf, reachable, ROUT_AT, spellTargets,
@@ -52,13 +53,15 @@ export function renderBattle(state: GameState, ui: UIState): string {
   const myTurn = !b.outcome && !isAI(b, b.active);
   const sel = myTurn ? selectedUnit(b, ui) : undefined;
   const group = myTurn ? selectedGroup(b, ui) : [];
-  const reach = group.length > 1 ? groupReachable(b, group.map((u) => u.id)) : sel ? reachable(b, sel) : new Map<string, number>();
+  // While engineers pick a place to build, only the build sites are lit.
+  const reach = group.length > 1 ? groupReachable(b, group.map((u) => u.id)) : sel && !ui.battleBuild ? reachable(b, sel) : new Map<string, number>();
   const casting = sel && ui.battleSpell ? spellTargets(b, sel, ui.battleSpell) : null;
   // A single formation can attack any enemy it can reach and strike this turn (one click moves it into range).
   const targets = new Set((group.length > 1 ? [] : casting ?? (sel ? b.units.filter((t) => !attackOrderQuote(b, sel.id, t.id).reason) : [])).map((u) => u.id));
   const chosen = sel && ui.battleSpell ? b.units.find((u) => u.id === ui.battleTarget && spellTargets(b, sel, ui.battleSpell!).includes(u)) : undefined;
   const affected = sel && chosen && ui.battleSpell ? spellAffected(b, sel, ui.battleSpell, chosen) : [];
-  const destinations = sel && chosen && ui.battleSpell === 'teleport' ? new Set(teleportDestinations(b, sel, chosen).map(hexKey)) : new Set<string>();
+  const destinations = sel && ui.battleBuild && ui.battleBuild !== 'tower' ? new Set(buildTargets(b, sel, ui.battleBuild).map(hexKey))
+    : sel && chosen && ui.battleSpell === 'teleport' ? new Set(teleportDestinations(b, sel, chosen).map(hexKey)) : new Set<string>();
 
   let ground = '';
   let groundArt = '';
@@ -72,6 +75,7 @@ export function renderBattle(state: GameState, ui: UIState): string {
       ground += `<polygon points="${hexPoints(cx, cy, S + 1)}" class="hex ${kind}"/>`;
       if (kind === 'ruins') groundArt += richRuin(cx,cy,col*31+row*7);
       else if (kind === 'spring') groundArt += terrainArt(kind,cx,cy,col*31+row*7);
+      else if (kind === 'fort' || kind === 'bridge') groundArt += builtArt(kind, cx, cy);
       // A transparent hit area on top of the art carries the click, the tooltip and the move highlight.
       const reachable = (reach.has(hexKey({ col, row })) && !casting) || destinations.has(hexKey({ col, row }));
       const area = !!(chosen && ui.battleSpell && SPELLS[ui.battleSpell].radius && hexDistance(chosen, { col, row }) <= SPELLS[ui.battleSpell].radius);
@@ -260,6 +264,7 @@ function renderUnit(state: GameState, b: Battle, u: BattleUnit, ui: UIState): st
       <dt>Ground</dt><dd>${terrainAt(b, u).name}</dd>
       ${spells.length ? `<dt>Mana</dt><dd>${u.mana}</dd>` : ''}
     </dl>
+    ${t.noncombat === 'engineer' ? renderBuilds(b, u, ui) : ''}
     ${spells.length ? `<div class="spells">${spellButtons}</div>
       <p class="sub">${ui.battleSpell ? `${esc(SPELLS[ui.battleSpell].text)} Select a highlighted formation${ui.battleSpell === 'teleport' ? ', then a highlighted empty location' : ''}, review the effect and confirm.` : 'Choose a spell, then select a target. Locked spells show their required level. Level 10 reduces mana cost by one (minimum two).'}</p>
       ${renderSpellPreview(b, u, ui)}` : ''}`;
@@ -332,4 +337,27 @@ function renderSpellPreview(b: Battle, caster: BattleUnit, ui: UIState): string 
     <button data-action="spell-confirm" class="primary">Cast ${SPELLS[id].name} — ${spellCost(caster, id)} mana</button>
     <p class="sub">Consumes the caster’s attack and remaining move. Effects expire at the end of the affected side’s turn.</p>
     </section>`;
+}
+
+/** Engineers' work on the field: a ring of palisade stakes for a fort, planks across the water for a bridge. */
+function builtArt(kind: 'fort' | 'bridge', cx: number, cy: number): string {
+  if (kind === 'bridge') {
+    const planks = Array.from({ length: 7 }, (_, i) => `<rect x="${cx - 20 + i * 6}" y="${cy - 9}" width="5" height="18" rx="1" fill="#8a6239" stroke="#4a3320" stroke-width=".8"/>`).join('');
+    return `<g class="built bridge" pointer-events="none"><rect x="${cx - 22}" y="${cy - 10}" width="44" height="3" fill="#5b3f25"/><rect x="${cx - 22}" y="${cy + 7}" width="44" height="3" fill="#5b3f25"/>${planks}</g>`;
+  }
+  const stakes = Array.from({ length: 14 }, (_, i) => {
+    const a = (i / 14) * Math.PI * 2, x = cx + Math.cos(a) * 19, y = cy + Math.sin(a) * 15;
+    return `<path d="M${x.toFixed(1)} ${(y + 4).toFixed(1)} L${x.toFixed(1)} ${(y - 6).toFixed(1)} L${(x + 1.6).toFixed(1)} ${(y - 9).toFixed(1)} L${(x + 3.2).toFixed(1)} ${(y - 6).toFixed(1)} L${(x + 3.2).toFixed(1)} ${(y + 4).toFixed(1)}Z" fill="#9a6b3c" stroke="#4a3320" stroke-width=".8"/>`;
+  }).join('');
+  return `<g class="built fort" pointer-events="none">${stakes}</g>`;
+}
+
+/** Engineers' panel: what they can build this turn, and where. They never attack. */
+function renderBuilds(b: Battle, u: BattleUnit, ui: UIState): string {
+  const kinds: Build[] = ['fort', 'bridge', 'tower'];
+  const buttons = kinds.map((kind) => {
+    const can = buildTargets(b, u, kind).length > 0;
+    return `<button data-action="${kind === 'tower' ? 'build-tower' : 'build'}" data-build="${kind}" class="${ui.battleBuild === kind ? 'primary' : ''}" ${can ? '' : 'disabled'} title="${esc(BUILDS[kind].text)}">${BUILDS[kind].name}</button>`;
+  }).join('');
+  return `<div class="spells">${buttons}</div><p class="sub">${ui.battleBuild && ui.battleBuild !== 'tower' ? `${esc(BUILDS[ui.battleBuild].text)} Click a highlighted hex.` : 'Engineers never attack. Instead of moving on, they can build: it takes their whole turn.'}</p>`;
 }

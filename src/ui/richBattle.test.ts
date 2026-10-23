@@ -7,7 +7,8 @@ import { getCampaign } from '../content';
 describe('illustrated battle units and map heraldry',()=>{
   it('covers every current unit with a separate atlas cell and mirrors defenders without changing position',()=>{
     // Scouts draw from their own atlas (scoutUnit), with a look fixed per scout.
-    const illustrated=Object.keys(UNIT_TYPES).filter(id=>id!=='scout');
+    // Engineers and spies draw with their pixel sprites until painted art exists (spies never take the field).
+    const illustrated=Object.keys(UNIT_TYPES).filter(id=>!['scout','engineer','spy'].includes(id));
     const art=illustrated.map(id=>richUnit(id,90,80,false));
     expect(art.every(s=>s.includes('/assets/battle/'))).toBe(true);
     expect(new Set(art).size).toBe(illustrated.length);
