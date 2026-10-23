@@ -3,8 +3,10 @@ import { hexLand, roadsOf, parseKey } from '../game/world';
 import { tileCenter, tilePolygon } from './pixelTiles';
 
 const LANDS: Land[] = ['plains','farmland','forest','deepwood','hills','mountains','swamp','water','badlands'];
+const artwork = new WeakMap<HexWorld, string>();
 /** Texture samples follow real terrain cells; roads follow the rules' cached paths. */
 export function richOverland(world: HexWorld): string {
+  const cached = artwork.get(world); if (cached) return cached;
   const paths = new Map<Land,string>(LANDS.map(id=>[id,'']));
   world.rows.forEach((line,row)=>{for(let col=0;col<line.length;col++){
     const land=hexLand(world,col+','+row).id;
@@ -43,7 +45,8 @@ export function richOverland(world: HexWorld): string {
       crossings.set(key,'<svg class="wooden-crossing" data-water-cells="'+cells.join(' ')+'" data-bridge-span="'+road[first-1]+' '+road[i+1]+'" x="'+(x-width/2)+'" y="'+(y-width/2)+'" width="'+width+'" height="'+width+'" viewBox="'+view+' 0 1 1"><image href="/assets/overland/wood-bridges-v2.png" width="3" height="1" preserveAspectRatio="none"/></svg>');
     }
   }
-  return '<g class="rich-overland" pointer-events="none"><defs>'+defs+'</defs>'+LANDS.map(id=>'<path d="'+paths.get(id)+'" fill="url(#rich-'+id+')"/>').join('')+'<g fill="none" stroke-linecap="round">'+roads+'</g>'+[...crossings.values()].join('')+'</g>';
+  const art = '<g class="rich-overland" pointer-events="none"><defs>'+defs+'</defs>'+LANDS.map(id=>'<path d="'+paths.get(id)+'" fill="url(#rich-'+id+')"/>').join('')+'<g fill="none" stroke-linecap="round">'+roads+'</g>'+[...crossings.values()].join('')+'</g>';
+  artwork.set(world, art); return art;
 }
 
 export function richSettlement(kind: 'capital'|'town'|'lair', forest: boolean, cx: number, cy: number): string {

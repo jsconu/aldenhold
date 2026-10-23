@@ -43,7 +43,7 @@ describe('continuous map artwork without exposed tile outlines', () => {
     }
     expect(alphaChanged).toBe(0);
     expect(changed).toBeGreaterThan(1000);
-  });
+  }, 20_000); // Check every pixel of the doubled native-resolution world, including alpha preservation.
 
   it('marks tactical targets with circles but keeps the invisible hex hit geometry', () => {
     const s = newGame(12, 'western-realm');

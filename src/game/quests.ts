@@ -75,9 +75,9 @@ export function enableQuestPacing(state: GameState): void {
 export function sideQuestHighlights(state: GameState, selected?: string | null): QuestDefinition[] {
   const places=state.armies.filter(a=>a.owner==='player').map(a=>a.at);
   const score=(def: QuestDefinition) => {
-    const p=state.quests[def.id], stage=stageOf(def,p.stage);
-    const encounter=stage?.choices.find(c=>'encounter' in c.then)?.then;
-    const at=def.adventureSite ? startLocation(state,def.adventureSite) : encounter && 'encounter' in encounter ? startLocation(state,encounter.encounter.site) : townLocation(state,def.at);
+    const p=state.quests[def.id];
+    const site=currentQuestSites(state,def)[0];
+    const at=site ? startLocation(state,site) : townLocation(state,def.at);
     const left=monthsLeft(state,def.id);
     const distance=(from:string)=>worldOf(state).kind==='hex' ? hexDistance(parseKey(from),parseKey(at)) : from===at ? 0 : neighborsOf(state,from).includes(at) ? 1 : 10;
     const nearest=Math.min(30,...places.map(distance));
@@ -85,7 +85,7 @@ export function sideQuestHighlights(state: GameState, selected?: string | null):
     return (selected===at ? 70 : 0)+(nearest===0 ? 80 : nearest<=3 ? 25 : 0)+(p.status==='active' ? 40 : 0)
       +(left===null ? 0 : left<=2 ? 45 : left<=4 ? 25 : 5)+(food ? 40 : 0)-nearest;
   };
-  return campaignQuests(state).filter(q=>q.kind==='side' && isOpen(state.quests[q.id]))
+  return campaignQuests(state).filter(q=>q.kind==='side' && q.scope!=='regional' && isOpen(state.quests[q.id]))
     .sort((a,b)=>score(b)-score(a)||a.id.localeCompare(b.id)).slice(0,2);
 }
 
@@ -108,13 +108,19 @@ export function trackedQuests(state: GameState): QuestDefinition[] {
     .slice(0, MAX_TRACKED);
 }
 
-/** Open quests with an encounter waiting at this town or landmark, so you can fight from where you stand. */
+/** Only destinations exposed by the current stage, including peaceful regional stops. */
+export function currentQuestSites(state: GameState, def: QuestDefinition): string[] {
+  const progress=state.quests[def.id];
+  if(!progress || !isOpen(progress))return [];
+  return [...new Set([...(def.adventureSite?[def.adventureSite]:[]), ...(stageOf(def,progress.stage)?.choices??[]).flatMap(c=>[
+    ...(c.needs??[]).flatMap(n=>n.kind==='army-at'||n.kind==='army-near'?[n.place]:[]),
+    ...('encounter' in c.then?[c.then.encounter.site]:[]),
+  ])])];
+}
+
+/** Actions can be taken from the current regional stop instead of returning to the original giver. */
 export function questsAtSite(state: GameState, placeId: string): QuestDefinition[] {
-  return campaignQuests(state).filter((def) => {
-    const progress = state.quests[def.id];
-    return isOpen(progress) && (def.adventureSite === placeId || (def.at !== placeId && (stageOf(def, progress.stage)?.choices ?? [])
-      .some((c) => 'encounter' in c.then && c.then.encounter.site === placeId)));
-  });
+  return campaignQuests(state).filter(def => def.at!==placeId && currentQuestSites(state,def).includes(placeId));
 }
 
 /** The open quest stage that forbids raising troops in this town (rationing), if any. */
@@ -174,6 +180,10 @@ export function conditionHolds(state: GameState, c: QuestCondition): boolean {
     case 'month': return state.turn >= c.atLeast;
     case 'any': return c.of.some((x) => conditionHolds(state, x));
     case 'army-at': return !!armyAt(state, startLocation(state, c.place), 'player');
+    case 'army-near': {
+      const at=startLocation(state,c.place);
+      return state.armies.some(a=>a.owner==='player' && (a.at===at || neighborsOf(state,at).includes(a.at)));
+    }
     default: return (measure(state, c) ?? 0) >= c.atLeast;
   }
 }
@@ -193,6 +203,7 @@ export function conditionText(state: GameState, c: QuestCondition): string {
     case 'food': return `Store ${c.atLeast} food in ${nodeName(state, c.town)}${progress}`;
     case 'any': return c.of.map((x) => conditionText(state, x)).join(', or ');
     case 'army-at': return `Bring an army to ${nodeName(state, startLocation(state, c.place))}`;
+    case 'army-near': return `Bring an army to ${nodeName(state, startLocation(state, c.place))} or a neighboring hex`;
   }
 }
 

@@ -47,6 +47,7 @@ describe('encounter odds (automated tactics, guard rails for tuning)', () => {
   it('reports every encounter against its plausible parties', () => {
     const rows = encounterReport(2);
     expect(rows.map((r) => `${r.quest}/${r.party}`)).toEqual([
+      'R01/home', 'R01/expedition', 'R01/band',
       'Q02/champion', 'Q02/priest', 'Q02/mage', 'Q02/pair',
       'Q03/champion', 'Q03/priest', 'Q03/mage', 'Q03/pair',
       'Q05/home', 'Q05/expedition', 'Q05/band',

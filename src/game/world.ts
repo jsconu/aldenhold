@@ -42,6 +42,9 @@ function hexSize(world: HexWorld) {
 }
 
 const LAND_BY_CHAR = new Map(Object.values(LAND).map((l) => [l.char, l]));
+const placeIndexes = new WeakMap<HexWorld, Map<string, Place>>();
+const movementCosts = new WeakMap<HexWorld, Map<string, number>>();
+const locationNames = new WeakMap<HexWorld, Map<string, Map<string, string>>>();
 
 export function hexLand(world: HexWorld, key: string): LandType {
   const { col, row } = parseKey(key);
@@ -98,7 +101,10 @@ export function isLocation(state: GameState, at: string): boolean {
 
 export function placeAt(state: GameState, at: string): Place | undefined {
   const world = worldOf(state);
-  return world.kind === 'hex' ? world.places.find((p) => placeKey(p) === at) : undefined;
+  if (world.kind !== 'hex') return undefined;
+  let index = placeIndexes.get(world);
+  if (!index) { index = new Map(world.places.map(p => [placeKey(p), p])); placeIndexes.set(world, index); }
+  return index.get(at);
 }
 
 /** Where a town stands. */
@@ -128,12 +134,24 @@ function hiddenLairPlace(state: GameState, placeId: string): boolean {
 export function locationName(state: GameState, at: string): string {
   const world = worldOf(state);
   if (world.kind === 'graph') return world.nodes.find((n) => n.id === at)?.name ?? at;
-  const named = world.places.find((p) => p.id === at) ?? placeAt(state, at);
+  const named = at.includes(',') ? placeAt(state, at) : world.places.find(p => p.id === at);
   if (named && !hiddenLairPlace(state, named.id)) return named.name;
   if (!isLocation(state, at)) return at;
+  const discovery = Object.keys(state.lairs ?? {}).filter(id => state.lairs[id].discovered).join(',');
+  let versions = locationNames.get(world);
+  if (!versions) { versions = new Map(); locationNames.set(world, versions); }
+  let names = versions.get(discovery);
+  if (!names) { names = new Map(); versions.set(discovery, names); }
+  const saved = names.get(at); if (saved) return saved;
   const h = parseKey(at);
-  const nearest = world.places.filter((p) => !hiddenLairPlace(state, p.id)).sort((a, b) => hexDistance(h, a) - hexDistance(h, b))[0];
-  return `the ${hexLand(world, at).name.toLowerCase()} near ${nearest.name}`;
+  let nearest: Place | undefined, distance = Infinity;
+  for (const place of world.places) {
+    if (hiddenLairPlace(state, place.id)) continue;
+    const d = hexDistance(h, place);
+    if (d < distance) { nearest = place; distance = d; }
+  }
+  const name = `the ${hexLand(world, at).name.toLowerCase()} near ${nearest!.name}`;
+  names.set(at, name); return name;
 }
 
 /** The land a battle at this location is fought on. The quick-play valley is all open country. */
@@ -151,7 +169,16 @@ export function hasRoad(state: GameState, at: string): boolean {
 export function stepCost(state: GameState, at: string): number {
   const world = worldOf(state);
   if (world.kind === 'graph') return 1;
-  return roadSet(world).has(at) ? 1 : hexLand(world, at).move;
+  let costs = movementCosts.get(world);
+  if (!costs) {
+    const roads = roadSet(world);
+    costs = new Map();
+    world.rows.forEach((line, row) => { for (let col = 0; col < line.length; col++) {
+      const key = `${col},${row}`; costs!.set(key, roads.has(key) ? 1 : hexLand(world, key).move);
+    } });
+    movementCosts.set(world, costs);
+  }
+  return costs.get(at) ?? Infinity;
 }
 
 /** Adjacent locations, passable or not. */

@@ -111,5 +111,24 @@
     ],
     "source": "Derived from the archers cells of humans-v1.png and humans-female-v1.png by scripts/make-scout-art.py: slate-grey scouting cloak, skin recoloured to each tone",
     "note": "Placeholder until original scout art is painted; each scout's look is fixed by its id (scoutLook in src/ui/richBattle.ts)."
+  },
+  "cityBuildings": {
+    "file": "city-buildings-v1.png",
+    "grid": [
+      3,
+      2
+    ],
+    "cells": [
+      "homes",
+      "farm",
+      "lumber",
+      "mine",
+      "forge",
+      "treasury"
+    ],
+    "source": "OpenAI built-in image_gen",
+    "date": "2026-10-23",
+    "review": "Owner review pending",
+    "prompt": "Six isolated detailed medieval strategy buildings in equal 3x2 transparent cells: half-timbered house, thatched barn, timber workshop, mine hoist, forge, town treasury. Elevated three-quarter isometric camera, muted earth tones, subtle stone/wood/roof textures, clear silhouettes, soft upper-left daylight; no people, flags, platforms, text or scattered props. Rich craftsmanship without visual clutter."
   }
 }

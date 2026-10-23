@@ -58,7 +58,7 @@ export function renderCampaign(state: GameState, ui: UIState): string {
   const net = income - upkeep - operating;
   return `
   <header class="bar" ${ui.assault || ui.townChoice || ui.notice ? 'inert' : ''}>
-    <h1>Aragon <small>${esc(campaignOf(state).name)}</small></h1>
+    <h1>Aldenhold <small>${esc(campaignOf(state).name)}</small></h1>
     <span class="date">${dateLabel(state.turn)}</span>
     <span class="gold" title="Taxes ${income}, troop wages ${upkeep}, city maintenance ${operating}">Gold <b>${state.gold}</b>
       <em class="${net < 0 ? 'neg' : 'pos'}">${net >= 0 ? '+' : ''}${net}/month</em></span>
@@ -325,7 +325,7 @@ function renderQuests(state: GameState, defs: QuestDefinition[]): string {
   return defs.map((def) => {
     const q = state.quests[def.id];
     if (q.status === 'unavailable') return '';
-    const head = `<div class="quest-card" id="quest-${def.id}"><h3>${esc(def.name)}${dueBadge(state, def.id)} <small>${def.kind === 'main' ? 'Main objective' : 'Side quest'} · ${esc(def.giver)} · ${esc(nodeName(state, def.at))}</small></h3>`;
+    const head = `<div class="quest-card" id="quest-${def.id}"><h3>${esc(def.name)}${dueBadge(state, def.id)} <small>${def.scope === 'regional' ? 'Regional campaign' : def.kind === 'main' ? 'Main objective' : 'Side quest'} · ${esc(def.giver)} · ${esc(nodeName(state, def.at))}</small></h3>`;
     if (!isOpen(q)) {
       const passage = q.status === 'succeeded' && state.treaties[def.at]?.passage
         ? `<p class="sub">Your armies may share this town with its neutral garrison. ${esc(nodeName(state, def.at))} remains independent and pays no tax.</p>` : '';
@@ -790,12 +790,14 @@ function dueBadge(state: GameState, questId: string): string {
 /** The quests screen: every open quest in full, with where it is and how long it has. */
 function renderQuestScreen(state: GameState, ui: UIState): string {
   const quests=openQuests(state), highlights=sideQuestHighlights(state,ui.selected);
-  const main=quests.filter(q=>q.kind==='main'), others=quests.filter(q=>q.kind==='side'&&!highlights.includes(q));
+  const main=quests.filter(q=>q.kind==='main'), regional=quests.filter(q=>q.scope==='regional'), others=quests.filter(q=>q.kind==='side'&&q.scope!=='regional'&&!highlights.includes(q));
   const cards=(items:QuestDefinition[])=>items.map(d=>`${renderQuests(state,[d])}<p class="quest-goto">${explored(state,questFocus(state,d.id)??'') ? `<button class="link" data-action="view-quest" data-quest="${d.id}">Show on map</button>` : '<small>Its place is still unexplored.</small>'}</p>`).join('');
   return `<main class="quest-screen"><header class="city-heading"><div><p class="report-eyebrow">Quests</p><h1>Open quests</h1></div><button class="primary" data-action="quests">Back to the map</button></header>
     ${ui.message ? `<p class="msg" role="status">${esc(ui.message)}</p>` : ''}
-    <p class="sub">Two side quests relevant to your location, troops, progress and deadlines are highlighted. All other quests remain available. Main objectives are separate.</p>
-    ${main.length ? '<h2>Main objectives</h2>'+cards(main) : ''}
+    <p class="sub">Two side quests relevant to your location, troops, progress and deadlines are highlighted. All other quests remain available. Regional campaigns and realm-wide goals are shown separately.</p>
+    ${state.challenge ? '<h2>Realm-wide objectives</h2>'+renderCampaignObjectives(state) : ''}
+    ${main.length ? '<h2>Main objectives · Western chapter</h2>'+cards(main) : ''}
+    ${regional.length ? '<h2>Regional campaigns</h2>'+cards(regional) : ''}
     ${highlights.length ? '<section aria-label="Recommended side quests"><h2>Recommended side quests</h2>'+cards(highlights)+'</section>' : ''}
     ${others.length ? '<details class="other-quests"><summary>Other available side quests ('+others.length+')</summary>'+cards(others)+'</details>' : ''}
     ${quests.length ? '' : '<p>No open quests right now.</p>'}

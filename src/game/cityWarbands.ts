@@ -1,11 +1,11 @@
 import {observeOrcRoutes,scoutSees} from './scouts';
-import {armyAt,deed,makeTroop,marchAlong,nodeName,sharedMp} from './campaign';
+import {armyAt,campaignOf,deed,makeTroop,marchAlong,nodeName,sharedMp} from './campaign';
 import {relationWith} from './diplomacy';
 import {marchOptions,pathTo,stepCost,townLocation,worldOf} from './world';
 import {isHero} from './units';
 import type {Army,GameState} from './types';
 const SETTINGS={easy:{start:10,cadence:12,active:1,size:1},normal:{start:6,cadence:8,active:2,size:2},hard:{start:5,cadence:6,active:3,size:3}};
-function peaceful(state:GameState,id:string){return state.towns[id]?.owner!=='neutral'||['ally','vassal','truce'].includes(relationWith(state,id)??'');}
+function peaceful(state:GameState,id:string){return campaignOf(state).settlementProfiles?.[id]?.raids===false||state.towns[id]?.owner!=='neutral'||['ally','vassal','truce'].includes(relationWith(state,id)??'');}
 function destination(state:GameState,from:string):string|null{
  const routes=marchOptions(state,from,'neutral',Infinity);
  const targets=Object.values(state.towns).filter(t=>t.owner==='player').map(t=>({id:t.id,cost:routes.get(townLocation(state,t.id))?.cost??Infinity,guard:armyAt(state,townLocation(state,t.id),'player')?.troops.length??0})).filter(t=>Number.isFinite(t.cost));
@@ -42,7 +42,7 @@ export function cityWarbandTurn(state:GameState):void{
    state.armies.push(party);delete rival.warning;rival.nextRaidTurn=state.turn+cfg.cadence;
    if(scoutSees(state,garrison.at))deed(state,'realm',nodeName(state,origin)+' sends '+troops.length+' units toward '+nodeName(state,warning.target)+'. Its home garrison remains in place.',garrison.at);
   }
-  const sources=Object.values(state.towns).filter(t=>t.owner==='neutral' && t.kind==='town').sort((a,b)=>a.id.localeCompare(b.id));
+  const sources=Object.values(state.towns).filter(t=>t.owner==='neutral' && t.kind==='town' && campaignOf(state).settlementProfiles?.[t.id]?.raids!==false).sort((a,b)=>a.id.localeCompare(b.id));
   for(const [index,town] of sources.entries()){
    const pending=Object.values(politics.rivals).filter(r=>r.warning).length;
    if(state.armies.filter(a=>a.cityRaid).length+pending>=cfg.active)break;

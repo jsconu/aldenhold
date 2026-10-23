@@ -1111,3 +1111,16 @@ Leader combat logs, results, health bars and guidance now explicitly use HP. Sel
 Validation: the full 592-test suite passed after pillage/camera polish; a further enemy-pillage/cooldown case passed with the focused city tests (593 total). New tests cover high-tier investment, itemized shortages, personnel counts, recruitment/refill refusal without payment, city garrisons over 24, 24-unit marches, legacy 27-unit battles, city battle creation from a real march, free defensive placement, persistent pillage, receipts and stale settlement rejection. Full final checks are recorded in the PR.
 
 Campaign baseline change: settlement cover deliberately changes AI conquest and the encounter seed sequence. Successful paid expedition baselines now use seeds 1, 2 and 2026. Seed 42 remains covered as a reported failed two-leader Cyclops expedition rather than an assumed victory. Seed 15 now completes the chapter while Westmere remains independent and its unanswered dispute expires; the explicit lost-giver-before-unlock regression remains in chapter.test.ts. This does not claim every two-leader expedition is safe.
+
+
+## October 23: Aldenhold, richer city art and the Reed Coast
+
+The owner named the game and GitHub repository **Aldenhold**, and described its vision as a freely playable successor inspired by Sword of Aragon and Civilization. The browser title, game heading, package metadata and README now use the new name; save keys and historical source IDs remain stable.
+
+An original 3×2 transparent building atlas replaces the plain city-building shapes, with distinct, restrained material detail. Homes omit repeated labels; improvements retain small readable names and levels. Paving and stone walls are quieter. The atlas and exact art direction/provenance are recorded in public/assets/battle/manifest.json.
+
+The authored map expands to 76×52 with five Reed Coast towns, two river crossings and named quest sites. R01 is a multi-town regional compact, with peaceful and military alternatives. Q40 and Q44 are local census and exploration stories. Regional campaigns are presented separately from the two local highlights and realm objectives. Coastal councils defend their towns without adding off-screen homeland invasions. World lookups cache immutable place indexes and movement costs for the larger map; out-of-bounds movement costs are impassable.
+
+Revision-2 and revision-1 migration preserves existing cities, armies, paid improvements, random state, treasury and active battles while adding the coast once. See [Reed Coast](reed-coast.md) for delivered geography, story consequences, migration and remaining scope.
+
+Validation for the Aldenhold/Reed Coast increment: 602 automated tests pass, including new migration, coastal route and river-crossing checks, actual new-city assaults, peaceful compact costs/rewards, causeway retry/save behavior, census population and beacon travel. Existing seeded paid expeditions still complete. The doubled full-canvas repeatability check keeps its full pixel comparison with a 10-second budget. Browser review confirmed richer city art at tactical scale, the Aldenhold title and coastal routes.

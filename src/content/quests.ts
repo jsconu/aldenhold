@@ -1,3 +1,4 @@
+import { REED_COMPACT, REED_CENSUS, SWAN_BANNER } from './reedCoastQuests';
 import type { QuestDefinition, QuestResolution } from '../game/types';
 
 /**
@@ -447,6 +448,9 @@ export const MONASTERY_TRIAL: QuestDefinition = {
 };
 
 export const QUESTS: Record<string, QuestDefinition> = {
+  [REED_COMPACT.id]: REED_COMPACT,
+  [REED_CENSUS.id]: REED_CENSUS,
+  [SWAN_BANNER.id]: SWAN_BANNER,
   [FENWICK_CHARTER.id]: FENWICK_CHARTER,
   [WOODLAND_ACCORD.id]: WOODLAND_ACCORD,
   [M01_INHERITANCE.id]: M01_INHERITANCE,
