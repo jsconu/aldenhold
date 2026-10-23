@@ -2,6 +2,7 @@ import {campaignObjectives,explored,DIFFICULTIES} from '../game/challenge';
 import { currentWeather, exposureLoss, SEASON_NAME } from '../game/weather';
 import { onWatch, SCOUT_RANGE, scoutContactStatus } from '../game/scouts';
 import {replacementQuote} from '../game/replacements';
+import {formationCapacity} from '../game/formationCapacity';
 import { renderRulerSelection } from './rulerSelection';
 import { questOutcome } from './gameplayFeedback';
 import { LAIRS, SPECIES, type LairDefinition } from '../content/lairs';
@@ -26,7 +27,7 @@ import { ITEMS } from '../content/items';
 import { renderJournal } from './journalView';
 import { renderTreasury } from './treasuryView';
 import { questFocus, questSites } from './questNavigation';
-import { BUILDING_IDS, BUILDINGS, cityMaintenance, constructionQuote, developmentSites, endowment, totalCityMaintenance } from '../game/cities';
+import { BUILDING_IDS, BUILDINGS, cityMaintenance, constructionQuote, dismantleQuote, developmentSites, endowment, totalCityMaintenance } from '../game/cities';
 import { conditionHolds, conditionText, isOpen, questQuote, questsAt, questsAtSite, questSummary, stageOf, trackedQuests, type EncounterPreview } from '../game/quests';
 import { esc, type UIState } from './shared';
 import { placeScene } from './placeScene';
@@ -282,6 +283,7 @@ function renderCityDevelopment(state: GameState, id: string): string {
     const def = BUILDINGS[kind];
     const q = constructionQuote(state, id, kind);
     const level = city.buildings[kind];
+    const demolition = dismantleQuote(state,id,kind);
     const req = Object.entries(q.materials).map(([name, n]) => `${n} ${name}`).join(' + ');
     const yieldFactor = def.resource ? endowment(id)[def.resource] : 1;
     const maxOutput = Math.floor(q.targetLevel * def.capacity * yieldFactor);
@@ -292,6 +294,7 @@ function renderCityDevelopment(state: GameState, id: string): string {
         title="${q.reason ? esc(q.reason) : 'Begin construction (completes after this month)'}">
         ${level ? 'Upgrade' : 'Build'} · ${q.gold}g + ${req}</button>
       ${q.reason && q.reason !== 'One construction project at a time.' ? `<small class="hint">${esc(q.reason)}</small>` : ''}
+      ${level && kind !== 'farm' ? `<details><summary>Redevelop this site</summary><p>Remove every level of ${def.name} and stop its production. Stored goods remain. No gold or materials are refunded.</p><button data-action="dismantle" data-node="${id}" data-kind="${kind}" ${demolition.reason?'disabled':''}>Confirm removal of ${def.name}</button>${demolition.reason?`<small>${esc(demolition.reason)}</small>`:''}</details>` : ''}
     </div>`;
   }).join('');
   return `<section class="city-development"><h3>City development</h3>
@@ -569,8 +572,11 @@ function renderChooser(state: GameState): string {
 }
 
 function renderReplacements(state:GameState,army:Army):string{
- const wounded=army.troops.filter(t=>!UNIT_TYPES[t.type].hero && t.men<UNIT_TYPES[t.type].men);if(!wounded.length)return '';
- return '<section class="refit-panel"><h3>Recruit replacements</h3><p>Fill depleted formations at a town you rule. New recruits cost gold and population, dilute experience, and use the formation’s remaining movement this month. Existing equipment is retained; outfitting replacements is included in the price.</p>'+wounded.map(t=>{const q=replacementQuote(state,t.id);return '<p><b>'+esc(UNIT_TYPES[t.type].name)+' #'+t.id+'</b> · '+t.men+'/'+UNIT_TYPES[t.type].men+'<br><button data-action="replacements" data-troop="'+t.id+'" '+(q.reason?'disabled':'')+'>Recruit '+q.men+' replacements · '+q.gold+'g</button>'+(q.reason?'<small>'+esc(q.reason)+'</small>':'')+'</p>';}).join('')+'</section>';
+ const formations=army.troops.filter(t=>!UNIT_TYPES[t.type].hero && UNIT_TYPES[t.type].recruit!==null && t.type!=='scout');if(!formations.length)return '';
+ return '<section class="refit-panel"><h3>Reinforce existing formations</h3><p>Infantry: up to 100 soldiers. Mounted: 50 in leather, 33 in chain, 25 in plate (200 space points per formation). New recruits cost gold and population, dilute experience, and use remaining movement. Existing equipment is retained and outfitting is included. Larger formations cost more upkeep.</p>'+formations.map(t=>{
+ const q=replacementQuote(state,t.id,10),full=replacementQuote(state,t.id);
+ return '<p><b>'+esc(UNIT_TYPES[t.type].name)+' #'+t.id+'</b> · '+t.men+'/'+formationCapacity(t)+'<br><button data-action="replacements" data-troop="'+t.id+'" data-count="10" '+(q.reason?'disabled':'')+'>Recruit '+q.men+' · '+q.gold+'g</button> <button data-action="replacements" data-troop="'+t.id+'" '+(full.reason?'disabled':'')+' title="'+esc(full.reason??'Recruit to this formation’s capacity')+'">Fill to '+full.capacity+' · '+full.gold+'g</button>'+(q.reason?'<small>'+esc(q.reason)+'</small>':'')+'</p>';
+ }).join('')+'</section>';
 }
 function renderCampaignObjectives(state:GameState):string{
  const objectives=campaignObjectives(state);if(!objectives.length)return '';

@@ -22,7 +22,7 @@ import { discardItem, equipItem, sellItem, unequipItem, useItem } from './game/i
 import { buyItem } from './game/merchants';
 import type { HeroSlot } from './game/types';
 import { questFocus } from './ui/questNavigation';
-import { buildCity, BUILDINGS } from './game/cities';
+import { buildCity, dismantleCity, BUILDINGS } from './game/cities';
 import { beginRefit, EQUIPMENT } from './game/equipment';
 import { log } from './game/campaign';
 import type { BuildingId, EquipmentId } from './game/types';
@@ -367,7 +367,7 @@ function onAction(action: string, data: DOMStringMap, additive = false) {
       ui.message = discardItem(state, data.item ?? '') ?? '';
       break;
     case 'replacements':
-      ui.message=recruitReplacements(state,Number(data.troop))??'Replacements recruited. This formation will be ready next month.';
+      ui.message=recruitReplacements(state,Number(data.troop),data.count?Number(data.count):undefined)??'Recruits added. This formation will be ready next month.';
       break;
     case 'inspect-refit':
       if(Object.hasOwn(EQUIPMENT,data.item??''))ui.refitChoice={troop:Number(data.troop),item:data.item as EquipmentId};
@@ -378,6 +378,10 @@ function onAction(action: string, data: DOMStringMap, additive = false) {
       const err = beginRefit(state, data.node!, Number(data.troop), item);
       ui.message = err ?? 'Refit purchased. The new gear becomes available next month.';
       if (!err) log(state, `A formation begins refitting with ${EQUIPMENT[item].name}.`);
+      break;
+    }
+    case 'dismantle': {
+      ui.message=dismantleCity(state,data.node!,data.kind as BuildingId)??'Industry removed. The site is available; stored materials were kept.';
       break;
     }
     case 'construct': {

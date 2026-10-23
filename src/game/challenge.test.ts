@@ -71,12 +71,14 @@ describe('campaign challenge and exploration',()=>{
  },120000);
 });
 describe('replacement recruits and female formations',()=>{
- it('fills an existing formation, charges once, preserves gear and dilutes experience',()=>{
+ it('reinforces an existing formation up to its capacity, charges once, preserves gear and dilutes experience',()=>{
  const s=newGame(1),t=armyAt(s,'aldenhold','player')!.troops.find(t=>t.type==='spearmen')!;t.men=12;t.xp=8;t.gear.armor='chain';
- const q=replacementQuote(s,t.id),gold=s.gold,pop=s.towns.aldenhold.pop;expect(q.men).toBe(8);expect(q.reason).toBeNull();
- expect(recruitReplacements(s,t.id)).toBeNull();expect(t.men).toBe(20);expect(t.xp).toBe(4);expect(t.mp).toBe(0);expect(t.gear.armor).toBe('chain');
+ // Infantry formations hold up to 100 soldiers: filling this one would take 88 recruits.
+ expect(replacementQuote(s,t.id)).toMatchObject({men:88,capacity:100});
+ const q=replacementQuote(s,t.id,8),gold=s.gold,pop=s.towns.aldenhold.pop;expect(q.men).toBe(8);expect(q.reason).toBeNull();
+ expect(recruitReplacements(s,t.id,8)).toBeNull();expect(t.men).toBe(20);expect(t.xp).toBe(4);expect(t.mp).toBe(0);expect(t.gear.armor).toBe('chain');
  expect(s.gold).toBe(gold-q.gold);expect(s.towns.aldenhold.pop).toBe(pop-8);expect(s.treasury.pending.at(-1)?.category).toBe('recruitment');
- expect(recruitReplacements(s,t.id)).not.toBeNull();expect(s.gold).toBe(gold-q.gold);expect(parseSave(JSON.stringify(s)).gold).toBe(s.gold);
+ expect(recruitReplacements(s,t.id,8)).not.toBeNull();expect(s.gold).toBe(gold-q.gold);expect(parseSave(JSON.stringify(s)).gold).toBe(s.gold);
  });
  it('refuses replacements outside towns, without gold, or after marching without mutation',()=>{
  const s=newGame(1),a=armyAt(s,'aldenhold','player')!,t=a.troops.find(t=>t.type==='militia')!;t.men=10;t.mp=0;
