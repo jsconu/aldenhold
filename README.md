@@ -4,6 +4,16 @@
 
 I was inspired by *Sword of Aragon* and *Civilization*, and wanted to build a successor to those games that anyone can play for free. Aldenhold combines developing cities, exploring an authored world, recruiting armies and heroes, diplomacy, layered quests and turn-based battles. It is an original game in active development.
 
+**Status:** Playable local prototype in active development. A public hosted play link is not available yet.
+
+[Run locally](#play-the-prototype) · [Controls](#controls) · [Active backlog](docs/backlog.md) · [Implementation progress](docs/implementation-progress.md)
+
+## What this project explores
+
+- **Systems design:** connect population, resources, construction, and army upkeep so economic choices matter.
+- **Campaign design:** combine authored geography and regional stories with local quests and tactical battles.
+- **Continuity:** preserve campaigns through map expansion, save validation, and recovery slots.
+
 ## Play the prototype
 
 ```bash
