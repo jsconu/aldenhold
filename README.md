@@ -4,9 +4,11 @@
 
 I was inspired by *Sword of Aragon* and *Civilization*, and wanted to build a successor to those games that anyone can play for free. Aldenhold combines developing cities, exploring an authored world, recruiting armies and heroes, diplomacy, layered quests and turn-based battles. It is an original game in active development.
 
-**Status:** Playable local prototype in active development. A public hosted play link is not available yet.
+**Status:** Playable prototype in active development.
 
-[Run locally](#play-the-prototype) · [Controls](#controls) · [Active backlog](docs/backlog.md) · [Implementation progress](docs/implementation-progress.md)
+**Built with AI:** AI coding agents contributed to this project's implementation, as the commit history shows. [How I work with AI coding agents](https://github.com/jsconu/Ondatrace-Overview/blob/master/AI_COLLABORATION.md).
+
+[Play in your browser](https://jsconu.github.io/aldenhold/) · [Run locally](#play-the-prototype) · [Controls](#controls) · [Active backlog](docs/backlog.md) · [Implementation progress](docs/implementation-progress.md)
 
 ## What this project explores
 
@@ -23,7 +25,7 @@ npm test          # rules, saves and seeded campaign playthroughs
 npm run build     # type-check and create the production build
 ```
 
-The playable prototype runs in a browser. A public hosted play link will be added when it is ready; the current version can be run locally from this repository.
+[Play the hosted prototype](https://jsconu.github.io/aldenhold/), or run it locally from this repository. Saves stay in your own browser, so export one before clearing site data.
 
 ## What is playable
 
@@ -50,3 +52,7 @@ The Treasury records taxes, purchases, wages, upkeep, rewards and pillage. Revie
 See the [implementation progress](docs/implementation-progress.md), [active backlog](docs/backlog.md), [world plan](docs/expanded-campaign.md) and [Reed Coast expansion](docs/reed-coast.md). Historical design files may refer to the former working title Aragon. Those references and stable save identifiers remain to preserve history and compatibility.
 
 Artwork is original project artwork with generation prompts and provenance recorded beside the assets. The new city buildings use restrained colors and detailed materials while leaving troops and movement clear.
+
+## License
+
+The source code is available under the [MIT License](LICENSE). Artwork and other files in `public/assets/` are not covered by that license: all rights reserved.
